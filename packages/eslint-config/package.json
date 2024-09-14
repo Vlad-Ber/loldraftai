@@ -1,0 +1,26 @@
+{
+  "name": "@draftking/eslint-config",
+  "type": "module",
+  "version": "1.0.0",
+  "private": true,
+  "exports": {
+    "./library": {
+      "default": "./library.js"
+    },
+    "./nuxt": {
+      "default": "./nuxt.js"
+    }
+  },
+  "devDependencies": {
+    "@eslint/eslintrc": "^3.1.0",
+    "@eslint/js": "^9.6.0",
+    "@types/eslint__js": "^8.42.3",
+    "eslint-config-turbo": "latest",
+    "typescript-eslint": "^7.15.0"
+  },
+  "dependencies": {
+    "@eslint/eslintrc": "^3.1.0",
+    "eslint-config-prettier": "^9.1.0",
+    "remove": "^0.1.5"
+  }
+}
