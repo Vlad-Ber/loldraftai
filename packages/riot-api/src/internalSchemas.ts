@@ -1,3 +1,5 @@
+// This file contains the internal schemas that are used to map the riot api responses to
+// a more consistent format. We don't make the schemas available outside of this package.
 import { z } from "zod";
 import {
   MiniSeriesDTOSchema,
