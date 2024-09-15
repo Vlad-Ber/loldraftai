@@ -492,3 +492,178 @@ export type PerkStyleSelectionDto = z.infer<typeof PerkStyleSelectionDtoSchema>;
 export type PerkStyleDto = z.infer<typeof PerkStyleDtoSchema>;
 export type PerksDto = z.infer<typeof PerksDtoSchema>;
 export type ChallengesDto = z.infer<typeof ChallengesDtoSchema>;
+
+export const PositionDtoSchema = z.object({
+  x: z.number(),
+  y: z.number(),
+});
+
+export const DamageStatsDtoSchema = z.object({
+  magicDamageDone: z.number(),
+  magicDamageDoneToChampions: z.number(),
+  magicDamageTaken: z.number(),
+  physicalDamageDone: z.number(),
+  physicalDamageDoneToChampions: z.number(),
+  physicalDamageTaken: z.number(),
+  totalDamageDone: z.number(),
+  totalDamageDoneToChampions: z.number(),
+  totalDamageTaken: z.number(),
+  trueDamageDone: z.number(),
+  trueDamageDoneToChampions: z.number(),
+  trueDamageTaken: z.number(),
+});
+
+export const ChampionStatsDtoSchema = z.object({
+  abilityHaste: z.number(),
+  abilityPower: z.number(),
+  armor: z.number(),
+  armorPen: z.number(),
+  armorPenPercent: z.number(),
+  attackDamage: z.number(),
+  attackSpeed: z.number(),
+  bonusArmorPenPercent: z.number(),
+  bonusMagicPenPercent: z.number(),
+  ccReduction: z.number(),
+  cooldownReduction: z.number(),
+  health: z.number(),
+  healthMax: z.number(),
+  healthRegen: z.number(),
+  lifesteal: z.number(),
+  magicPen: z.number(),
+  magicPenPercent: z.number(),
+  magicResist: z.number(),
+  movementSpeed: z.number(),
+  omnivamp: z.number(),
+  physicalVamp: z.number(),
+  power: z.number(),
+  powerMax: z.number(),
+  powerRegen: z.number(),
+  spellVamp: z.number(),
+});
+
+export const ParticipantFrameDtoSchema = z.object({
+  championStats: ChampionStatsDtoSchema,
+  currentGold: z.number(),
+  damageStats: DamageStatsDtoSchema,
+  goldPerSecond: z.number(),
+  jungleMinionsKilled: z.number(),
+  level: z.number(),
+  minionsKilled: z.number(),
+  participantId: z.number(),
+  position: PositionDtoSchema,
+  timeEnemySpentControlled: z.number(),
+  totalGold: z.number(),
+  xp: z.number(),
+});
+
+export const ParticipantFramesDtoSchema = z.record(ParticipantFrameDtoSchema);
+
+const BaseEventSchema = z.object({
+  timestamp: z.number(),
+  type: z.string(),
+});
+
+const ItemEventSchema = BaseEventSchema.extend({
+  type: z.enum(["ITEM_PURCHASED", "ITEM_DESTROYED", "ITEM_SOLD", "ITEM_UNDO"]),
+  itemId: z.number(),
+  participantId: z.number(),
+});
+
+const SkillLevelUpEventSchema = BaseEventSchema.extend({
+  type: z.literal("SKILL_LEVEL_UP"),
+  levelUpType: z.string(),
+  participantId: z.number(),
+  skillSlot: z.number(),
+});
+
+const WardPlacedEventSchema = BaseEventSchema.extend({
+  type: z.literal("WARD_PLACED"),
+  creatorId: z.number(),
+  wardType: z.string(),
+});
+
+const LevelUpEventSchema = BaseEventSchema.extend({
+  type: z.literal("LEVEL_UP"),
+  level: z.number(),
+  participantId: z.number(),
+});
+
+const PositionSchema = z.object({
+  x: z.number(),
+  y: z.number(),
+});
+
+const BaseChampionSpecialKillEventSchema = BaseEventSchema.extend({
+  type: z.literal("CHAMPION_SPECIAL_KILL"),
+  killType: z.string(),
+  killerId: z.number(),
+  position: PositionSchema,
+});
+
+const FirstBloodKillEventSchema = BaseChampionSpecialKillEventSchema.extend({
+  killType: z.literal("KILL_FIRST_BLOOD"),
+});
+
+const MultiKillEventSchema = BaseChampionSpecialKillEventSchema.extend({
+  killType: z.literal("KILL_MULTI"),
+  multiKillLength: z.number(),
+});
+
+const ChampionSpecialKillEventSchema = z.union([
+  FirstBloodKillEventSchema,
+  MultiKillEventSchema,
+  BaseChampionSpecialKillEventSchema,
+]);
+
+export const EventsTimeLineDtoSchema = z.union([
+  ItemEventSchema,
+  SkillLevelUpEventSchema,
+  WardPlacedEventSchema,
+  LevelUpEventSchema,
+  ChampionSpecialKillEventSchema,
+  BaseEventSchema,
+]);
+
+export const FramesTimeLineDtoSchema = z.object({
+  events: z.array(EventsTimeLineDtoSchema),
+  participantFrames: ParticipantFramesDtoSchema,
+  timestamp: z.number(),
+});
+
+export const ParticipantTimeLineDtoSchema = z.object({
+  participantId: z.number(),
+  puuid: z.string(),
+});
+
+export const InfoTimeLineDtoSchema = z.object({
+  endOfGameResult: z.string(),
+  frameInterval: z.number(),
+  gameId: z.number(),
+  participants: z.array(ParticipantTimeLineDtoSchema),
+  frames: z.array(FramesTimeLineDtoSchema),
+});
+
+export const MetadataTimeLineDtoSchema = z.object({
+  dataVersion: z.string(),
+  matchId: z.string(),
+  participants: z.array(z.string()),
+});
+
+export const TimelineDtoSchema = z.object({
+  metadata: MetadataTimeLineDtoSchema,
+  info: InfoTimeLineDtoSchema,
+});
+
+export type PositionDto = z.infer<typeof PositionDtoSchema>;
+export type DamageStatsDto = z.infer<typeof DamageStatsDtoSchema>;
+export type ChampionStatsDto = z.infer<typeof ChampionStatsDtoSchema>;
+export type ParticipantFrameDto = z.infer<typeof ParticipantFrameDtoSchema>;
+export type ParticipantFramesDto = z.infer<typeof ParticipantFramesDtoSchema>;
+export type EventsTimeLineDto = z.infer<typeof EventsTimeLineDtoSchema>;
+export type FramesTimeLineDto = z.infer<typeof FramesTimeLineDtoSchema>;
+export type ParticipantTimeLineDto = z.infer<
+  typeof ParticipantTimeLineDtoSchema
+>;
+export type InfoTimeLineDto = z.infer<typeof InfoTimeLineDtoSchema>;
+export type MetadataTimeLineDto = z.infer<typeof MetadataTimeLineDtoSchema>;
+export type TimelineDto = z.infer<typeof TimelineDtoSchema>;

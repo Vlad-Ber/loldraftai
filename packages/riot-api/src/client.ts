@@ -11,6 +11,8 @@ import {
   type MatchType,
   MatchDtoSchema,
   type MatchDto,
+  TimelineDtoSchema,
+  type TimelineDto,
 } from "./schemas";
 import { LeagueListDTOSchema, type LeagueListDTO } from "./internalSchemas";
 
@@ -107,6 +109,13 @@ export class RiotAPIClient {
     console.log(response.data);
     // save to /tmp/match.json
     return MatchDtoSchema.parse(response.data);
+  }
+
+  async getMatchTimelineById(matchId: string): Promise<TimelineDto> {
+    const response = await this.axiosInstance.get(
+      `https://${this.platformRoutingValue}.api.riotgames.com/lol/match/v5/matches/${matchId}/timeline`
+    );
+    return TimelineDtoSchema.parse(response.data);
   }
 
   private mapLeagueItemsToLeagueEntries(

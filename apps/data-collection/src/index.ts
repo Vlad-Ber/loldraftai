@@ -42,3 +42,7 @@ if (!matchIds[0]) {
 const match = await client.getMatchById(matchIds[0]);
 
 console.log(match);
+
+const timeline = await client.getMatchTimelineById(matchIds[0]);
+
+console.log(timeline);
