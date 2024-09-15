@@ -3,10 +3,14 @@
   "version": "1.0.0",
   "private": true,
   "scripts": {
-    "dev": "tsx src/index.ts"
+    "dev": "tsx src/index.ts",
+    "lint": "eslint ."
   },
   "dependencies": {
+    "@draftking/eslint-config": "*",
+    "@draftking/typescript-config": "*",
     "@draftking/riot-api": "*",
+    "eslint": "^8",
     "dotenv": "^16.4.5",
     "tsx": "^4.19.1"
   },

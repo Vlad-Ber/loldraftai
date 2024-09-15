@@ -1,15 +1,20 @@
 {
   "name": "@draftking/riot-api",
   "version": "0.0.0",
+  "private": true,
+  "license": "MIT",
   "scripts": {
     "dev": "tsc --watch",
-    "build": "tsc"
+    "build": "tsc",
+    "lint": "eslint ."
   },
   "exports": {
     ".": "./src/index.ts"
   },
   "devDependencies": {
-    "typescript": "latest"
+    "@draftking/eslint-config": "*",
+    "@draftking/typescript-config": "*",
+    "eslint": "^8"
   },
   "dependencies": {
     "axios": "^1.7.7",
