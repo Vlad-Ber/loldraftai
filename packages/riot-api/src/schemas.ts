@@ -85,3 +85,13 @@ export const LeagueEntryDTOSchema = z.object({
   miniSeries: MiniSeriesDTOSchema.optional(),
 });
 export type LeagueEntryDTO = z.infer<typeof LeagueEntryDTOSchema>;
+
+export const SummonerDTOSchema = z.object({
+  accountId: z.string().max(56),
+  profileIconId: z.number(),
+  revisionDate: z.number(),
+  id: z.string().max(63),
+  puuid: z.string().length(78),
+  summonerLevel: z.number(),
+});
+export type SummonerDTO = z.infer<typeof SummonerDTOSchema>;

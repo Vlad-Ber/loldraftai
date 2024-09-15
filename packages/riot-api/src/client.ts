@@ -6,6 +6,8 @@ import {
   type LeagueEntryDTO,
   type TierDivisionPair,
   type Region,
+  SummonerDTOSchema,
+  type SummonerDTO,
 } from "./schemas";
 import { LeagueListDTOSchema, type LeagueListDTO } from "./internalSchemas";
 
@@ -46,6 +48,13 @@ export class RiotAPIClient {
       );
       return z.array(LeagueEntryDTOSchema).parse(response.data);
     }
+  }
+
+  async getSummonerById(encryptedSummonerId: string): Promise<SummonerDTO> {
+    const response = await this.axiosInstance.get(
+      `/lol/summoner/v4/summoners/${encryptedSummonerId}`
+    );
+    return SummonerDTOSchema.parse(response.data);
   }
 
   private mapLeagueItemsToLeagueEntries(

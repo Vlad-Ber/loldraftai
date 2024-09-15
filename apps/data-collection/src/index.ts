@@ -17,6 +17,15 @@ const client = new RiotAPIClient(apiKey);
 
 // client.getMasterLeague("RANKED_SOLO_5x5");
 
-client.getLeagueEntries("RANKED_SOLO_5x5", ["DIAMOND", "I"], 1);
+await client.getLeagueEntries("RANKED_SOLO_5x5", ["DIAMOND", "I"], 1);
 
-client.getLeagueEntries("RANKED_SOLO_5x5", ["CHALLENGER", "I"], 1);
+const response = await client.getLeagueEntries("RANKED_SOLO_5x5", ["CHALLENGER", "I"], 1);
+
+if (!response[0]) {
+  throw new Error("No summoner found");
+}
+const summonedId = response[0].summonerId;
+
+const summoner = await client.getSummonerById(summonedId);
+
+console.log(summoner);
