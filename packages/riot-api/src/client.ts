@@ -9,10 +9,12 @@ import {
   SummonerDTOSchema,
   type SummonerDTO,
   type MatchType,
+  MatchDtoSchema,
+  type MatchDto,
 } from "./schemas";
 import { LeagueListDTOSchema, type LeagueListDTO } from "./internalSchemas";
 
-const REGION_TO_PLATFORM_ROUTING: { [key in Region]: string } = {
+const REGION_TO_PLATFORM_ROUTING: Record<Region, string> = {
   BR1: "AMERICAS",
   EUN1: "EUROPE",
   EUW1: "EUROPE",
@@ -96,6 +98,15 @@ export class RiotAPIClient {
       { params: options }
     );
     return z.array(z.string()).parse(response.data);
+  }
+
+  async getMatchById(matchId: string): Promise<MatchDto> {
+    const response = await this.axiosInstance.get(
+      `https://${this.platformRoutingValue}.api.riotgames.com/lol/match/v5/matches/${matchId}`
+    );
+    console.log(response.data);
+    // save to /tmp/match.json
+    return MatchDtoSchema.parse(response.data);
   }
 
   private mapLeagueItemsToLeagueEntries(

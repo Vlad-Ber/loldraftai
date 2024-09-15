@@ -19,17 +19,26 @@ const client = new RiotAPIClient(apiKey);
 
 await client.getLeagueEntries("RANKED_SOLO_5x5", ["DIAMOND", "I"], 1);
 
-const response = await client.getLeagueEntries("RANKED_SOLO_5x5", ["CHALLENGER", "I"], 1);
+const response = await client.getLeagueEntries(
+  "RANKED_SOLO_5x5",
+  ["CHALLENGER", "I"],
+  1
+);
 
 if (!response[0]) {
   throw new Error("No summoner found");
 }
-const summonedId = response[0].summonerId;
 
-const summoner = await client.getSummonerById(summonedId);
+const summoner = await client.getSummonerById(response[0].summonerId);
 
 const matchIds = await client.getMatchIdsByPuuid(summoner.puuid, {
   type: "ranked",
 });
 
-console.log(matchIds);
+if (!matchIds[0]) {
+  throw new Error("No match ids found");
+}
+
+const match = await client.getMatchById(matchIds[0]);
+
+console.log(match);
