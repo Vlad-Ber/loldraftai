@@ -95,3 +95,11 @@ export const SummonerDTOSchema = z.object({
   summonerLevel: z.number(),
 });
 export type SummonerDTO = z.infer<typeof SummonerDTOSchema>;
+
+export const MatchTypeSchema = z.enum([
+  "ranked",
+  "normal",
+  "tourney",
+  "tutorial",
+]);
+export type MatchType = z.infer<typeof MatchTypeSchema>;

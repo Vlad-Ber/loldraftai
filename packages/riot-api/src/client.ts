@@ -8,11 +8,33 @@ import {
   type Region,
   SummonerDTOSchema,
   type SummonerDTO,
+  type MatchType,
 } from "./schemas";
 import { LeagueListDTOSchema, type LeagueListDTO } from "./internalSchemas";
 
+const REGION_TO_PLATFORM_ROUTING: { [key in Region]: string } = {
+  BR1: "AMERICAS",
+  EUN1: "EUROPE",
+  EUW1: "EUROPE",
+  JP1: "ASIA",
+  KR: "ASIA",
+  LA1: "AMERICAS",
+  LA2: "AMERICAS",
+  ME1: "EUROPE",
+  NA1: "AMERICAS",
+  OC1: "SEA",
+  PH2: "SEA",
+  RU: "EUROPE",
+  SG2: "SEA",
+  TH2: "SEA",
+  TR1: "EUROPE",
+  TW2: "SEA",
+  VN2: "SEA",
+};
+
 export class RiotAPIClient {
   private axiosInstance: AxiosInstance;
+  private platformRoutingValue: string;
 
   constructor(apiKey: string, region: Region = "EUW1") {
     this.axiosInstance = axios.create({
@@ -21,6 +43,7 @@ export class RiotAPIClient {
         "X-Riot-Token": apiKey,
       },
     });
+    this.platformRoutingValue = REGION_TO_PLATFORM_ROUTING[region];
   }
 
   async getLeagueEntries(
@@ -55,6 +78,24 @@ export class RiotAPIClient {
       `/lol/summoner/v4/summoners/${encryptedSummonerId}`
     );
     return SummonerDTOSchema.parse(response.data);
+  }
+
+  async getMatchIdsByPuuid(
+    puuid: string,
+    options: {
+      startTime?: number;
+      endTime?: number;
+      queue?: number;
+      type?: MatchType;
+      start?: number;
+      count?: number;
+    } = {}
+  ): Promise<string[]> {
+    const response = await this.axiosInstance.get(
+      `https://${this.platformRoutingValue}.api.riotgames.com/lol/match/v5/matches/by-puuid/${puuid}/ids`,
+      { params: options }
+    );
+    return z.array(z.string()).parse(response.data);
   }
 
   private mapLeagueItemsToLeagueEntries(

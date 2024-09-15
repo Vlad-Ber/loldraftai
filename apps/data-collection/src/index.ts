@@ -28,4 +28,8 @@ const summonedId = response[0].summonerId;
 
 const summoner = await client.getSummonerById(summonedId);
 
-console.log(summoner);
+const matchIds = await client.getMatchIdsByPuuid(summoner.puuid, {
+  type: "ranked",
+});
+
+console.log(matchIds);
