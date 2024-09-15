@@ -1,5 +1,26 @@
 import { z } from "zod";
 
+export const RegionSchema = z.enum([
+  "BR1",
+  "EUN1",
+  "EUW1",
+  "JP1",
+  "KR",
+  "LA1",
+  "LA2",
+  "ME1",
+  "NA1",
+  "OC1",
+  "PH2",
+  "RU",
+  "SG2",
+  "TH2",
+  "TR1",
+  "TW2",
+  "VN2",
+]);
+export type Region = z.infer<typeof RegionSchema>;
+
 export const QueueTypeSchema = z.enum([
   "RANKED_SOLO_5x5",
   "RANKED_FLEX_SR",
@@ -7,10 +28,10 @@ export const QueueTypeSchema = z.enum([
 ]);
 export type QueueType = z.infer<typeof QueueTypeSchema>;
 
-export const DivisionSchema = z.enum(["I", "II", "III", "IV"]);
-export type Division = z.infer<typeof DivisionSchema>;
-
 export const TierSchema = z.enum([
+  "CHALLENGER",
+  "GRANDMASTER",
+  "MASTER",
   "DIAMOND",
   "EMERALD",
   "PLATINUM",
@@ -21,36 +42,39 @@ export const TierSchema = z.enum([
 ]);
 export type Tier = z.infer<typeof TierSchema>;
 
+export const DivisionSchema = z.enum(["I", "II", "III", "IV"]);
+export type Division = z.infer<typeof DivisionSchema>;
+
+export const TierDivisionPairSchema = z.union([
+  z.tuple([z.enum(["CHALLENGER", "GRANDMASTER", "MASTER"]), z.literal("I")]),
+  z.tuple([
+    z.enum([
+      "DIAMOND",
+      "EMERALD",
+      "PLATINUM",
+      "GOLD",
+      "SILVER",
+      "BRONZE",
+      "IRON",
+    ]),
+    DivisionSchema,
+  ]),
+]);
+export type TierDivisionPair = z.infer<typeof TierDivisionPairSchema>;
+
 export const MiniSeriesDTOSchema = z.object({
   losses: z.number(),
   progress: z.string(),
   target: z.number(),
   wins: z.number(),
 });
-export type MiniSeriesDTO = z.infer<typeof MiniSeriesDTOSchema>;
 
-// For master to challenger
-export const LeagueItemDTOSchema = z.object({
-  freshBlood: z.boolean(),
-  wins: z.number(),
-  miniSeries: MiniSeriesDTOSchema.optional(),
-  inactive: z.boolean(),
-  veteran: z.boolean(),
-  hotStreak: z.boolean(),
-  rank: z.string(),
-  leaguePoints: z.number(),
-  losses: z.number(),
-  summonerId: z.string(),
-});
-export type LeagueItemDTO = z.infer<typeof LeagueItemDTOSchema>;
-
-// For Iron to Diamond
 export const LeagueEntryDTOSchema = z.object({
   leagueId: z.string(),
   summonerId: z.string(),
-  queueType: z.string(),
+  queueType: QueueTypeSchema,
   tier: TierSchema,
-  rank: z.string(),
+  rank: DivisionSchema,
   leaguePoints: z.number(),
   wins: z.number(),
   losses: z.number(),
@@ -61,12 +85,3 @@ export const LeagueEntryDTOSchema = z.object({
   miniSeries: MiniSeriesDTOSchema.optional(),
 });
 export type LeagueEntryDTO = z.infer<typeof LeagueEntryDTOSchema>;
-
-export const LeagueListDTOSchema = z.object({
-  leagueId: z.string(),
-  entries: z.array(LeagueItemDTOSchema),
-  tier: z.string(),
-  name: z.string(),
-  queue: z.string(),
-});
-export type LeagueListDTO = z.infer<typeof LeagueListDTOSchema>;

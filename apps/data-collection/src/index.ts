@@ -17,4 +17,6 @@ const client = new RiotAPIClient(apiKey);
 
 // client.getMasterLeague("RANKED_SOLO_5x5");
 
-client.getLeagueEntries("RANKED_SOLO_5x5", "DIAMOND", "I");
+client.getLeagueEntries("RANKED_SOLO_5x5", ["DIAMOND", "I"], 1);
+
+client.getLeagueEntries("RANKED_SOLO_5x5", ["CHALLENGER", "I"], 1);
