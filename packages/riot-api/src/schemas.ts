@@ -131,10 +131,27 @@ export const BanDtoSchema = z.object({
   pickTurn: z.number(),
 });
 
+export const ParticipantIdSchema = z.union([
+  z.literal(1),
+  z.literal(2),
+  z.literal(3),
+  z.literal(4),
+  z.literal(5),
+  z.literal(6),
+  z.literal(7),
+  z.literal(8),
+  z.literal(9),
+  z.literal(10),
+]);
+export type ParticipantId = z.infer<typeof ParticipantIdSchema>;
+
+export const TeamIdSchema = z.union([z.literal(100), z.literal(200)]);
+export type TeamId = z.infer<typeof TeamIdSchema>;
+
 export const TeamDtoSchema = z.object({
   bans: z.array(BanDtoSchema),
   objectives: ObjectivesDtoSchema,
-  teamId: z.number(),
+  teamId: TeamIdSchema,
   win: z.boolean(),
 });
 
@@ -328,6 +345,7 @@ export const MissionsDtoSchema = z.object({
   playerScore11: z.number(),
 });
 
+
 export const ParticipantDtoSchema = z.object({
   allInPings: z.number(),
   assistMePings: z.number(),
@@ -394,7 +412,7 @@ export const ParticipantDtoSchema = z.object({
   objectivesStolen: z.number(),
   objectivesStolenAssists: z.number(),
   onMyWayPings: z.number(),
-  participantId: z.number(),
+  participantId: ParticipantIdSchema,
   pentaKills: z.number(),
   perks: PerksDtoSchema,
   physicalDamageDealt: z.number(),
@@ -427,7 +445,7 @@ export const ParticipantDtoSchema = z.object({
   summonerLevel: z.number(),
   summonerName: z.string(),
   teamEarlySurrendered: z.boolean(),
-  teamId: z.number(),
+  teamId: TeamIdSchema,
   teamPosition: z.string(),
   timeCCingOthers: z.number(),
   timePlayed: z.number(),
@@ -474,7 +492,8 @@ export const InfoDtoSchema = z.object({
   participants: z.array(ParticipantDtoSchema),
   platformId: z.string(),
   queueId: z.number(),
-  teams: z.array(TeamDtoSchema),
+  teams: z.tuple([TeamDtoSchema, TeamDtoSchema]),
+  //teams: z.array(TeamDtoSchema).length(2),
   tournamentCode: z.string().optional(),
 });
 
@@ -551,7 +570,7 @@ export const ParticipantFrameDtoSchema = z.object({
   jungleMinionsKilled: z.number(),
   level: z.number(),
   minionsKilled: z.number(),
-  participantId: z.number(),
+  participantId: ParticipantIdSchema,
   position: PositionDtoSchema,
   timeEnemySpentControlled: z.number(),
   totalGold: z.number(),
@@ -568,26 +587,26 @@ const BaseEventSchema = z.object({
 const ItemEventSchema = BaseEventSchema.extend({
   type: z.enum(["ITEM_PURCHASED", "ITEM_DESTROYED", "ITEM_SOLD", "ITEM_UNDO"]),
   itemId: z.number(),
-  participantId: z.number(),
+  participantId: ParticipantIdSchema,
 });
 
 const SkillLevelUpEventSchema = BaseEventSchema.extend({
   type: z.literal("SKILL_LEVEL_UP"),
   levelUpType: z.string(),
-  participantId: z.number(),
+  participantId: ParticipantIdSchema,
   skillSlot: z.number(),
 });
 
 const WardPlacedEventSchema = BaseEventSchema.extend({
   type: z.literal("WARD_PLACED"),
-  creatorId: z.number(),
+  creatorId: ParticipantIdSchema,
   wardType: z.string(),
 });
 
 const LevelUpEventSchema = BaseEventSchema.extend({
   type: z.literal("LEVEL_UP"),
   level: z.number(),
-  participantId: z.number(),
+  participantId: ParticipantIdSchema,
 });
 
 const PositionSchema = z.object({
@@ -598,7 +617,7 @@ const PositionSchema = z.object({
 const BaseChampionSpecialKillEventSchema = BaseEventSchema.extend({
   type: z.literal("CHAMPION_SPECIAL_KILL"),
   killType: z.string(),
-  killerId: z.number(),
+  killerId: ParticipantIdSchema,
   position: PositionSchema,
 });
 
@@ -621,7 +640,7 @@ const DamageDealtSchema = z.object({
   basic: z.boolean(),
   magicDamage: z.number(),
   name: z.string(),
-  participantId: z.number(),
+  participantId: ParticipantIdSchema,
   physicalDamage: z.number(),
   spellName: z.string(),
   spellSlot: z.number(),
@@ -633,21 +652,22 @@ export const ChampionKillEventSchema = BaseEventSchema.extend({
   type: z.literal("CHAMPION_KILL"),
   bounty: z.number(),
   killStreakLength: z.number(),
-  killerId: z.number(),
-  assistingParticipantIds: z.array(z.number()).optional(),
+  killerId: ParticipantIdSchema,
+  assistingParticipantIds: z.array(ParticipantIdSchema).optional(),
   position: PositionSchema,
   shutdownBounty: z.number(),
   victimDamageDealt: z.array(DamageDealtSchema),
   victimDamageReceived: z.array(DamageDealtSchema),
-  victimId: z.number(),
+  victimId: ParticipantIdSchema,
 });
+export type ChampionKillEventDto = z.infer<typeof ChampionKillEventSchema>;
 
 const BaseBuildingKillEventSchema = BaseEventSchema.extend({
   type: z.literal("BUILDING_KILL"),
   bounty: z.number(),
-  killerId: z.number(),
+  killerId: ParticipantIdSchema,
   position: PositionSchema,
-  teamId: z.number(),
+  teamId: TeamIdSchema,
 });
 
 const TowerBuildingKillEventSchema = BaseBuildingKillEventSchema.extend({
@@ -664,24 +684,28 @@ const TowerBuildingKillEventSchema = BaseBuildingKillEventSchema.extend({
 const InhibitorBuildingKillEventSchema = BaseBuildingKillEventSchema.extend({
   buildingType: z.literal("INHIBITOR_BUILDING"),
   laneType: z.enum(["TOP_LANE", "MID_LANE", "BOT_LANE"]),
-  assistingParticipantIds: z.array(z.number()).optional(),
+  assistingParticipantIds: z.array(ParticipantIdSchema).optional(),
 });
 
 export const BuildingKillEventSchema = z.discriminatedUnion("buildingType", [
   TowerBuildingKillEventSchema,
   InhibitorBuildingKillEventSchema,
 ]);
+export type BuildingKillEventDto = z.infer<typeof BuildingKillEventSchema>;
 
 export const EliteMonsterKillEventSchema = BaseEventSchema.extend({
   type: z.literal("ELITE_MONSTER_KILL"),
   bounty: z.number(),
-  killerId: z.number(),
-  killerTeamId: z.number(),
+  killerId: ParticipantIdSchema,
+  killerTeamId: TeamIdSchema,
   position: PositionSchema,
   monsterType: z.enum(["DRAGON", "HORDE", "RIFTHERALD", "BARON_NASHOR"]),
   monsterSubType: z.string().optional(),
-  assistingParticipantIds: z.array(z.number()).optional(),
+  assistingParticipantIds: z.array(ParticipantIdSchema).optional(),
 });
+export type EliteMonsterKillEventDto = z.infer<
+  typeof EliteMonsterKillEventSchema
+>;
 
 export const EventsTimeLineDtoSchema = z.union([
   ItemEventSchema,
@@ -702,7 +726,7 @@ export const FramesTimeLineDtoSchema = z.object({
 });
 
 export const ParticipantTimeLineDtoSchema = z.object({
-  participantId: z.number(),
+  participantId: ParticipantIdSchema,
   puuid: z.string(),
 });
 

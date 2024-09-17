@@ -11,12 +11,6 @@ if (!apiKey) {
 
 const client = new RiotAPIClient(apiKey);
 
-// client.getChallengerLeague("RANKED_SOLO_5x5");
-
-// client.getGrandmasterLeague("RANKED_SOLO_5x5");
-
-// client.getMasterLeague("RANKED_SOLO_5x5");
-
 await client.getLeagueEntries("RANKED_SOLO_5x5", ["DIAMOND", "I"], 1);
 
 const response = await client.getLeagueEntries(
