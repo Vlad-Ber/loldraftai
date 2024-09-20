@@ -4,10 +4,7 @@ import {
   TimelineDto,
   ParticipantFrameDto,
   ObjectivesDto,
-  ChampionKillEventSchema,
-  BuildingKillEventSchema,
   EliteMonsterKillEventDto,
-  EliteMonsterKillEventSchema,
   EventsTimeLineDto,
   ChampionKillEventDto,
   BuildingKillEventDto,
@@ -16,7 +13,6 @@ import {
   ParticipantId,
   TeamId,
 } from "@draftking/riot-api";
-
 interface ProcessedParticipantData {
   championId: number;
   level: number;
@@ -200,26 +196,16 @@ function processEvents(
   teamStats: Record<TeamId, ProcessedTeamStats>
 ) {
   events.forEach((event) => {
-    switch (event.type) {
-      case "CHAMPION_KILL":
-        updateChampionKillStats(
-          ChampionKillEventSchema.parse(event),
-          participantStats,
-          teamStats
-        );
-        break;
-      case "BUILDING_KILL":
-        updateBuildingKillStats(
-          BuildingKillEventSchema.parse(event),
-          teamStats
-        );
-        break;
-      case "ELITE_MONSTER_KILL":
-        updateEliteMonsterKillStats(
-          EliteMonsterKillEventSchema.parse(event),
-          teamStats
-        );
-        break;
+    if (event.type === "CHAMPION_KILL") {
+      updateChampionKillStats(
+        event as ChampionKillEventDto,
+        participantStats,
+        teamStats
+      );
+    } else if (event.type === "BUILDING_KILL") {
+      updateBuildingKillStats(event as BuildingKillEventDto, teamStats);
+    } else if (event.type === "ELITE_MONSTER_KILL") {
+      updateEliteMonsterKillStats(event as EliteMonsterKillEventDto, teamStats);
     }
   });
 }
@@ -268,6 +254,10 @@ function processTimelineFrame(
   );
 }
 
+function minutesToMs(minutes: number): number {
+  return minutes * 60 * 1000;
+}
+
 async function processMatchData(
   client: RiotAPIClient,
   matchId: string
@@ -275,16 +265,23 @@ async function processMatchData(
   const matchData: MatchDto = await client.getMatchById(matchId);
   const timelineData: TimelineDto = await client.getMatchTimelineById(matchId);
 
+  // round timestamp to the nearest frame interval(which is 60000ms)
+  const frameInterval = timelineData.info.frameInterval;
+  timelineData.info.frames.forEach((frame) => {
+    frame.timestamp =
+      Math.round(frame.timestamp / frameInterval) * frameInterval;
+  });
+
   const processedData = initializeProcessedData(matchData);
   const participantStats = initializeParticipantStats(matchData);
   const teamStats = initializeTeamStats();
 
   const relevantTimestamps = [
-    15 * 60 * 1000,
-    20 * 60 * 1000,
-    25 * 60 * 1000,
-    30 * 60 * 1000,
-  ];
+    minutesToMs(15),
+    minutesToMs(20),
+    minutesToMs(25),
+    minutesToMs(30),
+  ] as const;
 
   timelineData.info.frames.forEach((frame) => {
     if (relevantTimestamps.includes(frame.timestamp)) {
@@ -299,6 +296,22 @@ async function processMatchData(
 
     processEvents(frame.events, participantStats, teamStats);
   });
+
+  // if first relevant timestamp is not included, throw an error
+  if (!(relevantTimestamps[0] in processedData.timeline)) {
+    throw new Error(
+      `First relevant timestamp ${relevantTimestamps[0]} is not included in processed data`
+    );
+  }
+  // If note all relevant timestamps are included, duplicate the last valid timestamp
+  for (let i = 1; i < relevantTimestamps.length; i++) {
+    const timestamp = relevantTimestamps[i] as number; // safe because iterate over length
+    if (!(timestamp in processedData.timeline)) {
+      processedData.timeline[timestamp] = processedData.timeline[
+        relevantTimestamps[i - 1] as number // safe because iterate over length
+      ] as ProcessedTimelineData; // exists because 0 exists and we set all future timestamps
+    }
+  }
 
   return processedData;
 }

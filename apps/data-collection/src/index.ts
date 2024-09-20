@@ -1,4 +1,5 @@
 import { RiotAPIClient } from "@draftking/riot-api";
+import { processMatchData } from "./utils/matchProcessing";
 import { config } from "dotenv";
 
 config();
@@ -27,6 +28,9 @@ const summoner = await client.getSummonerById(response[0].summonerId);
 
 const matchIds = await client.getMatchIdsByPuuid(summoner.puuid, {
   type: "ranked",
+  // 420 is ranked solo/duo queue
+  // source: https://static.developer.riotgames.com/docs/lol/queues.json
+  queue: 420,
 });
 
 if (!matchIds[0]) {
@@ -40,3 +44,7 @@ console.log(match);
 const timeline = await client.getMatchTimelineById(matchIds[0]);
 
 console.log(timeline);
+
+const processedData = await processMatchData(client, matchIds[0]);
+
+console.log(JSON.stringify(processedData, null, 2));

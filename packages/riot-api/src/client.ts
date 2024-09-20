@@ -1,4 +1,5 @@
 import { z } from "zod";
+import fs from "fs";
 import axios, { AxiosInstance } from "axios";
 import {
   type QueueType,
@@ -15,6 +16,8 @@ import {
   type TimelineDto,
 } from "./schemas";
 import { LeagueListDTOSchema, type LeagueListDTO } from "./internalSchemas";
+
+const DEBUG_SAVE_REQUESTS = false;
 
 const REGION_TO_PLATFORM_ROUTING: Record<Region, string> = {
   BR1: "AMERICAS",
@@ -106,8 +109,13 @@ export class RiotAPIClient {
     const response = await this.axiosInstance.get(
       `https://${this.platformRoutingValue}.api.riotgames.com/lol/match/v5/matches/${matchId}`
     );
-    console.log(response.data);
     // save to /tmp/match.json
+    if (DEBUG_SAVE_REQUESTS) {
+      fs.writeFileSync(
+        `/tmp/match.json`,
+        JSON.stringify(response.data, null, 2)
+      );
+    }
     return MatchDtoSchema.parse(response.data);
   }
 
@@ -115,6 +123,13 @@ export class RiotAPIClient {
     const response = await this.axiosInstance.get(
       `https://${this.platformRoutingValue}.api.riotgames.com/lol/match/v5/matches/${matchId}/timeline`
     );
+    // save to /tmp/timeline.json
+    if (DEBUG_SAVE_REQUESTS) {
+      fs.writeFileSync(
+        `/tmp/timeline.json`,
+        JSON.stringify(response.data, null, 2)
+      );
+    }
     return TimelineDtoSchema.parse(response.data);
   }
 
