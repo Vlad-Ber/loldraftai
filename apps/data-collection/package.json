@@ -9,10 +9,13 @@
   },
   "dependencies": {
     "@draftking/eslint-config": "*",
-    "@draftking/typescript-config": "*",
     "@draftking/riot-api": "*",
-    "eslint": "^8",
+    "@draftking/riot-database": "*",
+    "@draftking/typescript-config": "*",
+    "bottleneck": "^2.19.5",
+    "date-fns": "^4.1.0",
     "dotenv": "^16.4.5",
+    "eslint": "^8",
     "tsx": "^4.19.1"
   },
   "devDependencies": {

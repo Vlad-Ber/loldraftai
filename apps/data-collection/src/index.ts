@@ -1,5 +1,6 @@
 import { RiotAPIClient } from "@draftking/riot-api";
 import { processMatchData } from "./utils/matchProcessing";
+import { PrismaClient } from "@draftking/riot-database";
 import { config } from "dotenv";
 
 config();
@@ -36,14 +37,6 @@ const matchIds = await client.getMatchIdsByPuuid(summoner.puuid, {
 if (!matchIds[0]) {
   throw new Error("No match ids found");
 }
-
-const match = await client.getMatchById(matchIds[0]);
-
-console.log(match);
-
-const timeline = await client.getMatchTimelineById(matchIds[0]);
-
-console.log(timeline);
 
 const processedData = await processMatchData(client, matchIds[0]);
 
