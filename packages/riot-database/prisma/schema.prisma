@@ -57,7 +57,7 @@ model Summoner {
   id               String    @id @default(cuid())
   summonerId       String
   region           Region
-  puuid            String?   @unique
+  puuid            String? // not unique because users can transfer regions
   tier             Tier
   rank             Division
   leaguePoints     Int
