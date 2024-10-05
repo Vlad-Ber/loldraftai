@@ -42,6 +42,7 @@ const REGION_TO_PLATFORM_ROUTING: Record<Region, string> = {
 export class RiotAPIClient {
   private axiosInstance: AxiosInstance;
   private platformRoutingValue: string;
+  private skipValidation: boolean;
 
   constructor(apiKey: string, region: Region = "EUW1") {
     this.axiosInstance = axios.create({
@@ -51,6 +52,14 @@ export class RiotAPIClient {
       },
     });
     this.platformRoutingValue = REGION_TO_PLATFORM_ROUTING[region];
+    this.skipValidation = process.env.SKIP_VALIDATION === "true";
+  }
+
+  private validate<T>(schema: z.ZodSchema<T>, data: unknown): T {
+    if (this.skipValidation) {
+      return data as T;
+    }
+    return schema.parse(data);
   }
 
   async getLeagueEntries(
@@ -76,7 +85,7 @@ export class RiotAPIClient {
           params: { page },
         }
       );
-      return z.array(LeagueEntryDTOSchema).parse(response.data);
+      return this.validate(z.array(LeagueEntryDTOSchema), response.data);
     }
   }
 
@@ -84,7 +93,7 @@ export class RiotAPIClient {
     const response = await this.axiosInstance.get(
       `/lol/summoner/v4/summoners/${encryptedSummonerId}`
     );
-    return SummonerDTOSchema.parse(response.data);
+    return this.validate(SummonerDTOSchema, response.data);
   }
 
   async getMatchIdsByPuuid(
@@ -102,7 +111,7 @@ export class RiotAPIClient {
       `https://${this.platformRoutingValue}.api.riotgames.com/lol/match/v5/matches/by-puuid/${puuid}/ids`,
       { params: options }
     );
-    return z.array(z.string()).parse(response.data);
+    return this.validate(z.array(z.string()), response.data);
   }
 
   async getMatchById(matchId: string): Promise<MatchDto> {
@@ -116,7 +125,7 @@ export class RiotAPIClient {
         JSON.stringify(response.data, null, 2)
       );
     }
-    return MatchDtoSchema.parse(response.data);
+    return this.validate(MatchDtoSchema, response.data);
   }
 
   async getMatchTimelineById(matchId: string): Promise<TimelineDto> {
@@ -130,7 +139,7 @@ export class RiotAPIClient {
         JSON.stringify(response.data, null, 2)
       );
     }
-    return TimelineDtoSchema.parse(response.data);
+    return this.validate(TimelineDtoSchema, response.data);
   }
 
   private mapLeagueItemsToLeagueEntries(
