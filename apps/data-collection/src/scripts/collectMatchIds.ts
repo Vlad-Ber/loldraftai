@@ -53,10 +53,14 @@ async function collectMatchIds() {
             { matchesFetchedAt: null },
             {
               matchesFetchedAt: {
-                lt: new Date(Date.now() - 24 * 60 * 60 * 1000), // Older than 24 hours
+                lt: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000), // Older than 3 days, because we get 100 games
               },
             },
           ],
+          // Updated less than 1 week ago (up to date)
+          rankUpdateTime: {
+            gt: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000),
+          },
         },
         take: 1000, // Adjust the batch size as needed
       });
@@ -68,8 +72,7 @@ async function collectMatchIds() {
         await sleep(60 * 1000);
         continue;
       }
-
-      console.log(`Found ${summoners.length} summoners to fetch match IDs.`);
+      console.log(`Processing ${summoners.length} summoners.`);
 
       await Promise.all(
         summoners.map((summoner) =>
@@ -108,10 +111,6 @@ async function collectMatchIds() {
                   matchesFetchedAt: new Date(),
                 },
               });
-
-              console.log(
-                `Fetched match IDs for summoner ${summoner.summonerId}`
-              );
             } catch (error) {
               console.error(
                 `Error fetching match IDs for summoner ${summoner.summonerId}:`,

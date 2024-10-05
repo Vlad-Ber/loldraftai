@@ -59,13 +59,12 @@ async function processMatches() {
         continue;
       }
 
-      console.log(`Found ${matches.length} unprocessed matches.`);
+      console.log(`Processing ${matches.length} matches.`);
 
       await Promise.all(
         matches.map((match) =>
           limiter.schedule(async () => {
             try {
-              // TODO: mark as processed if failed? or have failed flag?
               const processedData = await processMatchData(
                 riotApiClient,
                 match.matchId
@@ -88,10 +87,7 @@ async function processMatches() {
                   teams: processedData.teams,
                 },
               });
-
-              console.log(`Processed match ${match.matchId}`);
             } catch (error) {
-              console.error(`Error processing match ${match.matchId}:`, error);
               // Mark the match as processed but with an error
               await prisma.match.update({
                 where: {

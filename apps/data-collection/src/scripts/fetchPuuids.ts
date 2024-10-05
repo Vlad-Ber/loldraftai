@@ -58,7 +58,7 @@ async function fetchPuuids() {
         continue;
       }
 
-      console.log(`Found ${summoners.length} summoners without PUUID.`);
+      console.log(`Processing ${summoners.length} summoners.`);
 
       await Promise.all(
         summoners.map((summoner) =>

@@ -37,7 +37,10 @@ const tiersDivisions: TierDivisionPair[] = [
   ["GRANDMASTER", "I"],
   ["MASTER", "I"],
   ["DIAMOND", "I"],
-] as const;
+  ["DIAMOND", "II"],
+  ["DIAMOND", "III"],
+  ["DIAMOND", "IV"],
+] as const; // we get high ranks because draft matters more in high elo
 const queue = "RANKED_SOLO_5x5";
 
 const limiter = new Bottleneck({
