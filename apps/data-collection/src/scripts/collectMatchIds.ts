@@ -29,11 +29,12 @@ const riotApiClient = new RiotAPIClient(apiKey);
 const prisma = new PrismaClient();
 
 // We do the same limiter as processMatches.ts as there is not point going faster
+// Except we get 100 matches per player, so we can go even slower
 const limiter = new Bottleneck({
-  minTime: 100, // 20ms between requests (50 requests per second)
+  minTime: 500, // 20ms between requests (50 requests per second)
   // Limit: 2000 requests every 10 seconds
-  reservoir: 500,
-  reservoirRefreshAmount: 500,
+  reservoir: 250,
+  reservoirRefreshAmount: 250,
   reservoirRefreshInterval: 10 * 1000, // 10 seconds
 
   // Adjust maxConcurrent based on your needs and system capabilities
