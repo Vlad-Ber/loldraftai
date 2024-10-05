@@ -58,6 +58,13 @@ const ProcessedParticipantSchema = z.object({
     1500000: ProcessedParticipantTimelineSchema,
     1800000: ProcessedParticipantTimelineSchema,
   }),
+  totalTimeCCDealt: z.number(),
+  timeCCingOthers: z.number(),
+  totalHealsOnTeammates: z.number(),
+  totalHeal: z.number(),
+  totalDamageShieldedOnTeammates: z.number(),
+  totalDamageTaken: z.number(),
+  damageSelfMitigated: z.number(),
 });
 
 const ProcessedTeamSchema = z.object({
@@ -243,6 +250,14 @@ function initializeParticipantsData(
       championId: participant.championId,
       participantId: participantId,
       timeline: {},
+      totalTimeCCDealt: participant.totalTimeCCDealt,
+      timeCCingOthers: participant.timeCCingOthers,
+      totalHealsOnTeammates: participant.totalHealsOnTeammates,
+      totalHeal: participant.totalHeal,
+      totalDamageShieldedOnTeammates:
+        participant.totalDamageShieldedOnTeammates,
+      totalDamageTaken: participant.totalDamageTaken,
+      damageSelfMitigated: participant.damageSelfMitigated,
     };
 
     participantStats[participantId] = {
