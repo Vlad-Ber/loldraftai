@@ -38,6 +38,8 @@ const limiter = new Bottleneck({
 
   // Adjust maxConcurrent based on your needs and system capabilities
   maxConcurrent: 30,
+  highWater: 1000,
+  strategy: Bottleneck.strategy.BLOCK,
 });
 
 async function fetchPuuids() {
@@ -60,34 +62,32 @@ async function fetchPuuids() {
 
       console.log(`Processing ${summoners.length} summoners.`);
 
-      await Promise.all(
-        summoners.map((summoner) =>
-          limiter.schedule(async () => {
-            try {
-              const summonerDTO = await riotApiClient.getSummonerById(
-                summoner.summonerId
-              );
+      for (const summoner of summoners) {
+        await limiter.schedule(async () => {
+          try {
+            const summonerDTO = await riotApiClient.getSummonerById(
+              summoner.summonerId
+            );
 
-              // Update the summoner record with the fetched PUUID
-              await prisma.summoner.update({
-                where: {
-                  id: summoner.id,
-                },
-                data: {
-                  puuid: summonerDTO.puuid,
-                },
-              });
+            // Update the summoner record with the fetched PUUID
+            await prisma.summoner.update({
+              where: {
+                id: summoner.id,
+              },
+              data: {
+                puuid: summonerDTO.puuid,
+              },
+            });
 
-              console.log(`Updated PUUID for summoner ${summoner.summonerId}`);
-            } catch (error) {
-              console.error(
-                `Error updating summoner ${summoner.summonerId}:`,
-                error
-              );
-            }
-          })
-        )
-      );
+            console.log(`Updated PUUID for summoner ${summoner.summonerId}`);
+          } catch (error) {
+            console.error(
+              `Error updating summoner ${summoner.summonerId}:`,
+              error
+            );
+          }
+        });
+      }
     }
   } catch (error) {
     console.error("Error in convertSummonerIdsToPuuids:", error);

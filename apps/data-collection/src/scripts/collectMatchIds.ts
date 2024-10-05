@@ -39,6 +39,8 @@ const limiter = new Bottleneck({
 
   // Adjust maxConcurrent based on your needs and system capabilities
   maxConcurrent: 50,
+  highWater: 1000,
+  strategy: Bottleneck.strategy.BLOCK,
 });
 
 async function collectMatchIds() {
@@ -76,52 +78,50 @@ async function collectMatchIds() {
       }
       console.log(`Processing ${summoners.length} summoners.`);
 
-      await Promise.all(
-        summoners.map((summoner) =>
-          limiter.schedule(async () => {
-            try {
-              const matchIds = await riotApiClient.getMatchIdsByPuuid(
-                summoner.puuid!,
-                {
-                  type: "ranked",
-                  queue: 420, // Ranked Solo/Duo queue
-                  count: 100, // max count
-                }
-              );
+      for (const summoner of summoners) {
+        await limiter.schedule(async () => {
+          try {
+            const matchIds = await riotApiClient.getMatchIdsByPuuid(
+              summoner.puuid!,
+              {
+                type: "ranked",
+                queue: 420, // Ranked Solo/Duo queue
+                count: 100, // max count
+              }
+            );
 
-              // Prepare batch create data
-              const matchCreates = matchIds.map((matchId) => ({
-                matchId,
-                region,
-                processed: false,
-                averageTier: summoner.tier,
-                averageDivision: summoner.rank,
-              }));
+            // Prepare batch create data
+            const matchCreates = matchIds.map((matchId) => ({
+              matchId,
+              region,
+              processed: false,
+              averageTier: summoner.tier,
+              averageDivision: summoner.rank,
+            }));
 
-              // Perform batch create, skipping duplicates
-              await prisma.match.createMany({
-                data: matchCreates,
-                skipDuplicates: true,
-              });
+            // Perform batch create, skipping duplicates
+            await prisma.match.createMany({
+              data: matchCreates,
+              skipDuplicates: true,
+            });
 
-              // Update the summoner's matchesFetchedAt timestamp
-              await prisma.summoner.update({
-                where: {
-                  id: summoner.id,
-                },
-                data: {
-                  matchesFetchedAt: new Date(),
-                },
-              });
-            } catch (error) {
-              console.error(
-                `Error fetching match IDs for summoner ${summoner.summonerId}:`,
-                error
-              );
-            }
-          })
-        )
-      );
+            // Update the summoner's matchesFetchedAt timestamp
+            await prisma.summoner.update({
+              where: {
+                id: summoner.id,
+              },
+              data: {
+                matchesFetchedAt: new Date(),
+              },
+            });
+          } catch (error) {
+            console.error(
+              `Error fetching match IDs for summoner ${summoner.summonerId}:`,
+              error
+            );
+          }
+        });
+      }
     }
   } catch (error) {
     console.error("Error in collectMatchIds:", error);

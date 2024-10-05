@@ -38,6 +38,8 @@ const limiter = new Bottleneck({
 
   // Adjust maxConcurrent based on your needs and system capabilities
   maxConcurrent: 50,
+  highWater: 1000, // Add this line
+  strategy: Bottleneck.strategy.BLOCK, // Add this line
 });
 
 async function processMatches() {
@@ -61,47 +63,44 @@ async function processMatches() {
 
       console.log(`Processing ${matches.length} matches.`);
 
-      await Promise.all(
-        matches.map((match) =>
-          limiter.schedule(async () => {
-            try {
-              const processedData = await processMatchData(
-                riotApiClient,
-                match.matchId
-              );
+      // Replace Promise.all with a for...of loop
+      for (const match of matches) {
+        await limiter.schedule(async () => {
+          try {
+            const processedData = await processMatchData(
+              riotApiClient,
+              match.matchId
+            );
 
-              // Update the match record with processed data
-              await prisma.match.update({
-                where: {
-                  id: match.id,
-                },
-                data: {
-                  processed: true,
-                  gameDuration: processedData.gameDuration,
-                  gameStartTimestamp: new Date(
-                    processedData.gameStartTimestamp
-                  ),
-                  queueId: processedData.queueId,
-                  gameVersionMajorPatch: processedData.gameVersionMajorPatch,
-                  gameVersionMinorPatch: processedData.gameVersionMinorPatch,
-                  teams: processedData.teams,
-                },
-              });
-            } catch (error) {
-              // Mark the match as processed but with an error
-              await prisma.match.update({
-                where: {
-                  id: match.id,
-                },
-                data: {
-                  processed: true,
-                  processingErrored: true,
-                },
-              });
-            }
-          })
-        )
-      );
+            // Update the match record with processed data
+            await prisma.match.update({
+              where: {
+                id: match.id,
+              },
+              data: {
+                processed: true,
+                gameDuration: processedData.gameDuration,
+                gameStartTimestamp: new Date(processedData.gameStartTimestamp),
+                queueId: processedData.queueId,
+                gameVersionMajorPatch: processedData.gameVersionMajorPatch,
+                gameVersionMinorPatch: processedData.gameVersionMinorPatch,
+                teams: processedData.teams,
+              },
+            });
+          } catch (error) {
+            // Mark the match as processed but with an error
+            await prisma.match.update({
+              where: {
+                id: match.id,
+              },
+              data: {
+                processed: true,
+                processingErrored: true,
+              },
+            });
+          }
+        });
+      }
     }
   } catch (error) {
     console.error("Error in processMatches:", error);

@@ -44,16 +44,13 @@ const tiersDivisions: TierDivisionPair[] = [
 const queue = "RANKED_SOLO_5x5";
 
 const limiter = new Bottleneck({
-  // Short-term limit: 30 requests every 10 seconds
-  minTime: 500, // 10000 ms / 30 = 333.33 ms between requests
-
-  // Long-term limit: 500 requests every 10 minutes
-  reservoir: 250, // Start with 500 requests allowed
-  reservoirRefreshAmount: 250, // Refill back to 500
-  reservoirRefreshInterval: 10 * 60 * 1000, // 10 minutes in milliseconds
-
-  // Optional: Set maximum concurrent requests
+  minTime: 500,
+  reservoir: 250,
+  reservoirRefreshAmount: 250,
+  reservoirRefreshInterval: 10 * 60 * 1000,
   maxConcurrent: 30,
+  highWater: 1000,
+  strategy: Bottleneck.strategy.BLOCK,
 });
 
 let lastUpdate: Date | null = null;
