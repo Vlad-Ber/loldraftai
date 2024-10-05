@@ -28,12 +28,13 @@ if (!apiKey) {
 const riotApiClient = new RiotAPIClient(apiKey);
 const prisma = new PrismaClient();
 
-// Rate limiter settings based on the API rate limits
+// We do the same limiter as processMatches.ts as there is not point going faster
 const limiter = new Bottleneck({
-  // Limit: 2000 requests every 10 seconds, but we do 500 to be safe
+  minTime: 100, // 20ms between requests (50 requests per second)
+  // Limit: 2000 requests every 10 seconds
   reservoir: 500,
   reservoirRefreshAmount: 500,
-  reservoirRefreshInterval: 11 * 1000, // 10 seconds
+  reservoirRefreshInterval: 10 * 1000, // 10 seconds
 
   // Adjust maxConcurrent based on your needs and system capabilities
   maxConcurrent: 50,
