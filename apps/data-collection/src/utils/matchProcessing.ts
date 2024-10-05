@@ -116,17 +116,29 @@ function initializeTeamStats(): Record<TeamId, ProcessedTeamStats> {
 }
 
 function initializeProcessedData(matchData: MatchDto): ProcessedMatchData {
+  // If patch is before 11.4, we throw, because:
+  // Prior to patch 11.4, on Feb 18th, 2021, this field returned invalid championIds. We recommend determining the champion based on the championName field for matches played prior to patch 11.4.
+  const gameVersionMajorPatch = parseInt(
+    matchData.info.gameVersion.split(".")[0] ?? "0"
+  );
+  const gameVersionMinorPatch = parseInt(
+    matchData.info.gameVersion.split(".")[1] ?? "0"
+  );
+
+  if (
+    gameVersionMajorPatch < 11 ||
+    (gameVersionMajorPatch === 11 && gameVersionMinorPatch < 4)
+  ) {
+    throw new Error("Match is before patch 11.4");
+  }
+
   const processedData: ProcessedMatchData = {
     gameId: matchData.info.gameId,
     gameDuration: matchData.info.gameDuration,
     gameStartTimestamp: matchData.info.gameStartTimestamp,
     gameVersion: matchData.info.gameVersion,
-    gameVersionMajorPatch: parseInt(
-      matchData.info.gameVersion.split(".")[0] ?? "0"
-    ),
-    gameVersionMinorPatch: parseInt(
-      matchData.info.gameVersion.split(".")[1] ?? "0"
-    ),
+    gameVersionMajorPatch,
+    gameVersionMinorPatch,
     queueId: matchData.info.queueId,
     teams: {
       100: {
