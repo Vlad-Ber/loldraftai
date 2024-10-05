@@ -1,5 +1,6 @@
 {
   "$schema": "https://turbo.build/schema.json",
+  "globalEnv": ["X_RIOT_API_KEY"],
   "tasks": {
     "build": {
       "dependsOn": ["^build", "^db:generate"]

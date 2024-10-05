@@ -1,6 +1,8 @@
+import yargs from "yargs";
+import { hideBin } from "yargs/helpers";
 import Bottleneck from "bottleneck";
 import { sleep } from "../utils";
-import { Region } from "@draftking/riot-api";
+import { RegionSchema } from "@draftking/riot-api";
 import { RiotAPIClient } from "@draftking/riot-api";
 import { PrismaClient } from "@draftking/riot-database";
 import { config } from "dotenv";
@@ -8,7 +10,15 @@ import { processMatchData } from "../utils/matchProcessing";
 
 config();
 
-const region: Region = "EUW1";
+const argv = await yargs(hideBin(process.argv))
+  .option("region", {
+    type: "string",
+    demandOption: true,
+    describe: "The region to fetch PUUIDs for",
+  })
+  .parse();
+
+const region = RegionSchema.parse(argv.region);
 const apiKey = process.env.X_RIOT_API_KEY;
 
 if (!apiKey) {
