@@ -45,11 +45,11 @@ const queue = "RANKED_SOLO_5x5";
 
 const limiter = new Bottleneck({
   // Short-term limit: 30 requests every 10 seconds
-  minTime: 333, // 10000 ms / 30 = 333.33 ms between requests
+  minTime: 500, // 10000 ms / 30 = 333.33 ms between requests
 
   // Long-term limit: 500 requests every 10 minutes
-  reservoir: 500, // Start with 500 requests allowed
-  reservoirRefreshAmount: 500, // Refill back to 500
+  reservoir: 250, // Start with 500 requests allowed
+  reservoirRefreshAmount: 250, // Refill back to 500
   reservoirRefreshInterval: 10 * 60 * 1000, // 10 minutes in milliseconds
 
   // Optional: Set maximum concurrent requests
@@ -80,10 +80,7 @@ async function updateLadder() {
               if (leagueEntries.length === 0) {
                 hasMore = false;
               } else {
-                // TODO: batch update?
-                for (const entry of leagueEntries) {
-                  await upsertSummoner(entry);
-                }
+                await batchUpsertSummoners(leagueEntries);
                 page++;
               }
             });
@@ -105,8 +102,8 @@ async function updateLadder() {
   }
 }
 
-async function upsertSummoner(entry: LeagueEntryDTO) {
-  await prisma.summoner.upsert({
+async function batchUpsertSummoners(entries: LeagueEntryDTO[]) {
+  const batchData = entries.map(entry => ({
     where: {
       summonerId_region: {
         summonerId: entry.summonerId,
@@ -127,7 +124,12 @@ async function upsertSummoner(entry: LeagueEntryDTO) {
       leaguePoints: entry.leaguePoints,
       rankUpdateTime: new Date(),
     },
-  });
+  }));
+
+  // Perform batch upsert
+  await prisma.$transaction(
+    batchData.map(data => prisma.summoner.upsert(data))
+  );
 }
 
 updateLadder();

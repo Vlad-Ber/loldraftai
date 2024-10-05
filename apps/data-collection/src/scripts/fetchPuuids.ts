@@ -29,11 +29,11 @@ const prisma = new PrismaClient();
 // Rate limiter settings based on the API rate limits
 const limiter = new Bottleneck({
   // Short-term limit: 30 requests every 10 seconds
-  minTime: 40, // 40ms between requests (25 requests per second)
+  minTime: 200, // 200ms between requests (5 requests per second)
 
   // Limit: 1600 requests every 1 minute
-  reservoir: 1600,
-  reservoirRefreshAmount: 1600,
+  reservoir: 500,
+  reservoirRefreshAmount: 500,
   reservoirRefreshInterval: 60 * 1000, // 1 minute
 
   // Adjust maxConcurrent based on your needs and system capabilities
