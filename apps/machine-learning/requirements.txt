@@ -13,7 +13,9 @@ ipykernel
 
 wandb
 
+fastapi
+
 uvicorn
 
 stable_baselines3
-gym
+gymnasium
