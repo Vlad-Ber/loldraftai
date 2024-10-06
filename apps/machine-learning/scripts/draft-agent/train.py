@@ -6,7 +6,7 @@ import requests
 from stable_baselines3 import PPO
 from stable_baselines3.common.vec_env import DummyVecEnv
 
-from utils import MODEL_CONFIG_PATH, get_best_device
+from utils import MODEL_CONFIG_PATH, get_best_device, DATA_DIR
 
 
 class LoLDraftEnv(gym.Env):
@@ -273,6 +273,7 @@ class LoLDraftEnv(gym.Env):
 
         # Reward is winrate_prediction for blue team
         reward = winrate_prediction
+        # TODO: reward should depend on agent's team
 
         return reward
 
@@ -368,15 +369,17 @@ device = get_best_device()
 model = PPO("MultiInputPolicy", env, verbose=1, device=device)
 
 # Train the agent
-model.learn(total_timesteps=100000)
+model.learn(total_timesteps=1000)
 
 # Save the trained model
-model.save("lol_draft_ppo")
+model.save(f"{DATA_DIR}/lol_draft_ppo")
 
 # Test the trained agent
 obs = env.reset()
 for _ in range(1000):
     action, _states = model.predict(obs, deterministic=True)
-    obs, reward, terminated, truncated, info = env.step(action)
-    if terminated or truncated:
+    
+    # dummy vec env returns a list of observations, rewards, dones, and infos not truncated/terminated
+    obs, reward, done, info = env.step(action)
+    if done:
         obs = env.reset()
