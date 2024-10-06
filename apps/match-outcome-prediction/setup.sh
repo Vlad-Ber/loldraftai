@@ -8,4 +8,7 @@ source .venv/bin/activate
 pip install -r requirements.txt
 
 # adds the project root to the python path, in any python 3 installation
-echo $PWD > $VIRTUAL_ENV/lib/python3*/site-packages/project.pth
+SITE_PACKAGES_DIR=$(find $VIRTUAL_ENV/lib -name site-packages)
+PROJECT_PTH="$SITE_PACKAGES_DIR/project.pth"
+mkdir -p "$(dirname "$PROJECT_PTH")"
+echo $PWD > "$PROJECT_PTH"

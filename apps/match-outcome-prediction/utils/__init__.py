@@ -22,6 +22,7 @@ TRAIN_DIR = os.path.join(DATA_DIR, "train")
 TEST_DIR = os.path.join(DATA_DIR, "test")
 ENCODERS_PATH = os.path.join(DATA_DIR, "label_encoders.pkl")
 MODEL_PATH = os.path.join(DATA_DIR, "match_outcome_model.pth")
+MODEL_CONFIG_PATH = os.path.join(DATA_DIR, "model_config.pkl")
 NUMERICAL_STATS_PATH = os.path.join(DATA_DIR, "numerical_feature_stats.pkl")
 TASK_STATS_PATH = os.path.join(DATA_DIR, "task_stats.pkl")
 

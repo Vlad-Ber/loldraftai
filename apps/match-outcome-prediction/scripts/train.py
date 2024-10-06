@@ -27,6 +27,7 @@ from utils import (
     TEST_DIR,
     ENCODERS_PATH,
     MODEL_PATH,
+    MODEL_CONFIG_PATH,
     TASK_STATS_PATH,
     TRAIN_BATCH_SIZE,
     NUMERICAL_STATS_PATH,
@@ -172,6 +173,18 @@ def train_model(run_name: str):
         dropout=0.1,
     )
 
+    # Create a dictionary with model parameters
+    model_params = {
+        "num_categories": num_categories,
+        "num_champions": num_champions,
+        "embed_dim": 32,
+        "dropout": 0.1,
+    }
+
+    # Save model config
+    with open(MODEL_CONFIG_PATH, "wb") as f:
+        pickle.dump(model_params, f)
+
     device = get_best_device()
     model.to(device)
     print(f"Using device: {device}")
@@ -196,7 +209,7 @@ def train_model(run_name: str):
     max_grad_norm = 1.0
 
     # Training loop
-    num_epochs = 35
+    num_epochs = 15
     for epoch in range(num_epochs):
         epoch_start_time = time.time()
 

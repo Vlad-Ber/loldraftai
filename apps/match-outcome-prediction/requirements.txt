@@ -13,4 +13,4 @@ ipykernel
 
 wandb
 
-ray[serve]
+uvicorn

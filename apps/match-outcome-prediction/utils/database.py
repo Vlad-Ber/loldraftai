@@ -19,15 +19,6 @@ from sqlalchemy.orm import sessionmaker
 from sqlalchemy.sql import func
 
 
-DATABASE_URL = os.getenv("DATABASE_URL")
-if not DATABASE_URL:
-    raise ValueError("DATABASE_URL is not set")
-
-# Create the SQLAlchemy engine
-engine = create_engine(DATABASE_URL, pool_pre_ping=True)
-
-# Create a configured "Session" class
-SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 # Base class for models
 Base = declarative_base()
@@ -101,6 +92,15 @@ class Match(Base):
 
 # Function to create a new session
 def get_session():
+    DATABASE_URL = os.getenv("DATABASE_URL")
+    if not DATABASE_URL:
+        raise ValueError("DATABASE_URL is not set")
+
+    # Create the SQLAlchemy engine
+    engine = create_engine(DATABASE_URL, pool_pre_ping=True)
+
+    # Create a configured "Session" class
+    SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
     return SessionLocal()
 
 
