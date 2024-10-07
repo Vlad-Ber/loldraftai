@@ -2,12 +2,12 @@ import pickle
 import gymnasium as gym
 from gymnasium import spaces
 import numpy as np
-import requests
 from stable_baselines3 import PPO
 from stable_baselines3.common.vec_env import DummyVecEnv
 
 from utils import MODEL_CONFIG_PATH, get_best_device, DATA_DIR
-
+from utils.rl.env import create_solo_queue_draft_order
+from utils.rl import fetch_blue_side_winrate_prediction
 
 class LoLDraftEnv(gym.Env):
     metadata = {"render_modes": []}
@@ -48,40 +48,9 @@ class LoLDraftEnv(gym.Env):
         )
 
         # Define the draft order for solo queue
-        self.draft_order = self._create_solo_queue_draft_order()
+        self.draft_order = create_solo_queue_draft_order()
         self.reset()
 
-    def _create_solo_queue_draft_order(self):
-        # Define the draft order as a list of dicts
-        draft_order = []
-        # Ban phase: 5 bans per team
-        for _ in range(5):
-            draft_order.append({"team": 0, "action_type": "ban"})  # Blue ban
-            draft_order.append({"team": 1, "action_type": "ban"})  # Red ban
-
-        # Pick phase
-        draft_order.append({"team": 0, "action_type": "pick"})  # Blue pick 1
-        draft_order.append({"team": 1, "action_type": "pick"})  # Red pick 1
-        draft_order.append({"team": 1, "action_type": "pick"})  # Red pick 2
-        draft_order.append({"team": 0, "action_type": "pick"})  # Blue pick 2
-        draft_order.append({"team": 0, "action_type": "pick"})  # Blue pick 3
-        draft_order.append({"team": 1, "action_type": "pick"})  # Red pick 3
-        draft_order.append({"team": 1, "action_type": "pick"})  # Red pick 4
-        draft_order.append({"team": 0, "action_type": "pick"})  # Blue pick 4
-        draft_order.append({"team": 0, "action_type": "pick"})  # Blue pick 5
-        draft_order.append({"team": 1, "action_type": "pick"})  # Red pick 5
-
-        # Role selection phase: 5 picks per team
-        for role_index in range(self.num_roles):
-            draft_order.append(
-                {"team": 0, "action_type": "role_selection", "role_index": role_index}
-            )
-        for role_index in range(self.num_roles):
-            draft_order.append(
-                {"team": 1, "action_type": "role_selection", "role_index": role_index}
-            )
-
-        return draft_order
 
     def reset(self, *, seed=None, options=None):
         super().reset(seed=seed)  # Reset the RNG if seed is provided
@@ -186,7 +155,7 @@ class LoLDraftEnv(gym.Env):
                 self.red_ordered_picks[role_index][action] = 1
         else:
             # Unknown action type
-            return False
+            raise ValueError(f"Unknown action type: {action_type}")
         return True
 
     def _update_state(self):
@@ -239,38 +208,17 @@ class LoLDraftEnv(gym.Env):
 
     def _calculate_reward(self):
         # Prepare input data for the external model
-        # Extract the champion IDs from the ordered picks
-        if np.sum(self.blue_ordered_picks) == 5:
-            # Use ordered picks
-            blue_picks = self.blue_ordered_picks
-        else:
-            blue_picks = self.blue_picks
-        if np.sum(self.red_ordered_picks) == 5:
-            red_picks = self.red_ordered_picks
-        else:
-            red_picks = self.red_picks
 
-        blue_pick_ids = np.argmax(blue_picks, axis=1)
-        red_pick_ids = np.argmax(red_picks, axis=1)
+        # Extract the champion IDs from the ordered picks
+        assert np.sum(self.blue_ordered_picks) == 5
+        assert np.sum(self.red_ordered_picks) == 5
+        blue_pick_ids = np.argmax(self.blue_ordered_picks, axis=1)
+        red_pick_ids = np.argmax(self.red_ordered_picks, axis=1)
 
         # For simplicity, assume that the champion IDs are the indices
         champion_ids = np.concatenate([blue_pick_ids, red_pick_ids])
 
-        input_data = {
-            "region": "EUW1",
-            "averageTier": "GRANDMASTER",
-            "averageDivision": "I",
-            # Champion IDs are blue picks from top to bot, then red picks from top to bot
-            "champion_ids": champion_ids.tolist(),  # list of 10 champion IDs
-            "gameVersionMajorPatch": 14,
-            "gameVersionMinorPatch": 18,
-        }
-
-        response = requests.post("http://localhost:8000/predict", json=input_data)
-        winrate_prediction = response.json()[
-            "win_probability"
-        ]  # blue side winrate prediction
-
+        winrate_prediction = fetch_blue_side_winrate_prediction(champion_ids)
         # Reward is winrate_prediction for blue team
         reward = winrate_prediction
         # TODO: reward should depend on agent's team
