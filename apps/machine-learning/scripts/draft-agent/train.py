@@ -260,6 +260,7 @@ class SelfPlayWrapper(gym.Wrapper):
             # It's opponent's turn again
             action_info = self.env.draft_order[self.env.current_step]
             current_team = action_info["team"]
+            phase = action_info["phase"]
             current_role_index = action_info.get("role_index", None)
             valid_actions = self._get_valid_actions(
                 current_team, phase, current_role_index
@@ -269,7 +270,10 @@ class SelfPlayWrapper(gym.Wrapper):
 
         if terminated or truncated:
             # Get final reward
-            reward = self.env._calculate_reward()
+            if self.env.current_step >= len(self.env.draft_order):
+                reward = self.env._calculate_reward()
+            else:
+                reward = 0 # terminated because of invalid action
 
         return observation, reward, terminated, truncated, info
 
@@ -291,7 +295,8 @@ class SelfPlayWrapper(gym.Wrapper):
             unassigned_champions = picks - ordered_picks
             valid_actions = np.where(np.sum(unassigned_champions, axis=0) == 1)[0]
         else:
-            valid_actions = []
+            # Should not happen
+            raise ValueError(f"State with no valid actions: {self.env.current_step}")
         return valid_actions
 
 
