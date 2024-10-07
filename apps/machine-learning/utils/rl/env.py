@@ -3,29 +3,29 @@ def create_solo_queue_draft_order():
     draft_order = []
     # Ban phase: 5 bans per team
     for _ in range(5):
-        draft_order.append({"team": 0, "action_type": "ban"})  # Blue ban
-        draft_order.append({"team": 1, "action_type": "ban"})  # Red ban
+        draft_order.append({"team": 0, "phase": 0})  # Blue ban
+        draft_order.append({"team": 1, "phase": 0})  # Red ban
 
     # Pick phase
-    draft_order.append({"team": 0, "action_type": "pick"})  # Blue pick 1
-    draft_order.append({"team": 1, "action_type": "pick"})  # Red pick 1
-    draft_order.append({"team": 1, "action_type": "pick"})  # Red pick 2
-    draft_order.append({"team": 0, "action_type": "pick"})  # Blue pick 2
-    draft_order.append({"team": 0, "action_type": "pick"})  # Blue pick 3
-    draft_order.append({"team": 1, "action_type": "pick"})  # Red pick 3
-    draft_order.append({"team": 1, "action_type": "pick"})  # Red pick 4
-    draft_order.append({"team": 0, "action_type": "pick"})  # Blue pick 4
-    draft_order.append({"team": 0, "action_type": "pick"})  # Blue pick 5
-    draft_order.append({"team": 1, "action_type": "pick"})  # Red pick 5
+    draft_order.append({"team": 0, "phase": 1})  # Blue pick 1
+    draft_order.append({"team": 1, "phase": 1})  # Red pick 1
+    draft_order.append({"team": 1, "phase": 1})  # Red pick 2
+    draft_order.append({"team": 0, "phase": 1})  # Blue pick 2
+    draft_order.append({"team": 0, "phase": 1})  # Blue pick 3
+    draft_order.append({"team": 1, "phase": 1})  # Red pick 3
+    draft_order.append({"team": 1, "phase": 1})  # Red pick 4
+    draft_order.append({"team": 0, "phase": 1})  # Blue pick 4
+    draft_order.append({"team": 0, "phase": 1})  # Blue pick 5
+    draft_order.append({"team": 1, "phase": 1})  # Red pick 5
 
     # Role selection phase: 5 picks per team
     for role_index in range(5):
         draft_order.append(
-            {"team": 0, "action_type": "role_selection", "role_index": role_index}
+            {"team": 0, "phase": 2, "role_index": role_index}
         )
     for role_index in range(5):
         draft_order.append(
-            {"team": 1, "action_type": "role_selection", "role_index": role_index}
+            {"team": 1, "phase": 2, "role_index": role_index}
         )
 
     return draft_order

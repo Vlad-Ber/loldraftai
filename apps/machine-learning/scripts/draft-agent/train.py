@@ -61,7 +61,6 @@ class LoLDraftEnv(gym.Env):
         self.red_picks = np.zeros((5, self.num_champions), dtype=np.int8)
         self.blue_ordered_picks = np.zeros((5, self.num_champions), dtype=np.int8)
         self.red_ordered_picks = np.zeros((5, self.num_champions), dtype=np.int8)
-        self.phase = 0  # Start with ban phase
         self.current_step = 0  # Index into self.draft_order
         self.done = False
         observation = self._get_obs()
@@ -75,7 +74,7 @@ class LoLDraftEnv(gym.Env):
         # Get current action info
         action_info = self.draft_order[self.current_step]
         current_team = action_info["team"]
-        action_type = action_info["action_type"]
+        phase = action_info["phase"]
         current_role_index = action_info.get("role_index", None)
 
         # Process the action (pick or ban)
@@ -162,16 +161,6 @@ class LoLDraftEnv(gym.Env):
         self.current_step += 1
         if self.current_step >= len(self.draft_order):
             self.done = True
-        else:
-            # Update phase if necessary
-            action_info = self.draft_order[self.current_step]
-            action_type = action_info["action_type"]
-            if action_type == "ban":
-                self.phase = 0
-            elif action_type == "pick":
-                self.phase = 1
-            elif action_type == "role_selection":
-                self.phase = 2
 
     def _get_obs(self):
         action_info = (
@@ -192,13 +181,14 @@ class LoLDraftEnv(gym.Env):
             blue_ordered_picks = np.zeros_like(self.blue_ordered_picks)
             red_ordered_picks = self.red_ordered_picks.copy()
 
+        phase = self.draft_order[self.current_step]["phase"]
         return {
             "available_champions": self.available_champions.copy(),
             "blue_picks": self.blue_picks.copy(),
             "red_picks": self.red_picks.copy(),
             "blue_ordered_picks": blue_ordered_picks,
             "red_ordered_picks": red_ordered_picks,
-            "phase": np.array([self.phase], dtype=np.int8),
+            "phase": np.array([phase], dtype=np.int8),
             "turn": np.array([current_turn], dtype=np.int8),
             "current_role": np.array([current_role_index], dtype=np.int8),
         }
