@@ -79,7 +79,7 @@ class LoLDraftEnv(gym.Env):
 
         # Process the action (pick or ban)
         valid = self._process_action(
-            action, action_type, current_team, current_role_index
+            action, phase, current_team, current_role_index
         )
         if not valid:
             # Invalid action, penalize
@@ -111,18 +111,16 @@ class LoLDraftEnv(gym.Env):
 
         return observation, reward, terminated, truncated, info
 
-    def _process_action(self, action, action_type, current_team, current_role_index):
-        # Check if action is valid
-        if action_type in ["ban", "pick"]:
+    def _process_action(self, action, phase, current_team, current_role_index):
+        if phase in [0, 1]:
             if self.available_champions[action] == 0:
-                # Invalid action
-                return False
+                return False # Invalid action
 
-        if action_type == "ban":
+        if phase == 0:
             # Ban the champion
             self.available_champions[action] = 0
 
-        elif action_type == "pick":
+        elif phase == 1:
             # Pick the champion
             self.available_champions[action] = 0
             if current_team == 0:
@@ -134,7 +132,7 @@ class LoLDraftEnv(gym.Env):
                 pick_index = np.where(np.sum(self.red_picks, axis=1) == 0)[0][0]
                 self.red_picks[pick_index][action] = 1
 
-        elif action_type == "role_selection":
+        elif phase == 2:
             # Role selection phase
             if current_team == 0:
                 # Blue team
@@ -154,7 +152,7 @@ class LoLDraftEnv(gym.Env):
                 self.red_ordered_picks[role_index][action] = 1
         else:
             # Unknown action type
-            raise ValueError(f"Unknown action type: {action_type}")
+            raise ValueError(f"Unknown phase: {phase}")
         return True
 
     def _update_state(self):
@@ -236,6 +234,7 @@ class SelfPlayWrapper(gym.Wrapper):
         # Get current action info
         action_info = self.env.draft_order[self.env.current_step]
         current_team = action_info["team"]
+        phase = action_info["phase"]
         current_role_index = action_info.get("role_index", None)
 
         # Check if it's the agent's turn (assume agent is blue team)
@@ -245,7 +244,7 @@ class SelfPlayWrapper(gym.Wrapper):
         else:
             # Opponent's turn, use random valid action
             valid_actions = self._get_valid_actions(
-                current_team, action_info["action_type"], current_role_index
+                current_team, phase, current_role_index
             )
             opponent_action = self.np_random.choice(valid_actions)
             observation, _, terminated, truncated, info = self.env.step(opponent_action)
@@ -263,7 +262,7 @@ class SelfPlayWrapper(gym.Wrapper):
             current_team = action_info["team"]
             current_role_index = action_info.get("role_index", None)
             valid_actions = self._get_valid_actions(
-                current_team, action_info["action_type"], current_role_index
+                current_team, phase, current_role_index
             )
             opponent_action = self.np_random.choice(valid_actions)
             observation, _, terminated, truncated, info = self.env.step(opponent_action)
@@ -274,14 +273,14 @@ class SelfPlayWrapper(gym.Wrapper):
 
         return observation, reward, terminated, truncated, info
 
-    def _get_valid_actions(self, team, action_type, current_role_index):
-        if action_type == "ban":
+    def _get_valid_actions(self, team, phase, current_role_index):
+        if phase == 0:
             # Valid actions are available champions
             valid_actions = np.where(self.env.available_champions == 1)[0]
-        elif action_type == "pick":
+        elif phase == 1:
             # Valid actions are available champions
             valid_actions = np.where(self.env.available_champions == 1)[0]
-        elif action_type == "role_selection":
+        elif phase == 2:
             # Valid actions are the champions picked by the team but not yet assigned to a role
             if team == 0:
                 picks = self.env.blue_picks
