@@ -232,18 +232,14 @@ class SelfPlayWrapper(gym.Wrapper):
     def step(self, action):
         # Get current action info
         action_info = self.env._get_action_info()
-        current_team = action_info["team"]
-        phase = action_info["phase"]
 
         # Check if it's the agent's turn (assume agent is blue team)
-        if current_team == 0:
+        if action_info["team"] == 0:
             # Agent's turn
             observation, reward, terminated, truncated, info = self.env.step(action)
         else:
             # Opponent's turn, use random valid action
-            valid_actions = self._get_valid_actions(
-                current_team, phase
-            )
+            valid_actions = self._get_valid_actions()
             opponent_action = self.np_random.choice(valid_actions)
             observation, _, terminated, truncated, info = self.env.step(opponent_action)
             reward = 0  # No reward for opponent's action
@@ -256,12 +252,7 @@ class SelfPlayWrapper(gym.Wrapper):
             and self.env.draft_order[self.env.current_step]["team"] != 0
         ):
             # It's opponent's turn again
-            action_info = self.env._get_action_info()
-            current_team = action_info["team"]
-            phase = action_info["phase"]
-            valid_actions = self._get_valid_actions(
-                current_team, phase
-            )
+            valid_actions = self._get_valid_actions()
             opponent_action = self.np_random.choice(valid_actions)
             observation, _, terminated, truncated, info = self.env.step(opponent_action)
 
@@ -274,7 +265,11 @@ class SelfPlayWrapper(gym.Wrapper):
 
         return observation, reward, terminated, truncated, info
 
-    def _get_valid_actions(self, team, phase):
+    def _get_valid_actions(self):
+        action_info = self.env._get_action_info()
+        team = action_info["team"]
+        phase = action_info["phase"]
+
         if phase == 0:
             # Valid actions are available champions
             valid_actions = np.where(self.env.available_champions == 1)[0]
