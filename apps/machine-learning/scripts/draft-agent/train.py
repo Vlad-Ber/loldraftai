@@ -235,7 +235,6 @@ class SelfPlayWrapper(gym.Wrapper):
         action_info = self.env.draft_order[self.env.current_step]
         current_team = action_info["team"]
         phase = action_info["phase"]
-        current_role_index = action_info.get("role_index", None)
 
         # Check if it's the agent's turn (assume agent is blue team)
         if current_team == 0:
@@ -244,7 +243,7 @@ class SelfPlayWrapper(gym.Wrapper):
         else:
             # Opponent's turn, use random valid action
             valid_actions = self._get_valid_actions(
-                current_team, phase, current_role_index
+                current_team, phase
             )
             opponent_action = self.np_random.choice(valid_actions)
             observation, _, terminated, truncated, info = self.env.step(opponent_action)
@@ -261,9 +260,8 @@ class SelfPlayWrapper(gym.Wrapper):
             action_info = self.env.draft_order[self.env.current_step]
             current_team = action_info["team"]
             phase = action_info["phase"]
-            current_role_index = action_info.get("role_index", None)
             valid_actions = self._get_valid_actions(
-                current_team, phase, current_role_index
+                current_team, phase
             )
             opponent_action = self.np_random.choice(valid_actions)
             observation, _, terminated, truncated, info = self.env.step(opponent_action)
@@ -277,7 +275,7 @@ class SelfPlayWrapper(gym.Wrapper):
 
         return observation, reward, terminated, truncated, info
 
-    def _get_valid_actions(self, team, phase, current_role_index):
+    def _get_valid_actions(self, team, phase):
         if phase == 0:
             # Valid actions are available champions
             valid_actions = np.where(self.env.available_champions == 1)[0]
