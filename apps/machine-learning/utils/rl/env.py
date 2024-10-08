@@ -6,6 +6,13 @@ import numpy as np
 from utils.rl import fetch_blue_side_winrate_prediction
 from utils import MODEL_CONFIG_PATH
 
+# TODO: should just restrict match prediction to consecutive ids, to avoid having to filter ids that go to 900.
+VALID_CHAMPION_IDS = [
+    1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20,
+    21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40,
+    41, 42, 43, 44, 45, 48, 50, 51, 53, 54, 55
+] 
+
 def create_solo_queue_draft_order():
     # Define the draft order as a list of dicts
     draft_order = []
@@ -82,10 +89,14 @@ class LoLDraftEnv(gym.Env):
             }
         )
 
+        # TODO: delete after fixing match prediction
+        # Create a mask for valid champion IDs
+        self.valid_champion_mask = np.zeros(self.num_champions, dtype=np.int8)
+        self.valid_champion_mask[VALID_CHAMPION_IDS] = 1
+
         self.reset()
 
     def reset(self, *, seed=None, options=None):
-        print("Reset called")
         super().reset(seed=seed)  # Reset the RNG if seed is provided
 
         # Reset the draft state
@@ -113,7 +124,7 @@ class LoLDraftEnv(gym.Env):
             action_mask = np.sum(unassigned_champions, axis=0)
         else:
             raise ValueError(f"Unknown phase: {phase}")
-        return action_mask
+        return action_mask * self.valid_champion_mask # TODO: delete after fixing match prediction
 
     def step(self, action):
         if self.done:

@@ -20,21 +20,7 @@ device = get_best_device()
 model = MaskablePPO("MultiInputPolicy", env, verbose=1, device=device)
 
 # Train the agent
-model.learn(total_timesteps=100)
+model.learn(total_timesteps=10000, progress_bar=True)
 
 # Save the trained model
 model.save(f"{DATA_DIR}/lol_draft_ppo")
-
-# Test the trained agent
-obs = env.reset()
-for _ in range(1000):
-    # Get the action mask
-    action_masks = get_action_masks(env)
-
-    # Use the action_masks when predicting the action
-    action, _states = model.predict(obs, action_masks=action_masks, deterministic=True)
-
-    # dummy vec env returns a list of observations, rewards, dones, and infos not truncated/terminated
-    obs, reward, done, info = env.step(action)
-    if done:
-        obs = env.reset()

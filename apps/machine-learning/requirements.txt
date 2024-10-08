@@ -18,5 +18,7 @@ fastapi
 uvicorn
 
 stable_baselines3
+tqdm
+rich
 sb3_contrib
 gymnasium
