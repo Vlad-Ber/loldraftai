@@ -112,48 +112,36 @@ class LoLDraftEnv(gym.Env):
         return observation, reward, terminated, truncated, info
 
     def _process_action(self, action, phase, current_team, current_role_index):
-        if phase in [0, 1]:
-            if self.available_champions[action] == 0:
-                return False # Invalid action
+        if phase in [0, 1] and self.available_champions[action] == 0:
+            return False  # Invalid action
 
         if phase == 0:
-            # Ban the champion
-            self.available_champions[action] = 0
-
+            self._ban_champion(action)
         elif phase == 1:
-            # Pick the champion
-            self.available_champions[action] = 0
-            if current_team == 0:
-                # Blue team pick
-                pick_index = np.where(np.sum(self.blue_picks, axis=1) == 0)[0][0]
-                self.blue_picks[pick_index][action] = 1
-            else:
-                # Red team pick
-                pick_index = np.where(np.sum(self.red_picks, axis=1) == 0)[0][0]
-                self.red_picks[pick_index][action] = 1
-
+            self._pick_champion(action, current_team)
         elif phase == 2:
-            # Role selection phase
-            if current_team == 0:
-                # Blue team
-                unassigned_champions = self.blue_picks - self.blue_ordered_picks
-                if unassigned_champions[:, action].sum() == 0:
-                    # Invalid action (champion not in picks or already assigned)
-                    return False
-                role_index = current_role_index
-                self.blue_ordered_picks[role_index][action] = 1
-            else:
-                # Red team
-                unassigned_champions = self.red_picks - self.red_ordered_picks
-                if unassigned_champions[:, action].sum() == 0:
-                    # Invalid action
-                    return False
-                role_index = current_role_index
-                self.red_ordered_picks[role_index][action] = 1
+            return self._assign_role(action, current_team, current_role_index)
         else:
-            # Unknown action type
             raise ValueError(f"Unknown phase: {phase}")
-        return True
+
+    def _ban_champion(self, action):
+        self.available_champions[action] = 0
+
+    def _pick_champion(self, action, current_team):
+        self.available_champions[action] = 0
+        picks, _ = self._get_team_picks(current_team)
+        pick_index = np.where(np.sum(picks, axis=1) == 0)[0][0]
+        picks[pick_index][action] = 1
+
+    def _assign_role(self, action, current_team, current_role_index):
+        picks, ordered_picks = self._get_team_picks(current_team)
+        unassigned_champions = picks - ordered_picks
+        if unassigned_champions[:, action].sum() == 0:
+            return False  # Invalid action (champion not in picks or already assigned)
+        ordered_picks[current_role_index][action] = 1
+
+    def _get_team_picks(self, current_team):
+        return (self.blue_picks, self.blue_ordered_picks) if current_team == 0 else (self.red_picks, self.red_ordered_picks)
 
     def _update_state(self):
         self.current_step += 1
