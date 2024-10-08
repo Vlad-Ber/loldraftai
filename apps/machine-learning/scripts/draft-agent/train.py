@@ -2,12 +2,15 @@ import pickle
 import gymnasium as gym
 from gymnasium import spaces
 import numpy as np
-from stable_baselines3 import PPO
+from sb3_contrib import MaskablePPO
 from stable_baselines3.common.vec_env import DummyVecEnv
+from sb3_contrib.common.wrappers import ActionMasker
+from sb3_contrib.common.maskable.utils import get_action_masks
 
 from utils import MODEL_CONFIG_PATH, get_best_device, DATA_DIR
 from utils.rl.env import create_solo_queue_draft_order
 from utils.rl import fetch_blue_side_winrate_prediction
+
 
 class LoLDraftEnv(gym.Env):
     metadata = {"render_modes": []}
@@ -22,6 +25,9 @@ class LoLDraftEnv(gym.Env):
         self.action_space = spaces.Discrete(self.num_champions)
         self.roles = ["TOP", "JUNGLE", "MID", "BOT", "UTILITY"]
         self.num_roles = len(self.roles)
+        # Define the draft order for solo queue
+        self.draft_order = create_solo_queue_draft_order()
+
         self.observation_space = spaces.Dict(
             {
                 "available_champions": spaces.Box(
@@ -44,13 +50,13 @@ class LoLDraftEnv(gym.Env):
                 "current_role": spaces.Discrete(
                     self.num_roles
                 ),  # Role index during role selection
+                "action_mask": spaces.Box(
+                    0, 1, shape=(self.num_champions,), dtype=np.int8
+                ),
             }
         )
 
-        # Define the draft order for solo queue
-        self.draft_order = create_solo_queue_draft_order()
         self.reset()
-
 
     def reset(self, *, seed=None, options=None):
         super().reset(seed=seed)  # Reset the RNG if seed is provided
@@ -67,6 +73,21 @@ class LoLDraftEnv(gym.Env):
         info = {}
         return observation, info
 
+    def get_action_mask(self):
+        action_info = self._get_action_info()
+        team = action_info["team"]
+        phase = action_info["phase"]
+
+        if phase in [0, 1]:  # Ban or pick phase
+            action_mask = self.available_champions.copy()
+        elif phase == 2:  # Role selection phase
+            picks, ordered_picks = self._get_team_picks(team)
+            unassigned_champions = picks - ordered_picks
+            action_mask = np.sum(unassigned_champions, axis=0)
+        else:
+            raise ValueError(f"Unknown phase: {phase}")
+        return action_mask
+
     def step(self, action):
         if self.done:
             raise Exception("Cannot call step() on a done environment")
@@ -78,18 +99,13 @@ class LoLDraftEnv(gym.Env):
         current_role_index = action_info.get("role_index", None)
 
         # Process the action (pick or ban)
-        valid = self._process_action(
-            action, phase, current_team, current_role_index
-        )
+        valid = self._process_action(action, phase, current_team, current_role_index)
         if not valid:
-            # Invalid action, penalize
-            reward = -1  # Penalty for invalid action
-            terminated = True
-            truncated = False
-            info = {"reason": "invalid_action"}
-            observation = self._get_obs()
-            self.done = True
-            return observation, reward, terminated, truncated, info
+            print(f"Invalid action: {action}")
+            print(f"Available champions: {self.available_champions}")
+            print(f"Blue picks: {self.blue_picks}")
+            print(f"Red picks: {self.red_picks}")
+            raise Exception("Invalid action")
 
         # Update the game state
         self._update_state()
@@ -113,6 +129,7 @@ class LoLDraftEnv(gym.Env):
 
     def _process_action(self, action, phase, current_team, current_role_index):
         if phase in [0, 1] and self.available_champions[action] == 0:
+            print(f"Champion {action} is not available")
             return False  # Invalid action
 
         if phase == 0:
@@ -123,6 +140,8 @@ class LoLDraftEnv(gym.Env):
             return self._assign_role(action, current_team, current_role_index)
         else:
             raise ValueError(f"Unknown phase: {phase}")
+
+        return True
 
     def _ban_champion(self, action):
         self.available_champions[action] = 0
@@ -137,19 +156,28 @@ class LoLDraftEnv(gym.Env):
         picks, ordered_picks = self._get_team_picks(current_team)
         unassigned_champions = picks - ordered_picks
         if unassigned_champions[:, action].sum() == 0:
+            print(
+                f"Invalid action: Champion {action} is not in picks or already assigned"
+            )
             return False  # Invalid action (champion not in picks or already assigned)
         ordered_picks[current_role_index][action] = 1
+        return True
 
     def _get_team_picks(self, current_team):
-        return (self.blue_picks, self.blue_ordered_picks) if current_team == 0 else (self.red_picks, self.red_ordered_picks)
+        return (
+            (self.blue_picks, self.blue_ordered_picks)
+            if current_team == 0
+            else (self.red_picks, self.red_ordered_picks)
+        )
 
     def _update_state(self):
         self.current_step += 1
         if self.current_step >= len(self.draft_order):
             self.done = True
-    
+
     def _get_action_info(self):
-        return self.draft_order[self.current_step]
+        # we allow a final observation
+        return self.draft_order[min(self.current_step, len(self.draft_order) - 1)]
 
     def _get_obs(self):
         action_info = self._get_action_info()
@@ -166,7 +194,7 @@ class LoLDraftEnv(gym.Env):
             blue_ordered_picks = np.zeros_like(self.blue_ordered_picks)
             red_ordered_picks = self.red_ordered_picks.copy()
 
-        phase = self.draft_order[self.current_step]["phase"]
+        phase = action_info["phase"]
         return {
             "available_champions": self.available_champions.copy(),
             "blue_picks": self.blue_picks.copy(),
@@ -176,6 +204,7 @@ class LoLDraftEnv(gym.Env):
             "phase": np.array([phase], dtype=np.int8),
             "turn": np.array([current_turn], dtype=np.int8),
             "current_role": np.array([current_role_index], dtype=np.int8),
+            "action_mask": self.get_action_mask(),
         }
 
     def _is_draft_complete(self):
@@ -212,11 +241,6 @@ class SelfPlayWrapper(gym.Wrapper):
     def __init__(self, env):
         super().__init__(env)
 
-    def reset(self, *, seed=None, options=None):
-        # Pass seed and options to the underlying environment
-        observation, info = self.env.reset(seed=seed, options=options)
-        return observation, info
-
     def step(self, action):
         # Get current action info
         action_info = self.env._get_action_info()
@@ -224,6 +248,10 @@ class SelfPlayWrapper(gym.Wrapper):
         # Check if it's the agent's turn (assume agent is blue team)
         if action_info["team"] == 0:
             # Agent's turn
+            valid_actions = self._get_valid_actions()
+            if action not in valid_actions:
+                # shouldn't happen with action mask
+                raise Exception(f"Invalid action {action} selected by agent!")
             observation, reward, terminated, truncated, info = self.env.step(action)
         else:
             # Opponent's turn, use random valid action
@@ -249,49 +277,35 @@ class SelfPlayWrapper(gym.Wrapper):
             if self.env.current_step >= len(self.env.draft_order):
                 reward = self.env._calculate_reward()
             else:
-                reward = 0 # terminated because of invalid action
+                reward = 0  # terminated because of invalid action
 
         return observation, reward, terminated, truncated, info
 
     def _get_valid_actions(self):
-        action_info = self.env._get_action_info()
-        team = action_info["team"]
-        phase = action_info["phase"]
+        action_mask = self.env.get_action_mask()
+        return np.where(action_mask == 1)[0]
+    
+    def get_action_masks(self):
+        return self.env.get_action_mask()
 
-        if phase == 0:
-            # Valid actions are available champions
-            valid_actions = np.where(self.env.available_champions == 1)[0]
-        elif phase == 1:
-            # Valid actions are available champions
-            valid_actions = np.where(self.env.available_champions == 1)[0]
-        elif phase == 2:
-            # Valid actions are the champions picked by the team but not yet assigned to a role
-            if team == 0:
-                picks = self.env.blue_picks
-                ordered_picks = self.env.blue_ordered_picks
-            else:
-                picks = self.env.red_picks
-                ordered_picks = self.env.red_ordered_picks
-            unassigned_champions = picks - ordered_picks
-            valid_actions = np.where(np.sum(unassigned_champions, axis=0) == 1)[0]
-        else:
-            # Should not happen
-            raise ValueError(f"State with no valid actions: {self.env.current_step}")
-        return valid_actions
+
+def action_mask_fn(env):
+    return env.get_action_mask()
 
 
 # Create and wrap the environment
 env = LoLDraftEnv()
 env = SelfPlayWrapper(env)
+env = ActionMasker(env, action_mask_fn)
 env = DummyVecEnv([lambda: env])
 
 device = get_best_device()
 
 # Initialize the agent
-model = PPO("MultiInputPolicy", env, verbose=1, device=device)
+model = MaskablePPO("MultiInputPolicy", env, verbose=1, device=device)
 
 # Train the agent
-model.learn(total_timesteps=1000)
+model.learn(total_timesteps=100)
 
 # Save the trained model
 model.save(f"{DATA_DIR}/lol_draft_ppo")
@@ -299,8 +313,12 @@ model.save(f"{DATA_DIR}/lol_draft_ppo")
 # Test the trained agent
 obs = env.reset()
 for _ in range(1000):
-    action, _states = model.predict(obs, deterministic=True)
+    # Get the action mask
+    action_masks = get_action_masks(env)
     
+    # Use the action_masks when predicting the action
+    action, _states = model.predict(obs, action_masks=action_masks, deterministic=True)
+
     # dummy vec env returns a list of observations, rewards, dones, and infos not truncated/terminated
     obs, reward, done, info = env.step(action)
     if done:
