@@ -15,9 +15,14 @@ def get_best_device():
         device = torch.device("cpu")
     return device
 
-
 DATABASE_URL = os.getenv("DATABASE_URL")
-DATA_DIR = "./data/"
+
+# Get the directory of the current file (__init__.py)
+current_file_dir = os.path.dirname(os.path.abspath(__file__))
+# Go up one level to the 'machine-learning' directory
+machine_learning_dir = os.path.dirname(current_file_dir)
+
+DATA_DIR = os.path.join(machine_learning_dir, "data")
 TRAIN_DIR = os.path.join(DATA_DIR, "train")
 TEST_DIR = os.path.join(DATA_DIR, "test")
 ENCODERS_PATH = os.path.join(DATA_DIR, "label_encoders.pkl")
