@@ -2,16 +2,12 @@ import pickle
 import gymnasium as gym
 from gymnasium import spaces
 import numpy as np
+from typing import List, Dict
 
 from utils.rl import fetch_blue_side_winrate_prediction
 from utils import MODEL_CONFIG_PATH
+from utils.rl.champions import VALID_CHAMPION_IDS, ROLE_CHAMPIONS
 
-# TODO: should just restrict match prediction to consecutive ids, to avoid having to filter ids that go to 900.
-VALID_CHAMPION_IDS = [
-    1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20,
-    21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40,
-    41, 42, 43, 44, 45, 48, 50, 51, 53, 54, 55
-] 
 
 def create_solo_queue_draft_order():
     # Define the draft order as a list of dicts
@@ -35,15 +31,12 @@ def create_solo_queue_draft_order():
 
     # Role selection phase: 5 picks per team
     for role_index in range(5):
-        draft_order.append(
-            {"team": 0, "phase": 2, "role_index": role_index}
-        )
+        draft_order.append({"team": 0, "phase": 2, "role_index": role_index})
     for role_index in range(5):
-        draft_order.append(
-            {"team": 1, "phase": 2, "role_index": role_index}
-        )
+        draft_order.append({"team": 1, "phase": 2, "role_index": role_index})
 
     return draft_order
+
 
 class LoLDraftEnv(gym.Env):
     metadata = {"render_modes": []}
@@ -124,7 +117,9 @@ class LoLDraftEnv(gym.Env):
             action_mask = np.sum(unassigned_champions, axis=0)
         else:
             raise ValueError(f"Unknown phase: {phase}")
-        return action_mask * self.valid_champion_mask # TODO: delete after fixing match prediction
+        return (
+            action_mask * self.valid_champion_mask
+        )  # TODO: delete after fixing match prediction
 
     def step(self, action):
         if self.done:
@@ -278,53 +273,70 @@ class LoLDraftEnv(gym.Env):
 class SelfPlayWrapper(gym.Wrapper):
     def __init__(self, env):
         super().__init__(env)
+        self.opponent_picks = []
 
     def step(self, action):
-        # Get current action info
         action_info = self.env._get_action_info()
 
-        # Check if it's the agent's turn (assume agent is blue team)
-        if action_info["team"] == 0:
-            # Agent's turn
-            valid_actions = self._get_valid_actions()
-            if action not in valid_actions:
-                # shouldn't happen with action mask
-                raise Exception(f"Invalid action {action} selected by agent!")
+        if action_info["team"] == 0:  # Agent's turn
             observation, reward, terminated, truncated, info = self.env.step(action)
-        else:
-            # Opponent's turn, use random valid action
-            valid_actions = self._get_valid_actions()
-            opponent_action = self.np_random.choice(valid_actions)
+        else:  # Opponent's turn
+            opponent_action = self._get_opponent_action(action_info)
             observation, _, terminated, truncated, info = self.env.step(opponent_action)
-            reward = 0  # No reward for opponent's action
+            reward = 0
 
-        # After opponent's turn, if it's not done, check if it's agent's turn again
         while (
             not terminated
             and not truncated
             and self.env.current_step < len(self.env.draft_order)
             and self.env.draft_order[self.env.current_step]["team"] != 0
         ):
-            # It's opponent's turn again
-            valid_actions = self._get_valid_actions()
-            opponent_action = self.np_random.choice(valid_actions)
+            action_info = self.env._get_action_info()
+            opponent_action = self._get_opponent_action(action_info)
             observation, _, terminated, truncated, info = self.env.step(opponent_action)
 
         if terminated or truncated:
-            # Get final reward
-            if self.env.current_step >= len(self.env.draft_order):
-                reward = self.env._calculate_reward()
-            else:
-                reward = 0  # terminated because of invalid action
+            reward = (
+                self.env._calculate_reward()
+                if self.env.current_step >= len(self.env.draft_order)
+                else 0
+            )
 
         return observation, reward, terminated, truncated, info
 
-    def _get_valid_actions(self):
+    def _get_opponent_action(self, action_info: Dict) -> int:
+        phase = action_info["phase"]
         action_mask = self.env.get_action_mask()
-        return np.where(action_mask == 1)[0]
-    
-    def get_action_masks(self):
-        return self.env.get_action_mask()
+        valid_actions = np.where(action_mask == 1)[0]
+
+        if phase == 0:  # Ban phase
+            return self.np_random.choice(valid_actions)
+        elif phase == 1:  # Pick phase
+            return self._get_role_based_pick(valid_actions)
+        elif phase == 2:  # Role selection phase
+            return self._get_role_selection(action_info["role_index"], valid_actions)
+
+    def _get_role_based_pick(self, valid_actions: List[int]) -> int:
+        current_role = len(self.opponent_picks)
+        role_champions = set(ROLE_CHAMPIONS[current_role])
+        valid_role_champions = list(role_champions.intersection(valid_actions))
+
+        if valid_role_champions:
+            pick = self.np_random.choice(valid_role_champions)
+        else:
+            pick = self.np_random.choice(valid_actions)
+
+        self.opponent_picks.append(pick)
+        return pick
+
+    def _get_role_selection(self, role_index: int, valid_actions: List[int]) -> int:
+        if role_index < len(self.opponent_picks):
+            return self.opponent_picks[role_index]
+        return self.np_random.choice(valid_actions)
+
+    def reset(self, **kwargs):
+        self.opponent_picks = []
+        return super().reset(**kwargs)
 
 
 def action_mask_fn(env):
