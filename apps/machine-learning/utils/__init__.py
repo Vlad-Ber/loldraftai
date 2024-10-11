@@ -31,6 +31,7 @@ MODEL_CONFIG_PATH = os.path.join(DATA_DIR, "model_config.pkl")
 NUMERICAL_STATS_PATH = os.path.join(DATA_DIR, "numerical_feature_stats.pkl")
 TASK_STATS_PATH = os.path.join(DATA_DIR, "task_stats.pkl")
 
+CHAMPION_FEATURES_PATH = os.path.join(DATA_DIR, "champion_features.pkl")
 
 # Batch sizes
 TRAIN_BATCH_SIZE = 2048 #2048 #512  # Used during training

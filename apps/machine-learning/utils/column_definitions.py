@@ -60,6 +60,9 @@ COLUMNS: Dict[str, ColumnDefinition] = {
         ColumnType.CATEGORICAL, extract_average_division
     ),
     "champion_ids": ColumnDefinition(ColumnType.LIST, extract_champion_ids),
+    "champion_role_percentages": ColumnDefinition(
+        ColumnType.LIST, lambda match: None
+    ),  # This will be filled by the MatchDataset
     "gameVersionMajorPatch": ColumnDefinition(
         ColumnType.NUMERICAL, extract_game_version_major_patch
     ),

@@ -3,12 +3,13 @@ import os
 import glob
 import torch
 import random
+import pickle
 from torch.utils.data import IterableDataset
 import pyarrow.parquet as pq
 import numpy as np
 
 from utils.column_definitions import COLUMNS, ColumnType
-from utils import PARQUET_READER_BATCH_SIZE
+from utils import PARQUET_READER_BATCH_SIZE, CHAMPION_FEATURES_PATH
 from utils.task_definitions import TASKS, TaskType
 
 
@@ -30,6 +31,10 @@ class MatchDataset(IterableDataset):
         # Shuffle the data files
         random.seed(42)  # For reproducibility
         random.shuffle(self.data_files)
+
+        # Load champion features
+        with open(CHAMPION_FEATURES_PATH, "rb") as f:
+            self.champion_features = pickle.load(f)
 
     def _count_total_samples(self):
         total = 0
@@ -87,6 +92,26 @@ class MatchDataset(IterableDataset):
                                 for ch_id, m in zip(x, mask[: len(x)])
                             ]
                         )
+                    # Add champion role percentages
+                    df_chunk["champion_role_percentages"] = df_chunk[col].apply(
+                        lambda x: [
+                            [
+                                self.champion_features.get(ch_id, {}).get(role, 0)
+                                for role in [
+                                    "TOP",
+                                    "JUNGLE",
+                                    "MIDDLE",
+                                    "BOTTOM",
+                                    "UTILITY",
+                                ]
+                            ]
+                            for ch_id in x
+                        ]
+                    )
+                    df_chunk["champion_role_percentages"] = df_chunk[
+                        "champion_role_percentages"
+                    ].apply(lambda x: torch.tensor(x, dtype=torch.float))
+
                     df_chunk[col] = df_chunk[col].apply(
                         lambda x: torch.tensor(x, dtype=torch.long)
                     )

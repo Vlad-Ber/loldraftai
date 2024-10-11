@@ -59,6 +59,8 @@ class MatchOutcomeModel(nn.Module):
             len(self.context_numerical_features), embed_dim
         )
 
+        self.role_percentage_proj = nn.Linear(5, embed_dim)  # 5 roles
+
         # Fully connected layers
         self.fc = nn.Sequential(
             nn.Linear(embed_dim, 128),
@@ -134,6 +136,14 @@ class MatchOutcomeModel(nn.Module):
             features["champion_ids"]
         )  # [batch_size, num_champions, embed_dim]
 
+        # Process champion role percentages
+        role_percentages = features[
+            "champion_role_percentages"
+        ]  # [batch_size, num_champions, 5]
+        role_percentage_embeds = self.role_percentage_proj(
+            role_percentages
+        )  # [batch_size, num_champions, embed_dim]
+
         # Embed positions
         position_indices = (
             torch.arange(num_champions, device=device)
@@ -151,7 +161,10 @@ class MatchOutcomeModel(nn.Module):
 
         # Sum champion, position, and context embeddings
         champion_inputs = (
-            champion_embeds + position_embeds + context_vector_expanded
+            champion_embeds
+            + position_embeds
+            + context_vector_expanded
+            + role_percentage_embeds
         )  # [batch_size, num_champions, embed_dim]
 
         # Pass through transformer encoder
