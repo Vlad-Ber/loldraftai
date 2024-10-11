@@ -33,8 +33,15 @@ TASK_STATS_PATH = os.path.join(DATA_DIR, "task_stats.pkl")
 
 CHAMPION_FEATURES_PATH = os.path.join(DATA_DIR, "champion_features.pkl")
 
+DEVICE = get_best_device()
+
 # Batch sizes
-TRAIN_BATCH_SIZE = 2048 #2048 #512  # Used during training
+if DEVICE.type == "mps":
+    TRAIN_BATCH_SIZE = 2048  # 2048 #512  # Used during training
+else:
+    # cuda/runpod config
+    TRAIN_BATCH_SIZE = 4096  # Used during training
+
 # Data batch size could probably be higher
 DATA_EXTRACTION_BATCH_SIZE = 512 * 4  # Used during data extraction from the database
 PARQUET_READER_BATCH_SIZE = 512 * 4  # Used when reading data from Parquet files

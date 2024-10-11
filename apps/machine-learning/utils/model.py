@@ -73,10 +73,7 @@ class MatchOutcomeModel(nn.Module):
         self.output_layers = nn.ModuleDict()
         for task_name, task_def in TASKS.items():
             if task_def.task_type == TaskType.BINARY_CLASSIFICATION:
-                self.output_layers[task_name] = nn.Sequential(
-                    nn.Linear(128, 1),
-                    nn.Sigmoid(),
-                )
+                self.output_layers[task_name] = nn.Linear(128, 1)  # Remove Sigmoid, needed for BCEWithLogitsLoss(which is needed for autocast)
             elif task_def.task_type == TaskType.REGRESSION:
                 self.output_layers[task_name] = nn.Linear(128, 1)
 

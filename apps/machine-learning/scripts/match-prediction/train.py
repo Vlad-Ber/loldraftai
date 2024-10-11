@@ -7,6 +7,8 @@ import cProfile
 import pstats
 import io
 from pstats import SortKey
+import contextlib
+from typing import ContextManager, Any
 
 import torch
 import torch.optim as optim
@@ -41,8 +43,25 @@ from utils.column_definitions import (
 )
 from utils.task_definitions import TASKS, TaskType
 
-DATALOADER_WORKERS = 1  # Fastest with 1 or 2 might be because of mps performance cores
-PREFETCH_FACTOR = 1
+@contextlib.contextmanager
+def cuda_only(context_manager: ContextManager[Any]):
+    if torch.cuda.is_available():
+        with context_manager:
+            yield
+    else:
+        yield
+
+
+device = get_best_device()
+print(f"Using device: {device}")
+
+if device.type == 'mps':
+    DATALOADER_WORKERS = 1  # Fastest with 1 or 2 might be because of mps performance cores
+    PREFETCH_FACTOR = 1
+else:
+    # cuda/runpod config
+    DATALOADER_WORKERS = 6 # has 8vcpu, can probably use at least 6
+    PREFETCH_FACTOR = 2
 
 MASK_CHAMPIONS = 0.1
 
@@ -120,7 +139,8 @@ def train_model(run_name: str):
         wandb.init(project="draftking", name=run_name)
 
     # Determine the maximum champion ID
-    max_champion_id = get_max_champion_id()
+    # max_champion_id = get_max_champion_id() # TODO: remove this. SUPER SLOW!!!
+    max_champion_id = 950 # naafiri, hardcoded until get_max_champion_id is optimized
     unknown_champion_id = max_champion_id + 1
     num_champions = unknown_champion_id + 1  # Total number of embeddings
 
@@ -148,6 +168,7 @@ def train_model(run_name: str):
         num_workers=DATALOADER_WORKERS,
         collate_fn=collate_fn,
         prefetch_factor=PREFETCH_FACTOR,  # Prefetch next batch while current batch is being processed
+        pin_memory=True,
     )
     test_loader = DataLoader(
         test_dataset,
@@ -155,6 +176,7 @@ def train_model(run_name: str):
         num_workers=DATALOADER_WORKERS,
         collate_fn=collate_fn,
         prefetch_factor=PREFETCH_FACTOR,  # Prefetch next batch while current batch is being processed
+        pin_memory=True,
     )
 
     # Determine the number of unique categories from label encoders
@@ -185,11 +207,11 @@ def train_model(run_name: str):
     with open(MODEL_CONFIG_PATH, "wb") as f:
         pickle.dump(model_params, f)
 
-    device = get_best_device()
     model.to(device)
-    print(f"Using device: {device}")
     if device != torch.device("mps"):
+        print("Compiling model")
         model = torch.compile(model)
+        print("Model compiled")
 
     if LOG_WANDB:
         wandb.watch(model, log_freq=1000) # increased from 100
@@ -198,7 +220,7 @@ def train_model(run_name: str):
     criterion = {}
     for task_name, task_def in TASKS.items():
         if task_def.task_type == TaskType.BINARY_CLASSIFICATION:
-            criterion[task_name] = nn.BCELoss()
+            criterion[task_name] = nn.BCEWithLogitsLoss()
         elif task_def.task_type == TaskType.REGRESSION:
             criterion[task_name] = nn.MSELoss()
         elif task_def.task_type == TaskType.MULTICLASS_CLASSIFICATION:
@@ -224,18 +246,18 @@ def train_model(run_name: str):
 
             optimizer.zero_grad()
             # only works with CUDA
-            # with torch.autocast(device_type=str(device), dtype=torch.bfloat16):
-            outputs = model(features)
+            with cuda_only(torch.autocast(device_type=str(device), dtype=torch.bfloat16)):
+                outputs = model(features)
 
-            total_loss = 0.0
-            loss_dict = {}
-            for task_name, task_def in TASKS.items():
-                task_output = outputs[task_name]
-                task_label = labels[task_name]
-                task_loss = criterion[task_name](task_output, task_label)
-                weighted_loss = task_def.weight * task_loss
-                total_loss += weighted_loss
-                loss_dict[task_name] = task_loss.item()
+                total_loss = 0.0
+                loss_dict = {}
+                for task_name, task_def in TASKS.items():
+                    task_output = outputs[task_name]
+                    task_label = labels[task_name]
+                    task_loss = criterion[task_name](task_output, task_label)
+                    weighted_loss = task_def.weight * task_loss
+                    total_loss += weighted_loss
+                    loss_dict[task_name] = task_loss.item()
 
             total_loss.backward()
             grad_norm = clip_grad_norm_(model.parameters(), max_grad_norm)
@@ -293,7 +315,9 @@ def train_model(run_name: str):
                     task_label = labels[task_name]
 
                     if task_def.task_type == TaskType.BINARY_CLASSIFICATION:
-                        preds = (task_output >= 0.5).float()
+                        # Apply sigmoid to get probabilities(sigmoid was removed from model, because autocast requires BCEWithLogitsLoss)
+                        probs = torch.sigmoid(task_output)
+                        preds = (probs >= 0.5).float()
                         correct = (preds == task_label).float().sum()
                         metric_accumulators[task_name][0] += correct
                         metric_accumulators[task_name][1] += batch_size

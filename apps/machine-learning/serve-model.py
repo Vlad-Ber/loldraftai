@@ -135,7 +135,7 @@ async def model_inference_worker():
         with torch.no_grad():
             output = model(batched_input)
 
-        win_probabilities = output["win_prediction"].cpu().numpy().tolist()
+        win_probabilities = torch.sigmoid(output["win_prediction"]).cpu().numpy().tolist()
         # Set the results for each request
         for i, r in enumerate(requests):
             r["future"].set_result({"win_probability": win_probabilities[i]})
