@@ -7,8 +7,8 @@ def fetch_blue_side_winrate_prediction(champion_ids: np.ndarray):
     """
     input_data = {
         "region": "EUW1",
-        "averageTier": "GRANDMASTER",
-        "averageDivision": "I",
+        "averageTier": "DIAMOND",
+        "averageDivision": "II",
         # Champion IDs are blue picks from top to bot, then red picks from top to bot
         "champion_ids": champion_ids.tolist(),  # list of 10 champion IDs
         "gameVersionMajorPatch": 14,

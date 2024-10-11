@@ -34,5 +34,6 @@ TASK_STATS_PATH = os.path.join(DATA_DIR, "task_stats.pkl")
 
 # Batch sizes
 TRAIN_BATCH_SIZE = 2048 #2048 #512  # Used during training
+# Data batch size could probably be higher
 DATA_EXTRACTION_BATCH_SIZE = 512 * 4  # Used during data extraction from the database
 PARQUET_READER_BATCH_SIZE = 512 * 4  # Used when reading data from Parquet files

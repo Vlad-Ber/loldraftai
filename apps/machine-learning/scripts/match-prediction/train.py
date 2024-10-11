@@ -192,7 +192,7 @@ def train_model(run_name: str):
         model = torch.compile(model)
 
     if LOG_WANDB:
-        wandb.watch(model, log_freq=100)
+        wandb.watch(model, log_freq=1000) # increased from 100
 
     # Initialize loss functions for each task
     criterion = {}
@@ -209,7 +209,7 @@ def train_model(run_name: str):
     max_grad_norm = 1.0
 
     # Training loop
-    num_epochs = 15
+    num_epochs = 20
     for epoch in range(num_epochs):
         epoch_start_time = time.time()
 

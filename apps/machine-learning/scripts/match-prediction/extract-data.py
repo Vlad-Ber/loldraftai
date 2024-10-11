@@ -123,6 +123,7 @@ def extract_and_save_batches():
 
     # Process and save data batches
     batch_num = 0
+    # TODO: Split io/cpu intensive tasks
     for matches in tqdm(batch_query(session), desc="Processing and saving batches"):
         data = []
         for match in matches:
@@ -130,7 +131,9 @@ def extract_and_save_batches():
             features = extract_features(match, label_encoders)
             if features:
                 data.append(features)
-        if data:
+        if (
+            data and len(data) >= DATA_EXTRACTION_BATCH_SIZE
+        ):  # skip last batch, if not full
             df = pd.DataFrame(data)
             # Shuffle the data before splitting
             df = df.sample(frac=1, random_state=42).reset_index(drop=True)
@@ -167,6 +170,8 @@ def extract_and_save_batches():
             df_train.to_parquet(train_file, index=False)
             df_test.to_parquet(test_file, index=False)
             batch_num += 1
+        if len(data) < DATA_EXTRACTION_BATCH_SIZE:
+            print(f"Skipping batch, only {len(data)} samples")
 
     session.close()
 
