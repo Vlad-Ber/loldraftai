@@ -189,10 +189,16 @@ if __name__ == "__main__":
     }
     num_champions = 200
 
+    embed_dim = 64
+    num_heads = 8
+    num_transformer_layers = 2
+
     model = MatchOutcomeModel(
         num_categories=num_categories,
         num_champions=num_champions,
-        embed_dim=32,
+        embed_dim=embed_dim,
+        num_heads=num_heads,
+        num_transformer_layers=num_transformer_layers,
         dropout=0,
     )
     # Print model architecture

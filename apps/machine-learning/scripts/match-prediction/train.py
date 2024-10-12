@@ -42,7 +42,7 @@ from utils.task_definitions import TASKS, TaskType
 # Enable cuDNN auto-tuner, source https://x.com/karpathy/status/1299921324333170689/photo/1
 torch.backends.cudnn.benchmark = True
 
-CALCULATE_VAL_LOSS = False
+CALCULATE_VAL_LOSS = True
 CALCULATE_VAL_WIN_PREDICTION_ONLY = True
 
 device = get_best_device()
@@ -218,7 +218,8 @@ def train_model(run_name: str):
             criterion[task_name] = nn.CrossEntropyLoss()
 
     # TODO: could remove weight decay from bias and normalization layers
-    optimizer = optim.AdamW(model.parameters(), lr=1e-3, weight_decay=0.001, fused=True)
+    # weight decay didn't change much when training for a short time at 0.001, but for longer trianing runs, 0.01 might be better
+    optimizer = optim.AdamW(model.parameters(), lr=1e-3, weight_decay=0.01, fused=True)
     max_grad_norm = 1.0
 
     # Before the training loop, create these tensors:
@@ -227,14 +228,17 @@ def train_model(run_name: str):
     )
     task_names = list(TASKS.keys())
 
+    accumulation_steps = 1
     # Training loop
-    num_epochs = 20
+    num_epochs = 60
     for epoch in range(num_epochs):
         epoch_start_time = time.time()
 
         model.train()
         epoch_loss = 0.0
         epoch_steps = 0
+        optimizer.zero_grad()  # Moved outside for accumulation
+
         for batch_idx, (features, labels) in enumerate(train_loader):
 
             # Move all features to the device
@@ -256,6 +260,8 @@ def train_model(run_name: str):
 
                 # Weighted sum of losses
                 total_loss = (losses * task_weights).sum()
+                # Normalize the loss to account for accumulation steps
+                total_loss = total_loss / accumulation_steps
 
                 # For logging purposes
                 loss_dict = {
@@ -271,17 +277,33 @@ def train_model(run_name: str):
             epoch_loss += total_loss.item()
             epoch_steps += 1
 
-            # Logging
-            if (batch_idx + 1) % 20 == 0 and LOG_WANDB:
-                log_data = {
-                    "epoch": epoch + 1,
-                    "batch": batch_idx + 1,
-                    "grad_norm": grad_norm,
-                }
-                log_data.update({f"train_loss_{k}": v for k, v in loss_dict.items()})
-                wandb.log(log_data)
+            # Perform optimization step every accumulation_steps
+            if (batch_idx + 1) % accumulation_steps == 0:
+                grad_norm = clip_grad_norm_(model.parameters(), max_grad_norm)
+                optimizer.step()
+                optimizer.zero_grad()
 
-            avg_loss = epoch_loss / epoch_steps
+                # Logging
+                if ((batch_idx + 1) // accumulation_steps) % 20 == 0 and LOG_WANDB:
+                    log_data = {
+                        "epoch": epoch + 1,
+                        "batch": (batch_idx + 1) // accumulation_steps,
+                        "grad_norm": grad_norm,
+                    }
+                    log_data.update(
+                        {f"train_loss_{k}": v for k, v in loss_dict.items()}
+                    )
+                    wandb.log(log_data)
+
+        # Perform any remaining optimization step
+        if (batch_idx + 1) % accumulation_steps != 0:
+            grad_norm = clip_grad_norm_(model.parameters(), max_grad_norm)
+            optimizer.step()
+            optimizer.zero_grad()
+
+        avg_loss = (
+            epoch_loss / epoch_steps * accumulation_steps
+        )  # multiplied to have an easier comparison with different number of accumulation steps
 
         print(f"Epoch [{epoch+1}/{num_epochs}], Average Loss: {avg_loss:.4f}")
         if LOG_WANDB:
