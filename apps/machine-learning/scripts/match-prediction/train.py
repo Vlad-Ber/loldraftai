@@ -171,11 +171,16 @@ def train_model(run_name: str):
         col: len(label_encoders[col].classes_) for col in CATEGORICAL_COLUMNS
     }
 
+    embed_dim = 64
+    num_heads = 8
+    num_transformer_layers = 2
     # Initialize the model
     model = MatchOutcomeModel(
         num_categories=num_categories,
         num_champions=num_champions,
-        embed_dim=32,
+        embed_dim=embed_dim,
+        num_heads=num_heads,
+        num_transformer_layers=num_transformer_layers,
         dropout=0.1,
     )
 
@@ -183,7 +188,9 @@ def train_model(run_name: str):
     model_params = {
         "num_categories": num_categories,
         "num_champions": num_champions,
-        "embed_dim": 32,
+        "embed_dim": embed_dim,
+        "num_heads": num_heads,
+        "num_transformer_layers": num_transformer_layers,
         "dropout": 0.1,
     }
 
