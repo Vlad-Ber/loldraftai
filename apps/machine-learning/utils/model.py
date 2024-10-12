@@ -97,7 +97,6 @@ class MatchOutcomeModel(nn.Module):
 
         return outputs
 
-    @torch.jit.script
     def compute_context_vector(self, features):
         """
         Computes the context vector by embedding categorical and numerical context features.
@@ -125,7 +124,6 @@ class MatchOutcomeModel(nn.Module):
 
         return context_vector
 
-    @torch.jit.script
     def process_champion_embeddings(self, features, context_vector):
         """
         Processes champion embeddings by adding position embeddings and context vector,

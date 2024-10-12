@@ -93,7 +93,6 @@ def extract_team_stats(match: Match, team_id: str, stat: str, timestamp: str):
         return None  # Data missing for this match
 
 
-"""
 # Define tasks
 TASKS = {
     "win_prediction": TaskDefinition(
@@ -173,3 +172,5 @@ for timestamp in TIMESTAMPS:
                 ),
                 weight=0.1 / (len(TIMESTAMPS) * len(TEAM_STATS) * len(TEAMS)),
             )
+
+"""
