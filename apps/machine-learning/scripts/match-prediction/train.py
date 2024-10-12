@@ -218,7 +218,7 @@ def train_model(run_name: str):
             criterion[task_name] = nn.CrossEntropyLoss()
 
     # TODO: could remove weight decay from bias and normalization layers
-    optimizer = optim.AdamW(model.parameters(), lr=1e-3, weight_decay=0.01, fused=True)
+    optimizer = optim.AdamW(model.parameters(), lr=1e-3, weight_decay=0.001, fused=True)
     max_grad_norm = 1.0
 
     # Before the training loop, create these tensors:
