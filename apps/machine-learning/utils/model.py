@@ -63,7 +63,9 @@ class MatchOutcomeModel(nn.Module):
 
         # Fully connected layers
         self.fc = nn.Sequential(
-            nn.Linear(embed_dim, 128),
+            nn.Linear(
+                embed_dim, 128, bias=False
+            ),  # bias false because before batchnorm
             nn.BatchNorm1d(128),
             nn.GELU(),
             nn.Dropout(dropout),
@@ -73,7 +75,9 @@ class MatchOutcomeModel(nn.Module):
         self.output_layers = nn.ModuleDict()
         for task_name, task_def in TASKS.items():
             if task_def.task_type == TaskType.BINARY_CLASSIFICATION:
-                self.output_layers[task_name] = nn.Linear(128, 1)  # Remove Sigmoid, needed for BCEWithLogitsLoss(which is needed for autocast)
+                self.output_layers[task_name] = nn.Linear(
+                    128, 1
+                )  # Remove Sigmoid, needed for BCEWithLogitsLoss(which is needed for autocast)
             elif task_def.task_type == TaskType.REGRESSION:
                 self.output_layers[task_name] = nn.Linear(128, 1)
 
@@ -93,6 +97,7 @@ class MatchOutcomeModel(nn.Module):
 
         return outputs
 
+    @torch.jit.script
     def compute_context_vector(self, features):
         """
         Computes the context vector by embedding categorical and numerical context features.
@@ -120,6 +125,7 @@ class MatchOutcomeModel(nn.Module):
 
         return context_vector
 
+    @torch.jit.script
     def process_champion_embeddings(self, features, context_vector):
         """
         Processes champion embeddings by adding position embeddings and context vector,

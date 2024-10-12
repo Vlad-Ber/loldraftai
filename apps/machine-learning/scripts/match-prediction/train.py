@@ -1,4 +1,5 @@
 # scripts/train.py
+import multiprocessing
 import os
 import pickle
 import glob
@@ -38,6 +39,9 @@ from utils.column_definitions import (
 )
 from utils.task_definitions import TASKS, TaskType
 
+# Enable cuDNN auto-tuner, source https://x.com/karpathy/status/1299921324333170689/photo/1
+torch.backends.cudnn.benchmark = True
+
 CALCULATE_VAL_LOSS = False
 CALCULATE_VAL_WIN_PREDICTION_ONLY = True
 
@@ -51,7 +55,9 @@ if device.type == "mps":
     PREFETCH_FACTOR = 1
 else:
     # cuda/runpod config
-    DATALOADER_WORKERS = 6  # has 8vcpu, can probably use at least 6
+    # programmaticaly determined optimal value
+    num_cpus = multiprocessing.cpu_count()
+    DATALOADER_WORKERS = max(1, min(num_cpus - 1, 8))  # Use at most 8 workers
     PREFETCH_FACTOR = 2
 
 MASK_CHAMPIONS = 0.1
@@ -205,7 +211,7 @@ def train_model(run_name: str):
             criterion[task_name] = nn.CrossEntropyLoss()
 
     # TODO: could remove weight decay from bias and normalization layers
-    optimizer = optim.AdamW(model.parameters(), lr=1e-3, weight_decay=0.01)
+    optimizer = optim.AdamW(model.parameters(), lr=1e-3, weight_decay=0.01, fused=True)
     max_grad_norm = 1.0
 
     # Before the training loop, create these tensors:
@@ -291,19 +297,21 @@ def train_model(run_name: str):
                 }
                 labels = {k: v.to(device, non_blocking=True) for k, v in labels.items()}
 
-                outputs = model(features)
-                # Vectorized loss calculation
-                if CALCULATE_VAL_LOSS:
-                    losses = torch.stack(
-                        [
-                            criterion[task_name](outputs[task_name], labels[task_name])
-                            for task_name in task_names
-                        ]
-                    )
-
-                    # Weighted sum of losses
-                    weighted_losses = losses * task_weights
-                    total_loss += weighted_losses.sum()
+                with torch.autocast(device_type="cuda", dtype=torch.bfloat16):
+                    outputs = model(features)
+                    # Vectorized loss calculation
+                    if CALCULATE_VAL_LOSS:
+                        losses = torch.stack(
+                            [
+                                criterion[task_name](
+                                    outputs[task_name], labels[task_name]
+                                )
+                                for task_name in task_names
+                            ]
+                        )
+                        # Weighted sum of losses
+                        weighted_losses = losses * task_weights
+                        total_loss += weighted_losses.sum()
 
                 batch_size = next(iter(labels.values())).size(0)
                 num_samples += batch_size
