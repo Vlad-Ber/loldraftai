@@ -7,8 +7,6 @@ import cProfile
 import pstats
 import io
 from pstats import SortKey
-import contextlib
-from typing import ContextManager, Any
 
 import torch
 import torch.optim as optim
@@ -30,37 +28,30 @@ from utils import (
     ENCODERS_PATH,
     MODEL_PATH,
     MODEL_CONFIG_PATH,
-    TASK_STATS_PATH,
     TRAIN_BATCH_SIZE,
-    NUMERICAL_STATS_PATH,
     DATA_DIR,
 )
 from utils.column_definitions import (
     COLUMNS,
     CATEGORICAL_COLUMNS,
-    NUMERICAL_COLUMNS,
     ColumnType,
 )
 from utils.task_definitions import TASKS, TaskType
 
-@contextlib.contextmanager
-def cuda_only(context_manager: ContextManager[Any]):
-    if get_best_device().type == 'cuda':
-        with context_manager:
-            yield
-    else:
-        yield
-
+CALCULATE_VAL_LOSS = False
+CALCULATE_VAL_WIN_PREDICTION_ONLY = True
 
 device = get_best_device()
 print(f"Using device: {device}")
 
-if device.type == 'mps':
-    DATALOADER_WORKERS = 1  # Fastest with 1 or 2 might be because of mps performance cores
+if device.type == "mps":
+    DATALOADER_WORKERS = (
+        1  # Fastest with 1 or 2 might be because of mps performance cores
+    )
     PREFETCH_FACTOR = 1
 else:
     # cuda/runpod config
-    DATALOADER_WORKERS = 6 # has 8vcpu, can probably use at least 6
+    DATALOADER_WORKERS = 6  # has 8vcpu, can probably use at least 6
     PREFETCH_FACTOR = 2
 
 MASK_CHAMPIONS = 0.1
@@ -81,12 +72,6 @@ def set_random_seeds(seed=42):
 
 
 def collate_fn(batch):
-    with open(NUMERICAL_STATS_PATH, "rb") as f:
-        stats = pickle.load(f)
-
-    means = stats["means"]
-    stds = stats["stds"]
-
     collated = {col: [] for col in COLUMNS}
     collated_labels = {task: [] for task in TASKS}
 
@@ -102,9 +87,7 @@ def collate_fn(batch):
         elif col_def.column_type == ColumnType.CATEGORICAL:
             collated[col] = torch.tensor(collated[col], dtype=torch.long)
         elif col_def.column_type == ColumnType.NUMERICAL:
-            values = torch.tensor(collated[col], dtype=torch.float)
-            mean, std = means[col], max(stds[col], 1.0)
-            collated[col] = (values - mean) / std
+            collated[col] = torch.tensor(collated[col], dtype=torch.float)
 
     for task_name, task_def in TASKS.items():
         dtype = (
@@ -140,25 +123,20 @@ def train_model(run_name: str):
 
     # Determine the maximum champion ID
     # max_champion_id = get_max_champion_id() # TODO: remove this. SUPER SLOW!!!
-    max_champion_id = 950 # naafiri, hardcoded until get_max_champion_id is optimized
+    max_champion_id = 950  # naafiri, hardcoded until get_max_champion_id is optimized
     unknown_champion_id = max_champion_id + 1
     num_champions = unknown_champion_id + 1  # Total number of embeddings
 
-    # Load task statistics
-    with open(TASK_STATS_PATH, "rb") as f:
-        task_stats = pickle.load(f)
     # Initialize the datasets with masking parameters
     train_dataset = MatchDataset(
-        data_dir=TRAIN_DIR,
         mask_champions=MASK_CHAMPIONS,
         unknown_champion_id=unknown_champion_id,
-        task_stats=task_stats,
+        train_or_test="train",
     )
     test_dataset = MatchDataset(
-        data_dir=TEST_DIR,
         mask_champions=MASK_CHAMPIONS,
         unknown_champion_id=unknown_champion_id,
-        task_stats=task_stats,
+        train_or_test="test",
     )
 
     # Initialize the DataLoaders
@@ -214,7 +192,7 @@ def train_model(run_name: str):
         print("Model compiled")
 
     if LOG_WANDB:
-        wandb.watch(model, log_freq=1000) # increased from 100
+        wandb.watch(model, log_freq=1000)  # increased from 100
 
     # Initialize loss functions for each task
     criterion = {}
@@ -229,6 +207,12 @@ def train_model(run_name: str):
     # TODO: could remove weight decay from bias and normalization layers
     optimizer = optim.AdamW(model.parameters(), lr=1e-3, weight_decay=0.01)
     max_grad_norm = 1.0
+
+    # Before the training loop, create these tensors:
+    task_weights = torch.tensor(
+        [task_def.weight for task_def in TASKS.values()], device=device
+    )
+    task_names = list(TASKS.keys())
 
     # Training loop
     num_epochs = 20
@@ -245,21 +229,29 @@ def train_model(run_name: str):
             labels = {k: v.to(device, non_blocking=True) for k, v in labels.items()}
 
             optimizer.zero_grad()
-            # only works with CUDA
-            with cuda_only(torch.autocast(device_type='cuda', dtype=torch.bfloat16)):
+            # only works with CUDA, will be automatically disabled for non-CUDA devices
+            with torch.autocast(device_type="cuda", dtype=torch.bfloat16):
                 outputs = model(features)
 
-                total_loss = 0.0
-                loss_dict = {}
-                for task_name, task_def in TASKS.items():
-                    task_output = outputs[task_name]
-                    task_label = labels[task_name]
-                    task_loss = criterion[task_name](task_output, task_label)
-                    weighted_loss = task_def.weight * task_loss
-                    total_loss += weighted_loss
-                    loss_dict[task_name] = task_loss.item()
+                # Vectorized loss calculation
+                losses = torch.stack(
+                    [
+                        criterion[task_name](outputs[task_name], labels[task_name])
+                        for task_name in task_names
+                    ]
+                )
+
+                # Weighted sum of losses
+                total_loss = (losses * task_weights).sum()
+
+                # For logging purposes
+                loss_dict = {
+                    task_name: loss.item()
+                    for task_name, loss in zip(task_names, losses)
+                }
 
             total_loss.backward()
+
             grad_norm = clip_grad_norm_(model.parameters(), max_grad_norm)
             optimizer.step()
 
@@ -300,17 +292,28 @@ def train_model(run_name: str):
                 labels = {k: v.to(device, non_blocking=True) for k, v in labels.items()}
 
                 outputs = model(features)
-                for task_name, task_def in TASKS.items():
-                    task_output = outputs[task_name]
-                    task_label = labels[task_name]
-                    task_loss = criterion[task_name](task_output, task_label)
-                    weighted_loss = task_def.weight * task_loss
-                    total_loss += weighted_loss
+                # Vectorized loss calculation
+                if CALCULATE_VAL_LOSS:
+                    losses = torch.stack(
+                        [
+                            criterion[task_name](outputs[task_name], labels[task_name])
+                            for task_name in task_names
+                        ]
+                    )
+
+                    # Weighted sum of losses
+                    weighted_losses = losses * task_weights
+                    total_loss += weighted_losses.sum()
 
                 batch_size = next(iter(labels.values())).size(0)
                 num_samples += batch_size
 
                 for task_name, task_def in TASKS.items():
+                    if (
+                        CALCULATE_VAL_WIN_PREDICTION_ONLY
+                        and task_name != "win_prediction"
+                    ):
+                        continue
                     task_output = outputs[task_name]
                     task_label = labels[task_name]
 
@@ -328,10 +331,10 @@ def train_model(run_name: str):
                         metric_accumulators[task_name][0] += mse
                         metric_accumulators[task_name][1] += batch_size
 
-        avg_loss = total_loss / total_steps
-        print(f"Average validation loss: {avg_loss:.4f}")
-        if LOG_WANDB:
-            wandb.log({"avg_val_loss": avg_loss})
+        if CALCULATE_VAL_LOSS:
+            avg_loss = total_loss / total_steps
+            if LOG_WANDB:
+                wandb.log({"avg_val_loss": avg_loss})
 
         # Calculate final metrics
         metrics = {}
@@ -342,6 +345,8 @@ def train_model(run_name: str):
                 metrics[task_name] = (accumulator[0] / accumulator[1]).item()
         # Log evaluation metrics
         for task_name, metric_value in metrics.items():
+            if CALCULATE_VAL_WIN_PREDICTION_ONLY and task_name != "win_prediction":
+                continue
             if LOG_WANDB:
                 wandb.log({f"val_{task_name}_metric": metric_value})
 

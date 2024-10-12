@@ -1,11 +1,10 @@
 import os
 import pickle
 from collections import defaultdict
-import numpy as np
 import pyarrow.parquet as pq
 from tqdm import tqdm
 
-from utils import TRAIN_DIR, TEST_DIR, CHAMPION_FEATURES_PATH
+from utils import NORMALIZED_DATA_DIR, CHAMPION_FEATURES_PATH
 
 
 def calculate_champion_role_percentages():
@@ -13,19 +12,20 @@ def calculate_champion_role_percentages():
     total_champion_counts = defaultdict(int)
 
     # Process both train and test directories
-    for data_dir in [TRAIN_DIR, TEST_DIR]:
-        for file in tqdm(os.listdir(data_dir), desc=f"Processing {data_dir}"):
-            if file.endswith(".parquet"):
-                file_path = os.path.join(data_dir, file)
-                table = pq.read_table(file_path)
-                df = table.to_pandas()
+    for file in tqdm(
+        os.listdir(NORMALIZED_DATA_DIR), desc="Processing champion role percentages"
+    ):
+        if file.endswith(".parquet"):
+            file_path = os.path.join(NORMALIZED_DATA_DIR, file)
+            table = pq.read_table(file_path)
+            df = table.to_pandas()
 
-                for _, row in df.iterrows():
-                    champion_ids = row["champion_ids"]
-                    for i, champion_id in enumerate(champion_ids):
-                        role = ["TOP", "JUNGLE", "MIDDLE", "BOTTOM", "UTILITY"][i % 5]
-                        champion_role_counts[champion_id][role] += 1
-                        total_champion_counts[champion_id] += 1
+            for _, row in df.iterrows():
+                champion_ids = row["champion_ids"]
+                for i, champion_id in enumerate(champion_ids):
+                    role = ["TOP", "JUNGLE", "MIDDLE", "BOTTOM", "UTILITY"][i % 5]
+                    champion_role_counts[champion_id][role] += 1
+                    total_champion_counts[champion_id] += 1
 
     # Calculate percentages
     champion_role_percentages = {}
@@ -44,7 +44,6 @@ def calculate_champion_role_percentages():
     with open(CHAMPION_FEATURES_PATH, "wb") as f:
         pickle.dump(champion_role_percentages, f)
 
-    print(champion_role_percentages)
     print(f"Champion role percentages saved to {CHAMPION_FEATURES_PATH}")
 
 

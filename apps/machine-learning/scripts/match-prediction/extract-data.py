@@ -1,4 +1,3 @@
-# scripts/extract-data.py
 import os
 import pickle
 from collections import defaultdict
@@ -11,12 +10,9 @@ from sqlalchemy import distinct
 from tqdm import tqdm
 import numpy as np
 from utils import (
-    TRAIN_DIR,
-    TEST_DIR,
+    RAW_DATA_DIR,
     ENCODERS_PATH,
     DATA_EXTRACTION_BATCH_SIZE,
-    NUMERICAL_STATS_PATH,
-    TASK_STATS_PATH,
 )
 from utils.database import Match, get_session
 from utils.column_definitions import (
@@ -26,17 +22,15 @@ from utils.column_definitions import (
     extract_raw_features,
     ColumnType,
 )
-from utils.task_definitions import TASKS, TaskType
-
+from utils.task_definitions import TASKS
 
 # Define positions
 POSITIONS = ["TOP", "JUNGLE", "MIDDLE", "BOTTOM", "UTILITY"]
 
 TEST_SIZE = 0.2  # 20% for testing
 
-# Ensure data directories exist
-os.makedirs(TRAIN_DIR, exist_ok=True)
-os.makedirs(TEST_DIR, exist_ok=True)
+# Ensure data directory exists
+os.makedirs(RAW_DATA_DIR, exist_ok=True)
 
 
 def batch_query(session, batch_size=DATA_EXTRACTION_BATCH_SIZE):
@@ -98,10 +92,8 @@ def extract_and_save_batches():
     session = get_session()
 
     # Clean up previous data
-    shutil.rmtree(TRAIN_DIR, ignore_errors=True)
-    shutil.rmtree(TEST_DIR, ignore_errors=True)
-    os.makedirs(TRAIN_DIR, exist_ok=True)
-    os.makedirs(TEST_DIR, exist_ok=True)
+    shutil.rmtree(RAW_DATA_DIR, ignore_errors=True)
+    os.makedirs(RAW_DATA_DIR, exist_ok=True)
 
     # Create and fit label encoders
     label_encoders = create_label_encoders(session)
@@ -111,19 +103,8 @@ def extract_and_save_batches():
         pickle.dump(label_encoders, f)
     print(f"Saved label encoders to {ENCODERS_PATH}")
 
-    # Initialize variables for numerical feature normalization
-    numerical_sums = {col: 0.0 for col in NUMERICAL_COLUMNS}
-    numerical_sumsq = {col: 0.0 for col in NUMERICAL_COLUMNS}
-    total_count = 0
-
-    # Add variables to compute stats for task labels (e.g., game duration)
-    task_sums = defaultdict(float)
-    task_sumsq = defaultdict(float)
-    task_counts = defaultdict(int)
-
     # Process and save data batches
     batch_num = 0
-    # TODO: Split io/cpu intensive tasks
     for matches in tqdm(batch_query(session), desc="Processing and saving batches"):
         data = []
         for match in matches:
@@ -143,30 +124,9 @@ def extract_and_save_batches():
                 df, test_size=TEST_SIZE, random_state=42
             )
 
-            # Update numerical sums and sums of squares using training data
-            for col in NUMERICAL_COLUMNS:
-                col_values = df_train[col].values
-                numerical_sums[col] += col_values.sum()
-                numerical_sumsq[col] += (col_values**2).sum()
-
-            # Update task label sums and sums of squares
-            for task_name, task_def in TASKS.items():
-                if task_def.task_type == TaskType.REGRESSION:
-                    task_values = df_train[task_name].values
-                    task_values = np.array(task_values)
-                    if task_name not in task_sums:
-                        task_sums[task_name] = 0.0
-                        task_sumsq[task_name] = 0.0
-                        task_counts[task_name] = 0
-                    task_sums[task_name] += task_values.sum()
-                    task_sumsq[task_name] += (task_values**2).sum()
-                    task_counts[task_name] += len(task_values)
-
-            total_count += len(df_train)
-
             # Save to Parquet
-            train_file = os.path.join(TRAIN_DIR, f"train_batch_{batch_num}.parquet")
-            test_file = os.path.join(TEST_DIR, f"test_batch_{batch_num}.parquet")
+            train_file = os.path.join(RAW_DATA_DIR, f"train_{batch_num}.parquet")
+            test_file = os.path.join(RAW_DATA_DIR, f"test_{batch_num}.parquet")
             df_train.to_parquet(train_file, index=False)
             df_test.to_parquet(test_file, index=False)
             batch_num += 1
@@ -174,36 +134,6 @@ def extract_and_save_batches():
             print(f"Skipping batch, only {len(data)} samples")
 
     session.close()
-
-    # Compute mean and std for numerical features
-    numerical_means = {}
-    numerical_stds = {}
-    for col in NUMERICAL_COLUMNS:
-        mean = numerical_sums[col] / total_count
-        variance = (numerical_sumsq[col] / total_count) - (mean**2)
-        std = np.sqrt(variance)
-        numerical_means[col] = mean
-        numerical_stds[col] = std
-
-    # Compute mean and std for regression task labels
-    task_means = {}
-    task_stds = {}
-    for task_name in task_sums.keys():
-        mean = task_sums[task_name] / task_counts[task_name]
-        variance = (task_sumsq[task_name] / task_counts[task_name]) - (mean**2)
-        std = np.sqrt(variance)
-        task_means[task_name] = mean
-        task_stds[task_name] = std
-
-    # Save numerical feature stats
-    with open(NUMERICAL_STATS_PATH, "wb") as f:
-        pickle.dump({"means": numerical_means, "stds": numerical_stds}, f)
-    print(f"Saved numerical feature stats to {NUMERICAL_STATS_PATH}")
-
-    # Save task statistics
-    with open(TASK_STATS_PATH, "wb") as f:
-        pickle.dump({"means": task_means, "stds": task_stds}, f)
-    print(f"Saved task stats to {TASK_STATS_PATH}")
 
 
 def extract_features(match: Match, label_encoders: dict):
