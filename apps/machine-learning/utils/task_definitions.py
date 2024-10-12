@@ -99,6 +99,16 @@ TASKS = {
         name="win_prediction",
         task_type=TaskType.BINARY_CLASSIFICATION,
         extractor=extract_win_label,
+        weight=1,
+    ),
+}
+
+"""
+TASKS = {
+    "win_prediction": TaskDefinition(
+        name="win_prediction",
+        task_type=TaskType.BINARY_CLASSIFICATION,
+        extractor=extract_win_label,
         weight=0.8,
     ),
     "game_duration": TaskDefinition(
@@ -162,3 +172,4 @@ for timestamp in TIMESTAMPS:
                 ),
                 weight=0.1 / (len(TIMESTAMPS) * len(TEAM_STATS) * len(TEAMS)),
             )
+"""

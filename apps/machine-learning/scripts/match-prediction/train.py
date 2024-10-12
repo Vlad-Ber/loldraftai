@@ -45,7 +45,7 @@ from utils.task_definitions import TASKS, TaskType
 
 @contextlib.contextmanager
 def cuda_only(context_manager: ContextManager[Any]):
-    if torch.cuda.is_available():
+    if get_best_device().type == 'cuda':
         with context_manager:
             yield
     else:
@@ -246,7 +246,7 @@ def train_model(run_name: str):
 
             optimizer.zero_grad()
             # only works with CUDA
-            with cuda_only(torch.autocast(device_type=str(device), dtype=torch.bfloat16)):
+            with cuda_only(torch.autocast(device_type='cuda', dtype=torch.bfloat16)):
                 outputs = model(features)
 
                 total_loss = 0.0
