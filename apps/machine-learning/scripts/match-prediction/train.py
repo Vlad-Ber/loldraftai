@@ -1,8 +1,9 @@
 # scripts/train.py
 import multiprocessing
+import signal
 import os
 import pickle
-import glob
+import datetime
 import time
 import cProfile
 import pstats
@@ -16,7 +17,6 @@ from torch.nn.utils import clip_grad_norm_
 
 import wandb
 from torch.utils.data import DataLoader
-import pyarrow.parquet as pq
 import argparse
 
 
@@ -24,8 +24,6 @@ from utils.match_dataset import MatchDataset
 from utils.model import MatchOutcomeModel
 from utils import (
     get_best_device,
-    TRAIN_DIR,
-    TEST_DIR,
     ENCODERS_PATH,
     MODEL_PATH,
     MODEL_CONFIG_PATH,
@@ -68,6 +66,29 @@ torch.set_float32_matmul_precision("high")
 LOG_WANDB = True
 
 
+def save_model(model, timestamp=None):
+    if timestamp is None:
+        timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+    model_timestamp_path = f"{MODEL_PATH.rsplit('.', 1)[0]}_{timestamp}.pth"
+    torch.save(model.state_dict(), model_timestamp_path)
+    torch.save(model.state_dict(), MODEL_PATH)
+    print(f"Model saved to {model_timestamp_path} and {MODEL_PATH}")
+    return model_timestamp_path
+
+
+def cleanup():
+    if "model" in globals():
+        save_model(model)
+    if LOG_WANDB and wandb.run is not None:
+        wandb.finish()
+
+
+def signal_handler(signum, frame):
+    print("Received interrupt signal. Saving model and exiting...")
+    cleanup()
+    exit(0)
+
+
 def set_random_seeds(seed=42):
     torch.manual_seed(seed)
     torch.cuda.manual_seed_all(seed)
@@ -108,21 +129,8 @@ def collate_fn(batch):
     return collated, collated_labels
 
 
-def get_max_champion_id():
-    max_id = 0
-    for dir_path in [TRAIN_DIR, TEST_DIR]:
-        data_files = glob.glob(os.path.join(dir_path, "*.parquet"))
-        for file_path in data_files:
-            parquet_file = pq.ParquetFile(file_path)
-            for batch in parquet_file.iter_batches(batch_size=10000):
-                df_chunk = batch.to_pandas()
-                max_id_in_chunk = df_chunk["champion_ids"].apply(max).max()
-                if max_id_in_chunk > max_id:
-                    max_id = max_id_in_chunk
-    return max_id
-
-
 def train_model(run_name: str):
+    global model  # to be able to save the model on interrupt
     # Initialize wandb
     if LOG_WANDB:
         wandb.init(project="draftking", name=run_name)
@@ -219,7 +227,8 @@ def train_model(run_name: str):
 
     # TODO: could remove weight decay from bias and normalization layers
     # weight decay didn't change much when training for a short time at 0.001, but for longer trianing runs, 0.01 might be better
-    optimizer = optim.AdamW(model.parameters(), lr=1e-3, weight_decay=0.01, fused=True)
+    fused = True if device.type == "cuda" else False
+    optimizer = optim.AdamW(model.parameters(), lr=1e-3, weight_decay=0.01, fused=fused)
     max_grad_norm = 1.0
 
     # Before the training loop, create these tensors:
@@ -230,7 +239,7 @@ def train_model(run_name: str):
 
     accumulation_steps = 1
     # Training loop
-    num_epochs = 60
+    num_epochs = 100
     for epoch in range(num_epochs):
         epoch_start_time = time.time()
 
@@ -425,7 +434,15 @@ if __name__ == "__main__":
 
     # Set random seeds for reproducibility
     set_random_seeds()
-    train_model(args.run_name)
+    # Set up signal handler
+    signal.signal(signal.SIGINT, signal_handler)
+    signal.signal(signal.SIGTERM, signal_handler)
+    try:
+        train_model(args.run_name)
+    except Exception as e:
+        print(f"An error occurred: {e}")
+        cleanup()
+        raise
 
     if args.profile:
         profiler.disable()

@@ -94,6 +94,7 @@ def extract_team_stats(match: Match, team_id: str, stat: str, timestamp: str):
 
 
 # Define tasks
+"""
 TASKS = {
     "win_prediction": TaskDefinition(
         name="win_prediction",
@@ -172,5 +173,3 @@ for timestamp in TIMESTAMPS:
                 ),
                 weight=0.1 / (len(TIMESTAMPS) * len(TEAM_STATS) * len(TEAMS)),
             )
-
-"""
