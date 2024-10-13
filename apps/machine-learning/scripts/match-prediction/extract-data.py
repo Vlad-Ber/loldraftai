@@ -1,16 +1,18 @@
+# scripts/match-prediction/extract-data.py
 import os
 import pickle
-from collections import defaultdict
+import argparse
 import enum
+import datetime
 import shutil
 import pandas as pd
 from sklearn.preprocessing import LabelEncoder
 from sklearn.model_selection import train_test_split
 from sqlalchemy import distinct
 from tqdm import tqdm
-import numpy as np
 from utils import (
     RAW_DATA_DIR,
+    DATA_DIR,
     ENCODERS_PATH,
     DATA_EXTRACTION_BATCH_SIZE,
 )
@@ -24,32 +26,46 @@ from utils.column_definitions import (
 )
 from utils.task_definitions import TASKS
 
-# Define positions
-POSITIONS = ["TOP", "JUNGLE", "MIDDLE", "BOTTOM", "UTILITY"]
+LAST_EXTRACTION_TIMESTAMP_FILE = os.path.join(DATA_DIR, "last_extract_data_timestamp.txt")
+
+def get_last_extraction_timestamp():
+    if os.path.exists(LAST_EXTRACTION_TIMESTAMP_FILE):
+        with open(LAST_EXTRACTION_TIMESTAMP_FILE, 'r') as f:
+            return datetime.fromisoformat(f.read().strip())
+    return None
+
+def save_extraction_timestamp(timestamp):
+    with open(LAST_EXTRACTION_TIMESTAMP_FILE, 'w') as f:
+        f.write(timestamp.isoformat())
+
 
 TEST_SIZE = 0.2  # 20% for testing
 
-# Ensure data directory exists
-os.makedirs(RAW_DATA_DIR, exist_ok=True)
 
-
-def batch_query(session, batch_size=DATA_EXTRACTION_BATCH_SIZE):
+def batch_query(session, batch_size=DATA_EXTRACTION_BATCH_SIZE, continue_extraction=False):
     """
     Generator that yields batches of matches from the database.
     """
     last_id = None
+    last_timestamp = get_last_extraction_timestamp() if continue_extraction else None
+
     while True:
         query = session.query(Match).filter(
             Match.processed == True, Match.processingErrored == False
         )
         if last_id:
             query = query.filter(Match.id > last_id)
+        if last_timestamp:
+            query = query.filter(Match.updatedAt > last_timestamp)
         query = query.order_by(Match.id).limit(batch_size)
         matches = query.all()
         if not matches:
             break
         last_id = matches[-1].id
         yield matches
+
+    if continue_extraction:
+        save_extraction_timestamp(datetime.utcnow())
 
 
 def create_label_encoders(session):
@@ -85,7 +101,7 @@ def create_label_encoders(session):
     return label_encoders
 
 
-def extract_and_save_batches():
+def extract_and_save_batches(continue_extraction=True):
     """
     Extract and save batches of data from the database.
     """
@@ -105,7 +121,7 @@ def extract_and_save_batches():
 
     # Process and save data batches
     batch_num = 0
-    for matches in tqdm(batch_query(session), desc="Processing and saving batches"):
+    for matches in tqdm(batch_query(session, continue_extraction), desc="Processing and saving batches"):
         data = []
         for match in matches:
             # Extract features
@@ -136,6 +152,7 @@ def extract_and_save_batches():
     session.close()
 
 
+# TODO: verify if encoders make sense, and should they not be in the normalisation step? YES THEY SHOULD
 def extract_features(match: Match, label_encoders: dict):
     features = extract_raw_features(match)
 
@@ -162,7 +179,19 @@ def extract_features(match: Match, label_encoders: dict):
 
 
 def main():
-    extract_and_save_batches()
+    parser = argparse.ArgumentParser(
+        description="Extract data from the database and save to Parquet files"
+    )
+    parser.add_argument(
+        "--all",
+        action="store_true",
+        help="Extract all data, not just new data since last extraction",
+    )
+    args = parser.parse_args()
+
+    continue_extraction = not args.all
+
+    extract_and_save_batches(continue_extraction)
     print("Data extraction and saving completed.")
 
 

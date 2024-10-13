@@ -2,6 +2,7 @@
 import os
 import torch
 
+POSITIONS = ["TOP", "JUNGLE", "MIDDLE", "BOTTOM", "UTILITY"]
 
 def get_best_device():
     """
@@ -26,14 +27,16 @@ machine_learning_dir = os.path.dirname(current_file_dir)
 DATA_DIR = os.path.join(machine_learning_dir, "data")
 RAW_DATA_DIR = os.path.join(DATA_DIR, "raw_data")
 NORMALIZED_DATA_DIR = os.path.join(DATA_DIR, "normalized_data")
-TRAIN_DIR = os.path.join(DATA_DIR, "train")
-TEST_DIR = os.path.join(DATA_DIR, "test")
+# Ensure data directories exist, or create
+os.makedirs(RAW_DATA_DIR, exist_ok=True)
+os.makedirs(NORMALIZED_DATA_DIR, exist_ok=True)
+
+
 ENCODERS_PATH = os.path.join(DATA_DIR, "label_encoders.pkl")
 MODEL_PATH = os.path.join(DATA_DIR, "match_outcome_model.pth")
 MODEL_CONFIG_PATH = os.path.join(DATA_DIR, "model_config.pkl")
 NUMERICAL_STATS_PATH = os.path.join(DATA_DIR, "numerical_feature_stats.pkl")
 TASK_STATS_PATH = os.path.join(DATA_DIR, "task_stats.pkl")
-
 CHAMPION_FEATURES_PATH = os.path.join(DATA_DIR, "champion_features.pkl")
 
 DEVICE = get_best_device()
