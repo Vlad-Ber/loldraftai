@@ -36,12 +36,12 @@ from utils.column_definitions import (
     ColumnType,
 )
 from utils.task_definitions import TASKS, TaskType
+from utils.config import TrainingConfig
+
 
 # Enable cuDNN auto-tuner, source https://x.com/karpathy/status/1299921324333170689/photo/1
 torch.backends.cudnn.benchmark = True
 
-CALCULATE_VAL_LOSS = True
-CALCULATE_VAL_WIN_PREDICTION_ONLY = True
 
 device = get_best_device()
 print(f"Using device: {device}")
@@ -58,37 +58,40 @@ else:
     DATALOADER_WORKERS = max(1, min(num_cpus - 1, 8))  # Use at most 8 workers
     PREFETCH_FACTOR = 2
 
-MASK_CHAMPIONS = 0.1
 
 # should use TensorFloat-32, which is faster that "highest" precision
 torch.set_float32_matmul_precision("high")
 
-LOG_WANDB = True
 
 def get_optimizer_grouped_parameters(model, weight_decay):
     # Get all parameters that require gradients
     param_dict = {pn: p for pn, p in model.named_parameters() if p.requires_grad}
-    
+
     # Separate parameters into decay and no-decay groups
     # dim >= 2 are the weight matrices, dim < 2 are biases
     # decaying biases and normalization layers is not needed
     # source: https://youtu.be/l8pRSuU81PU?si=f_taru0joQ5LW19e&t=8861
     decay_params = [p for n, p in param_dict.items() if p.dim() >= 2]
     nodecay_params = [p for n, p in param_dict.items() if p.dim() < 2]
-    
+
     # Create optimizer groups
     optim_groups = [
-        {'params': decay_params, 'weight_decay': weight_decay},
-        {'params': nodecay_params, 'weight_decay': 0.0}
+        {"params": decay_params, "weight_decay": weight_decay},
+        {"params": nodecay_params, "weight_decay": 0.0},
     ]
-    
+
     # Print statistics
     num_decay_params = sum(p.numel() for p in decay_params)
     num_nodecay_params = sum(p.numel() for p in nodecay_params)
-    print(f"num decayed parameter tensors: {len(decay_params)}, with {num_decay_params:,} parameters")
-    print(f"num non-decayed parameter tensors: {len(nodecay_params)}, with {num_nodecay_params:,} parameters")
-    
+    print(
+        f"num decayed parameter tensors: {len(decay_params)}, with {num_decay_params:,} parameters"
+    )
+    print(
+        f"num non-decayed parameter tensors: {len(nodecay_params)}, with {num_nodecay_params:,} parameters"
+    )
+
     return optim_groups
+
 
 def save_model(model, timestamp=None):
     if timestamp is None:
@@ -103,7 +106,7 @@ def save_model(model, timestamp=None):
 def cleanup():
     if "model" in globals():
         save_model(model)
-    if LOG_WANDB and wandb.run is not None:
+    if wandb.run is not None:
         wandb.finish()
 
 
@@ -152,33 +155,37 @@ def collate_fn(batch):
 
     return collated, collated_labels
 
+
 def get_num_champions():
     with open(ENCODERS_PATH, "rb") as f:
         label_encoders = pickle.load(f)
-    
-    champion_encoder = label_encoders['champion_ids']
-    max_champion_id = max(int(champ_id) for champ_id in champion_encoder.classes_ if champ_id != 'UNKNOWN')
+
+    champion_encoder = label_encoders["champion_ids"]
+    max_champion_id = max(
+        int(champ_id) for champ_id in champion_encoder.classes_ if champ_id != "UNKNOWN"
+    )
     unknown_champion_id = max_champion_id + 1
     num_champions = unknown_champion_id + 1  # Total number of embeddings
-    
+
     return num_champions, unknown_champion_id
 
-def train_model(run_name: str):
+
+def train_model(run_name: str, config: TrainingConfig):
     global model  # to be able to save the model on interrupt
     # Initialize wandb
-    if LOG_WANDB:
-        wandb.init(project="draftking", name=run_name)
+    if config.log_wandb:
+        wandb.init(project="draftking", name=run_name, config=config.get_wandb_config())
 
     num_champions, unknown_champion_id = get_num_champions()
 
     # Initialize the datasets with masking parameters
     train_dataset = MatchDataset(
-        mask_champions=MASK_CHAMPIONS,
+        mask_champions=config.mask_champions,
         unknown_champion_id=unknown_champion_id,
         train_or_test="train",
     )
     test_dataset = MatchDataset(
-        mask_champions=MASK_CHAMPIONS,
+        mask_champions=config.mask_champions,
         unknown_champion_id=unknown_champion_id,
         train_or_test="test",
     )
@@ -209,27 +216,24 @@ def train_model(run_name: str):
         col: len(label_encoders[col].classes_) for col in CATEGORICAL_COLUMNS
     }
 
-    embed_dim = 64
-    num_heads = 8
-    num_transformer_layers = 2
     # Initialize the model
     model = MatchOutcomeModel(
         num_categories=num_categories,
         num_champions=num_champions,
-        embed_dim=embed_dim,
-        num_heads=num_heads,
-        num_transformer_layers=num_transformer_layers,
-        dropout=0.1,
+        embed_dim=config.embed_dim,
+        num_heads=config.num_heads,
+        num_transformer_layers=config.num_transformer_layers,
+        dropout=config.dropout,
     )
 
     # Create a dictionary with model parameters
     model_params = {
         "num_categories": num_categories,
         "num_champions": num_champions,
-        "embed_dim": embed_dim,
-        "num_heads": num_heads,
-        "num_transformer_layers": num_transformer_layers,
-        "dropout": 0.1,
+        "embed_dim": config.embed_dim,
+        "num_heads": config.num_heads,
+        "num_transformer_layers": config.num_transformer_layers,
+        "dropout": config.dropout,
     }
 
     # Save model config
@@ -242,7 +246,7 @@ def train_model(run_name: str):
         model = torch.compile(model)
         print("Model compiled")
 
-    if LOG_WANDB:
+    if config.log_wandb:
         wandb.watch(model, log_freq=1000)
 
     # Initialize loss functions for each task
@@ -256,10 +260,12 @@ def train_model(run_name: str):
             criterion[task_name] = nn.CrossEntropyLoss()
 
     # weight decay didn't change much when training for a short time at 0.001, but for longer trianing runs, 0.01 might be better
-    weight_decay = 0.01
     fused = True if device.type == "cuda" else False
-    optimizer = optim.AdamW(get_optimizer_grouped_parameters(model, weight_decay), lr=1e-3, fused=fused)
-    max_grad_norm = 1.0
+    optimizer = optim.AdamW(
+        get_optimizer_grouped_parameters(model, config.weight_decay),
+        lr=config.learning_rate,
+        fused=fused,
+    )
 
     # Before the training loop, create these tensors:
     task_weights = torch.tensor(
@@ -267,10 +273,8 @@ def train_model(run_name: str):
     )
     task_names = list(TASKS.keys())
 
-    accumulation_steps = 1
     # Training loop
-    num_epochs = 100
-    for epoch in range(num_epochs):
+    for epoch in range(config.num_epochs):
         epoch_start_time = time.time()
 
         model.train()
@@ -300,7 +304,7 @@ def train_model(run_name: str):
                 # Weighted sum of losses
                 total_loss = (losses * task_weights).sum()
                 # Normalize the loss to account for accumulation steps
-                total_loss = total_loss / accumulation_steps
+                total_loss = total_loss / config.accumulation_steps
 
                 # For logging purposes
                 loss_dict = {
@@ -310,23 +314,25 @@ def train_model(run_name: str):
 
             total_loss.backward()
 
-            grad_norm = clip_grad_norm_(model.parameters(), max_grad_norm)
+            grad_norm = clip_grad_norm_(model.parameters(), config.max_grad_norm)
             optimizer.step()
 
             epoch_loss += total_loss.item()
             epoch_steps += 1
 
             # Perform optimization step every accumulation_steps
-            if (batch_idx + 1) % accumulation_steps == 0:
-                grad_norm = clip_grad_norm_(model.parameters(), max_grad_norm)
+            if (batch_idx + 1) % config.accumulation_steps == 0:
+                grad_norm = clip_grad_norm_(model.parameters(), config.max_grad_norm)
                 optimizer.step()
                 optimizer.zero_grad()
 
                 # Logging
-                if ((batch_idx + 1) // accumulation_steps) % 20 == 0 and LOG_WANDB:
+                if (
+                    (batch_idx + 1) // config.accumulation_steps
+                ) % 20 == 0 and config.log_wandb:
                     log_data = {
                         "epoch": epoch + 1,
-                        "batch": (batch_idx + 1) // accumulation_steps,
+                        "batch": (batch_idx + 1) // config.accumulation_steps,
                         "grad_norm": grad_norm,
                     }
                     log_data.update(
@@ -335,17 +341,17 @@ def train_model(run_name: str):
                     wandb.log(log_data)
 
         # Perform any remaining optimization step
-        if (batch_idx + 1) % accumulation_steps != 0:
-            grad_norm = clip_grad_norm_(model.parameters(), max_grad_norm)
+        if (batch_idx + 1) % config.accumulation_steps != 0:
+            grad_norm = clip_grad_norm_(model.parameters(), config.max_grad_norm)
             optimizer.step()
             optimizer.zero_grad()
 
         avg_loss = (
-            epoch_loss / epoch_steps * accumulation_steps
+            epoch_loss / epoch_steps * config.accumulation_steps
         )  # multiplied to have an easier comparison with different number of accumulation steps
 
-        print(f"Epoch [{epoch+1}/{num_epochs}], Average Loss: {avg_loss:.4f}")
-        if LOG_WANDB:
+        print(f"Epoch [{epoch+1}/{config.num_epochs}], Average Loss: {avg_loss:.4f}")
+        if config.log_wandb:
             wandb.log({"epoch": epoch + 1, "avg_train_loss": avg_loss})
 
         # Evaluation
@@ -368,7 +374,7 @@ def train_model(run_name: str):
                 with torch.autocast(device_type="cuda", dtype=torch.bfloat16):
                     outputs = model(features)
                     # Vectorized loss calculation
-                    if CALCULATE_VAL_LOSS:
+                    if config.calculate_val_loss:
                         losses = torch.stack(
                             [
                                 criterion[task_name](
@@ -386,7 +392,7 @@ def train_model(run_name: str):
 
                 for task_name, task_def in TASKS.items():
                     if (
-                        CALCULATE_VAL_WIN_PREDICTION_ONLY
+                        config.calculate_val_win_prediction_only
                         and task_name != "win_prediction"
                     ):
                         continue
@@ -407,9 +413,9 @@ def train_model(run_name: str):
                         metric_accumulators[task_name][0] += mse
                         metric_accumulators[task_name][1] += batch_size
 
-        if CALCULATE_VAL_LOSS:
+        if config.calculate_val_loss:
             avg_loss = total_loss / total_steps
-            if LOG_WANDB:
+            if config.log_wandb:
                 wandb.log({"avg_val_loss": avg_loss})
 
         # Calculate final metrics
@@ -421,18 +427,21 @@ def train_model(run_name: str):
                 metrics[task_name] = (accumulator[0] / accumulator[1]).item()
         # Log evaluation metrics
         for task_name, metric_value in metrics.items():
-            if CALCULATE_VAL_WIN_PREDICTION_ONLY and task_name != "win_prediction":
+            if (
+                config.calculate_val_win_prediction_only
+                and task_name != "win_prediction"
+            ):
                 continue
-            if LOG_WANDB:
+            if config.log_wandb:
                 wandb.log({f"val_{task_name}_metric": metric_value})
 
         epoch_end_time = time.time()
         epoch_time = epoch_end_time - epoch_start_time
         print(f"Epoch time: {epoch_time}")
-        if LOG_WANDB:
+        if config.log_wandb:
             wandb.log({"epoch_time": epoch_time})
 
-    if LOG_WANDB:
+    if config.log_wandb:
         wandb.finish()
     # Save the model
     torch.save(model.state_dict(), MODEL_PATH)
@@ -456,7 +465,20 @@ if __name__ == "__main__":
         action="store_true",
         help="Enable profiling",
     )
+    parser.add_argument(
+        "--config",
+        type=str,
+        help="Path to JSON configuration file",
+    )
     args = parser.parse_args()
+
+    # Initialize configuration
+    config = TrainingConfig()
+    if args.config:
+        config.update_from_json(args.config)
+
+    print("Training configuration:")
+    print(config)
 
     if args.profile:
         profiler = cProfile.Profile()
@@ -468,7 +490,7 @@ if __name__ == "__main__":
     signal.signal(signal.SIGINT, signal_handler)
     signal.signal(signal.SIGTERM, signal_handler)
     try:
-        train_model(args.run_name)
+        train_model(args.run_name, config)
     except Exception as e:
         print(f"An error occurred: {e}")
         cleanup()
