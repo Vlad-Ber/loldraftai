@@ -2,6 +2,7 @@
 import multiprocessing
 import signal
 import os
+import copy
 import pickle
 import datetime
 import time
@@ -98,8 +99,7 @@ def save_model(model, timestamp=None):
         timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
     model_timestamp_path = f"{MODEL_PATH.rsplit('.', 1)[0]}_{timestamp}.pth"
     torch.save(model.state_dict(), model_timestamp_path)
-    torch.save(model.state_dict(), MODEL_PATH)
-    print(f"Model saved to {model_timestamp_path} and {MODEL_PATH}")
+    print(f"Model saved to {model_timestamp_path}")
     return model_timestamp_path
 
 
@@ -428,6 +428,14 @@ def train_model(
             if config.log_wandb:
                 wandb.log({"avg_val_loss": avg_loss})
 
+            # Check if this is the best model
+            if avg_loss < best_metric:
+                best_metric = avg_loss
+                best_model_state = copy.deepcopy(model.state_dict())
+                # Save the best model
+                torch.save(best_model_state, MODEL_PATH)
+                print(f"New best model saved with validation loss: {best_metric:.4f}")
+
         # Calculate final metrics
         metrics = {}
         for task_name, accumulator in metric_accumulators.items():
@@ -453,9 +461,6 @@ def train_model(
 
     if config.log_wandb:
         wandb.finish()
-    # Save the model
-    torch.save(model.state_dict(), MODEL_PATH)
-    print(f"Model saved to {MODEL_PATH}")
 
 
 if __name__ == "__main__":

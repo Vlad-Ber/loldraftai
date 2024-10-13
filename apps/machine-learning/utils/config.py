@@ -16,7 +16,7 @@ class TrainingConfig:
         self.mask_champions = 0.1
 
         self.calculate_val_loss = True
-        self.calculate_val_win_prediction_only = True
+        self.calculate_val_win_prediction_only = False
         self.log_wandb = True
 
     def update_from_json(self, json_file: str):
