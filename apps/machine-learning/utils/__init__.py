@@ -4,6 +4,7 @@ import torch
 
 POSITIONS = ["TOP", "JUNGLE", "MIDDLE", "BOTTOM", "UTILITY"]
 
+
 def get_best_device():
     """
     Get the best device for training the model.(cuda or mps if possible)
@@ -46,7 +47,7 @@ DEVICE = get_best_device()
 
 # Batch sizes
 if DEVICE.type == "mps":
-    TRAIN_BATCH_SIZE = 2048 # Used during training
+    TRAIN_BATCH_SIZE = 2048  # Used during training
 else:
     # cuda/runpod config
     TRAIN_BATCH_SIZE = 2048 * 2  # Used during training
