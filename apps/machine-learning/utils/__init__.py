@@ -26,11 +26,11 @@ machine_learning_dir = os.path.dirname(current_file_dir)
 
 DATA_DIR = os.path.join(machine_learning_dir, "data")
 RAW_DATA_DIR = os.path.join(DATA_DIR, "raw_data")
-NORMALIZED_DATA_DIR = os.path.join(DATA_DIR, "normalized_data")
+PREPARED_DATA_DIR = os.path.join(DATA_DIR, "prepared_data")
 MODEL_DIR = os.path.join(DATA_DIR, "models")
 # Ensure data directories exist, or create
 os.makedirs(RAW_DATA_DIR, exist_ok=True)
-os.makedirs(NORMALIZED_DATA_DIR, exist_ok=True)
+os.makedirs(PREPARED_DATA_DIR, exist_ok=True)
 os.makedirs(MODEL_DIR, exist_ok=True)
 
 

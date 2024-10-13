@@ -8,7 +8,7 @@ import numpy as np
 import pyarrow.parquet as pq
 from torch.utils.data import IterableDataset
 
-from utils import NORMALIZED_DATA_DIR, CHAMPION_FEATURES_PATH, PARQUET_READER_BATCH_SIZE
+from utils import PREPARED_DATA_DIR, CHAMPION_FEATURES_PATH, PARQUET_READER_BATCH_SIZE, POSITIONS
 from utils.column_definitions import COLUMNS, ColumnType
 from utils.task_definitions import TASKS, TaskType
 
@@ -22,7 +22,11 @@ class MatchDataset(IterableDataset):
         train_or_test="train",
     ):
         self.data_files = sorted(
-            glob.glob(os.path.join(NORMALIZED_DATA_DIR, f"{train_or_test}*.parquet"))
+            glob.glob(
+                os.path.join(
+                    PREPARED_DATA_DIR, train_or_test, f"{train_or_test}*.parquet"
+                )
+            )
         )
         self.transform = transform
         self.total_samples = self._count_total_samples()
@@ -96,7 +100,7 @@ class MatchDataset(IterableDataset):
                     lambda x: [
                         [
                             self.champion_features.get(ch_id, {}).get(role, 0)
-                            for role in ["TOP", "JUNGLE", "MIDDLE", "BOTTOM", "UTILITY"]
+                            for role in POSITIONS
                         ]
                         for ch_id in x
                     ]

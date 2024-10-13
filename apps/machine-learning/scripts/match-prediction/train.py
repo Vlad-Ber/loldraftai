@@ -152,6 +152,16 @@ def collate_fn(batch):
 
     return collated, collated_labels
 
+def get_num_champions():
+    with open(ENCODERS_PATH, "rb") as f:
+        label_encoders = pickle.load(f)
+    
+    champion_encoder = label_encoders['champion_ids']
+    max_champion_id = max(int(champ_id) for champ_id in champion_encoder.classes_ if champ_id != 'UNKNOWN')
+    unknown_champion_id = max_champion_id + 1
+    num_champions = unknown_champion_id + 1  # Total number of embeddings
+    
+    return num_champions, unknown_champion_id
 
 def train_model(run_name: str):
     global model  # to be able to save the model on interrupt
@@ -159,11 +169,7 @@ def train_model(run_name: str):
     if LOG_WANDB:
         wandb.init(project="draftking", name=run_name)
 
-    # Determine the maximum champion ID
-    # max_champion_id = get_max_champion_id() # TODO: remove this. SUPER SLOW!!!
-    max_champion_id = 950  # naafiri, hardcoded until get_max_champion_id is optimized
-    unknown_champion_id = max_champion_id + 1
-    num_champions = unknown_champion_id + 1  # Total number of embeddings
+    num_champions, unknown_champion_id = get_num_champions()
 
     # Initialize the datasets with masking parameters
     train_dataset = MatchDataset(
@@ -237,7 +243,7 @@ def train_model(run_name: str):
         print("Model compiled")
 
     if LOG_WANDB:
-        wandb.watch(model, log_freq=1000)  # increased from 100
+        wandb.watch(model, log_freq=1000)
 
     # Initialize loss functions for each task
     criterion = {}
