@@ -170,11 +170,16 @@ def get_num_champions():
     return num_champions, unknown_champion_id
 
 
-def train_model(run_name: str, config: TrainingConfig):
+def train_model(
+    run_name: str,
+    config: TrainingConfig,
+    continue_training: bool = False,
+    load_path: str = None,
+):
     global model  # to be able to save the model on interrupt
     # Initialize wandb
     if config.log_wandb:
-        wandb.init(project="draftking", name=run_name, config=config.get_wandb_config())
+        wandb.init(project="draftking", name=run_name, config=config.to_dict())
 
     num_champions, unknown_champion_id = get_num_champions()
 
@@ -226,14 +231,19 @@ def train_model(run_name: str, config: TrainingConfig):
         dropout=config.dropout,
     )
 
+    if continue_training:
+        load_path = load_path or MODEL_PATH
+        if os.path.exists(load_path):
+            print(f"Loading model from {load_path}")
+            model.load_state_dict(torch.load(load_path, weights_only=True))
+        else:
+            print(f"No saved model found at {load_path}. Starting from scratch.")
+
     # Create a dictionary with model parameters
     model_params = {
         "num_categories": num_categories,
         "num_champions": num_champions,
-        "embed_dim": config.embed_dim,
-        "num_heads": config.num_heads,
-        "num_transformer_layers": config.num_transformer_layers,
-        "dropout": config.dropout,
+        **config.to_dict(),
     }
 
     # Save model config
@@ -470,6 +480,18 @@ if __name__ == "__main__":
         type=str,
         help="Path to JSON configuration file",
     )
+    parser.add_argument(
+        "--continue_training",
+        action="store_true",
+        default=False,
+        help="Continue training from the last saved model",
+    )
+    parser.add_argument(
+        "--load_path",
+        type=str,
+        default=None,
+        help="Path to load the model from (default: MODEL_PATH)",
+    )
     args = parser.parse_args()
 
     # Initialize configuration
@@ -490,7 +512,12 @@ if __name__ == "__main__":
     signal.signal(signal.SIGINT, signal_handler)
     signal.signal(signal.SIGTERM, signal_handler)
     try:
-        train_model(args.run_name, config)
+        train_model(
+            args.run_name,
+            config,
+            continue_training=args.continue_training,
+            load_path=args.load_path,
+        )
     except Exception as e:
         print(f"An error occurred: {e}")
         cleanup()

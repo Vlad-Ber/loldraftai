@@ -32,5 +32,5 @@ class TrainingConfig:
     def __str__(self):
         return "\n".join(f"{key}: {value}" for key, value in vars(self).items())
 
-    def get_wandb_config(self):
+    def to_dict(self) -> dict:
         return {key: value for key, value in vars(self).items() if key != "log_wandb"}
