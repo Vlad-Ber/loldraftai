@@ -65,6 +65,30 @@ torch.set_float32_matmul_precision("high")
 
 LOG_WANDB = True
 
+def get_optimizer_grouped_parameters(model, weight_decay):
+    # Get all parameters that require gradients
+    param_dict = {pn: p for pn, p in model.named_parameters() if p.requires_grad}
+    
+    # Separate parameters into decay and no-decay groups
+    # dim >= 2 are the weight matrices, dim < 2 are biases
+    # decaying biases and normalization layers is not needed
+    # source: https://youtu.be/l8pRSuU81PU?si=f_taru0joQ5LW19e&t=8861
+    decay_params = [p for n, p in param_dict.items() if p.dim() >= 2]
+    nodecay_params = [p for n, p in param_dict.items() if p.dim() < 2]
+    
+    # Create optimizer groups
+    optim_groups = [
+        {'params': decay_params, 'weight_decay': weight_decay},
+        {'params': nodecay_params, 'weight_decay': 0.0}
+    ]
+    
+    # Print statistics
+    num_decay_params = sum(p.numel() for p in decay_params)
+    num_nodecay_params = sum(p.numel() for p in nodecay_params)
+    print(f"num decayed parameter tensors: {len(decay_params)}, with {num_decay_params:,} parameters")
+    print(f"num non-decayed parameter tensors: {len(nodecay_params)}, with {num_nodecay_params:,} parameters")
+    
+    return optim_groups
 
 def save_model(model, timestamp=None):
     if timestamp is None:
@@ -225,10 +249,10 @@ def train_model(run_name: str):
         elif task_def.task_type == TaskType.MULTICLASS_CLASSIFICATION:
             criterion[task_name] = nn.CrossEntropyLoss()
 
-    # TODO: could remove weight decay from bias and normalization layers
     # weight decay didn't change much when training for a short time at 0.001, but for longer trianing runs, 0.01 might be better
+    weight_decay = 0.01
     fused = True if device.type == "cuda" else False
-    optimizer = optim.AdamW(model.parameters(), lr=1e-3, weight_decay=0.01, fused=fused)
+    optimizer = optim.AdamW(get_optimizer_grouped_parameters(model, weight_decay), lr=1e-3, fused=fused)
     max_grad_norm = 1.0
 
     # Before the training loop, create these tensors:
