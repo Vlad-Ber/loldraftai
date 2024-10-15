@@ -12,18 +12,43 @@ from utils import (
     ENCODERS_PATH,
     NUMERICAL_STATS_PATH,
     MODEL_CONFIG_PATH,
+    CHAMPION_FEATURES_PATH,
+    POSITIONS,
     get_best_device,
 )
 
 
-# Define input schema
-class ModelInput(BaseModel):
+class APIInput(BaseModel):
     region: str
     averageTier: str
     averageDivision: str
     champion_ids: List[int]
     gameVersionMajorPatch: float
     gameVersionMinorPatch: float
+
+
+class ModelInput(APIInput):
+    champion_role_percentages: List[List[float]]
+
+
+def api_input_to_model_input(api_input: APIInput) -> ModelInput:
+    # Encode champion IDs
+    encoded_champion_ids = label_encoders["champion_ids"].transform(
+        api_input.champion_ids
+    )
+
+    champion_role_percentages = [
+        [champion_features.get(ch_id, {}).get(role, 0) for role in POSITIONS]
+        for ch_id in api_input.champion_ids  # Note: We still use original IDs for champion features
+    ]
+    # Create a dictionary from the API input, excluding 'champion_ids'
+    input_dict = api_input.model_dump(exclude={"champion_ids"})
+
+    return ModelInput(
+        **input_dict,
+        champion_ids=encoded_champion_ids.tolist(),  # Use encoded champion IDs
+        champion_role_percentages=champion_role_percentages,
+    )
 
 
 app = FastAPI()
@@ -52,6 +77,10 @@ model = MatchOutcomeModel(
 model.load_state_dict(torch.load(MODEL_PATH, map_location=device, weights_only=True))
 model.to(device)
 model.eval()
+
+with open(CHAMPION_FEATURES_PATH, "rb") as f:
+    champion_features = pickle.load(f)
+
 
 # Create an asyncio.Queue to hold incoming requests
 request_queue = asyncio.Queue()
@@ -85,19 +114,27 @@ def preprocess_input(input_data: ModelInput) -> Dict[str, torch.Tensor]:
                 [normalized_value], dtype=torch.float, device=device
             )
         elif col_def.column_type == ColumnType.LIST:
-            processed_input[col] = torch.tensor(
-                [getattr(input_data, col)], dtype=torch.long, device=device
-            )
+            if col == "champion_ids":
+                processed_input[col] = torch.tensor(
+                    [getattr(input_data, col)], dtype=torch.long, device=device
+                )
+            else:
+                processed_input[col] = torch.tensor(
+                    [getattr(input_data, col)], dtype=torch.float, device=device
+                )
+
     return processed_input
 
 
 @app.post("/predict")
-async def predict(input_data: ModelInput):
+async def predict(api_input: APIInput):
+    model_input = api_input_to_model_input(api_input)
+
     # Create a future to hold the response
     loop = asyncio.get_event_loop()
     future = loop.create_future()
     # Put the request into the queue
-    await request_queue.put({"input": input_data, "future": future})
+    await request_queue.put({"input": model_input, "future": future})
     # Wait for the result
     result = await future
     return result
@@ -135,7 +172,9 @@ async def model_inference_worker():
         with torch.no_grad():
             output = model(batched_input)
 
-        win_probabilities = torch.sigmoid(output["win_prediction"]).cpu().numpy().tolist()
+        win_probabilities = (
+            torch.sigmoid(output["win_prediction"]).cpu().numpy().tolist()
+        )
         # Set the results for each request
         for i, r in enumerate(requests):
             r["future"].set_result({"win_probability": win_probabilities[i]})

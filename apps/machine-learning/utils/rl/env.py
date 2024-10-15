@@ -82,8 +82,8 @@ class LoLDraftEnv(gym.Env):
             }
         )
 
-        # TODO: delete after fixing match prediction
         # Create a mask for valid champion IDs
+        # This is can be set to restrict the model picks
         self.valid_champion_mask = np.zeros(self.num_champions, dtype=np.int8)
         self.valid_champion_mask[VALID_CHAMPION_IDS] = 1
 

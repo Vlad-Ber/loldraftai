@@ -174,7 +174,6 @@ class Champion(Enum):
         self.display_name = display_name
 
 
-# TODO: should just restrict match prediction to consecutive ids, to avoid having to filter ids that go to 900.
 # we limit the numbr of ids to simplify the rl model for now
 VALID_CHAMPION_IDS = [champion.id for champion in Champion if champion.id < 60]
 
