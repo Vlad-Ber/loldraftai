@@ -40,15 +40,18 @@ const tiersDivisions: TierDivisionPair[] = [
   ["DIAMOND", "II"],
   ["DIAMOND", "III"],
   ["DIAMOND", "IV"],
+  ["EMERALD", "I"],
 ] as const; // we get high ranks because draft matters more in high elo
 const queue = "RANKED_SOLO_5x5";
 
+// should be 50 requests every 10 seconds
+// we make it 2 times slower to be safe
 const limiter = new Bottleneck({
-  minTime: 500,
-  reservoir: 250,
-  reservoirRefreshAmount: 250,
-  reservoirRefreshInterval: 10 * 60 * 1000,
-  maxConcurrent: 30,
+  minTime: 1000,
+  reservoir: 50,
+  reservoirRefreshAmount: 50,
+  reservoirRefreshInterval: 20 * 60 * 1000,
+  maxConcurrent: 15,
   highWater: 1000,
   strategy: Bottleneck.strategy.BLOCK,
 });
@@ -100,7 +103,7 @@ async function updateLadder() {
 }
 
 async function batchUpsertSummoners(entries: LeagueEntryDTO[]) {
-  const batchData = entries.map(entry => ({
+  const batchData = entries.map((entry) => ({
     where: {
       summonerId_region: {
         summonerId: entry.summonerId,
@@ -125,7 +128,7 @@ async function batchUpsertSummoners(entries: LeagueEntryDTO[]) {
 
   // Perform batch upsert
   await prisma.$transaction(
-    batchData.map(data => prisma.summoner.upsert(data))
+    batchData.map((data) => prisma.summoner.upsert(data))
   );
 }
 
