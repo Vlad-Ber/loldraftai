@@ -177,6 +177,8 @@ def train_model(
     load_path: str = None,
 ):
     global model  # to be able to save the model on interrupt
+    best_metric = float('inf')  # For loss minimization
+    best_model_state = None
     # Initialize wandb
     if config.log_wandb:
         wandb.init(project="draftking", name=run_name, config=config.to_dict())

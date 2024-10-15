@@ -4,7 +4,7 @@ from collections import defaultdict
 import pyarrow.parquet as pq
 from tqdm import tqdm
 
-from utils import NORMALIZED_DATA_DIR, CHAMPION_FEATURES_PATH
+from utils import PREPARED_DATA_DIR, CHAMPION_FEATURES_PATH
 
 
 def calculate_champion_role_percentages():
@@ -12,20 +12,23 @@ def calculate_champion_role_percentages():
     total_champion_counts = defaultdict(int)
 
     # Process both train and test directories
-    for file in tqdm(
-        os.listdir(NORMALIZED_DATA_DIR), desc="Processing champion role percentages"
-    ):
-        if file.endswith(".parquet"):
-            file_path = os.path.join(NORMALIZED_DATA_DIR, file)
-            table = pq.read_table(file_path)
-            df = table.to_pandas()
+    for test_or_train in ["train", "test"]:
+        dir = os.path.join(PREPARED_DATA_DIR, test_or_train)
+        for file in tqdm(
+            os.listdir(dir),
+            desc=f"Processing champion role percentages for {dir}",
+        ):
+            if file.endswith(".parquet"):
+                file_path = os.path.join(dir, file)
+                table = pq.read_table(file_path)
+                df = table.to_pandas()
 
-            for _, row in df.iterrows():
-                champion_ids = row["champion_ids"]
-                for i, champion_id in enumerate(champion_ids):
-                    role = ["TOP", "JUNGLE", "MIDDLE", "BOTTOM", "UTILITY"][i % 5]
-                    champion_role_counts[champion_id][role] += 1
-                    total_champion_counts[champion_id] += 1
+                for _, row in df.iterrows():
+                    champion_ids = row["champion_ids"]
+                    for i, champion_id in enumerate(champion_ids):
+                        role = ["TOP", "JUNGLE", "MIDDLE", "BOTTOM", "UTILITY"][i % 5]
+                        champion_role_counts[champion_id][role] += 1
+                        total_champion_counts[champion_id] += 1
 
     # Calculate percentages
     champion_role_percentages = {}
