@@ -1,5 +1,5 @@
 import asyncio
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 from typing import List, Dict
 import torch
@@ -32,10 +32,13 @@ class ModelInput(APIInput):
 
 
 def api_input_to_model_input(api_input: APIInput) -> ModelInput:
-    # Encode champion IDs
-    encoded_champion_ids = label_encoders["champion_ids"].transform(
-        api_input.champion_ids
-    )
+    try:
+        # Encode champion IDs
+        encoded_champion_ids = label_encoders["champion_ids"].transform(
+            api_input.champion_ids
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail="Invalid champion IDs")
 
     champion_role_percentages = [
         [champion_features.get(ch_id, {}).get(role, 0) for role in POSITIONS]
