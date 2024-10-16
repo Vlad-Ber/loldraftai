@@ -50,7 +50,7 @@ const limiter = new Bottleneck({
   minTime: 1000,
   reservoir: 50,
   reservoirRefreshAmount: 50,
-  reservoirRefreshInterval: 20 * 60 * 1000,
+  reservoirRefreshInterval: 20 * 1000,
   maxConcurrent: 15,
   highWater: 1000,
   strategy: Bottleneck.strategy.BLOCK,
