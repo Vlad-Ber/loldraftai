@@ -4,7 +4,7 @@ from collections import defaultdict
 import pyarrow.parquet as pq
 from tqdm import tqdm
 
-from utils import PREPARED_DATA_DIR, CHAMPION_FEATURES_PATH
+from utils.match_prediction import PREPARED_DATA_DIR, CHAMPION_FEATURES_PATH
 
 
 def calculate_champion_role_percentages():

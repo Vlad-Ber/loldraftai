@@ -1,4 +1,4 @@
-# utils/match_dataset.py
+# utils/match_prediction/match_dataset.py
 import os
 import glob
 import random
@@ -8,9 +8,14 @@ import numpy as np
 import pyarrow.parquet as pq
 from torch.utils.data import IterableDataset
 
-from utils import PREPARED_DATA_DIR, CHAMPION_FEATURES_PATH, PARQUET_READER_BATCH_SIZE, POSITIONS
-from utils.column_definitions import COLUMNS, ColumnType
-from utils.task_definitions import TASKS, TaskType
+from utils.match_prediction import (
+    PREPARED_DATA_DIR,
+    CHAMPION_FEATURES_PATH,
+    PARQUET_READER_BATCH_SIZE,
+    POSITIONS,
+)
+from utils.match_prediction.column_definitions import COLUMNS, ColumnType
+from utils.match_prediction.task_definitions import TASKS, TaskType
 
 
 class MatchDataset(IterableDataset):

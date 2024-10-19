@@ -1,8 +1,8 @@
-# utils/column_definitions.py
+# utils/match_prediction/column_definitions.py
 from enum import Enum
 from typing import Any, Callable, Dict
 
-from utils.database import Match
+from utils.match_prediction.database import Match
 
 
 class ColumnType(Enum):

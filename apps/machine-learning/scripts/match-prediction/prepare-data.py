@@ -8,18 +8,18 @@ import numpy as np
 from tqdm import tqdm
 from sklearn.preprocessing import LabelEncoder
 from sklearn.model_selection import train_test_split
-from utils import (
+from utils.match_prediction import (
     RAW_DATA_DIR,
     PREPARED_DATA_DIR,
     ENCODERS_PATH,
     NUMERICAL_STATS_PATH,
     TASK_STATS_PATH,
 )
-from utils.column_definitions import (
+from utils.match_prediction.column_definitions import (
     NUMERICAL_COLUMNS,
     CATEGORICAL_COLUMNS,
 )
-from utils.task_definitions import TASKS, TaskType
+from utils.match_prediction.task_definitions import TASKS, TaskType
 
 
 def load_data(file_path):

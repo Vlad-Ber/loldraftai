@@ -6,14 +6,14 @@ import shutil
 import pandas as pd
 from tqdm import tqdm
 import glob
-from utils import (
+from utils import DATA_DIR
+from utils.match_prediction import (
     RAW_DATA_DIR,
-    DATA_DIR,
     DATA_EXTRACTION_BATCH_SIZE,
 )
-from utils.database import Match, get_session
-from utils.column_definitions import extract_raw_features
-from utils.task_definitions import TASKS
+from utils.match_prediction.database import Match, get_session
+from utils.match_prediction.column_definitions import extract_raw_features
+from utils.match_prediction.task_definitions import TASKS
 
 LAST_EXTRACTION_TIMESTAMP_FILE = os.path.join(
     DATA_DIR, "last_extract_data_timestamp.txt"

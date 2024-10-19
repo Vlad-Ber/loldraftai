@@ -1,8 +1,8 @@
-# utils/task_definitions.py
+# utils/match_prediction/task_definitions.py
 
 from enum import Enum
 from typing import Callable
-from utils.database import Match
+from utils.match_prediction.database import Match
 
 TEAMS = ["100", "200"]
 POSITIONS = ["TOP", "JUNGLE", "MIDDLE", "BOTTOM", "UTILITY"]

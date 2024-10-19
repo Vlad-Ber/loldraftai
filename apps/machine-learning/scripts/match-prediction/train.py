@@ -21,23 +21,23 @@ from torch.utils.data import DataLoader
 import argparse
 
 
-from utils.match_dataset import MatchDataset
-from utils.model import MatchOutcomeModel
-from utils import (
+from utils.match_prediction.match_dataset import MatchDataset
+from utils.match_prediction.model import MatchOutcomeModel
+from utils import DATA_DIR
+from utils.match_prediction import (
     get_best_device,
     ENCODERS_PATH,
     MODEL_PATH,
     MODEL_CONFIG_PATH,
     TRAIN_BATCH_SIZE,
-    DATA_DIR,
 )
-from utils.column_definitions import (
+from utils.match_prediction.column_definitions import (
     COLUMNS,
     CATEGORICAL_COLUMNS,
     ColumnType,
 )
-from utils.task_definitions import TASKS, TaskType
-from utils.config import TrainingConfig
+from utils.match_prediction.task_definitions import TASKS, TaskType
+from utils.match_prediction.config import TrainingConfig
 
 
 # Enable cuDNN auto-tuner, source https://x.com/karpathy/status/1299921324333170689/photo/1
@@ -177,7 +177,7 @@ def train_model(
     load_path: str = None,
 ):
     global model  # to be able to save the model on interrupt
-    best_metric = float('inf')  # For loss minimization
+    best_metric = float("inf")  # For loss minimization
     best_model_state = None
     # Initialize wandb
     if config.log_wandb:

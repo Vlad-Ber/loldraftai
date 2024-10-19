@@ -1,16 +1,16 @@
-# Utils/model.py
+# Utils/match_prediction/model.py
 
 import torch
 import torch.nn as nn
 import pickle
 
-from utils import ENCODERS_PATH
-from utils.column_definitions import (
+from utils.match_prediction import ENCODERS_PATH
+from utils.match_prediction.column_definitions import (
     NUMERICAL_COLUMNS,
     CATEGORICAL_COLUMNS,
     POSITIONS,
 )
-from utils.task_definitions import TASKS, TaskType
+from utils.match_prediction.task_definitions import TASKS, TaskType
 
 
 class MatchOutcomeModel(nn.Module):
