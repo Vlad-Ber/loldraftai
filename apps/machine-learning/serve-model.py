@@ -5,9 +5,9 @@ from typing import List, Dict
 import torch
 import uvicorn
 import pickle
-from utils.model import MatchOutcomeModel
-from utils.column_definitions import COLUMNS, ColumnType
-from utils import (
+from utils.match_prediction.model import MatchOutcomeModel
+from utils.match_prediction.column_definitions import COLUMNS, ColumnType
+from utils.match_prediction import (
     MODEL_PATH,
     ENCODERS_PATH,
     NUMERICAL_STATS_PATH,
