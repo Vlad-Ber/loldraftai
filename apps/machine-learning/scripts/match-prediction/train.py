@@ -186,33 +186,23 @@ def train_model(
     num_champions, unknown_champion_id = get_num_champions()
 
     # Initialize the datasets with masking parameters
-    train_dataset = MatchDataset(
-        mask_champions=config.mask_champions,
-        unknown_champion_id=unknown_champion_id,
-        train_or_test="train",
-    )
-    test_dataset = MatchDataset(
-        mask_champions=config.mask_champions,
-        unknown_champion_id=unknown_champion_id,
-        train_or_test="test",
+    train_dataset, test_dataset = (
+        MatchDataset(
+            mask_champions=config.mask_champions,
+            unknown_champion_id=unknown_champion_id,
+            train_or_test=split
+        ) for split in ["train", "test"]
     )
 
-    # Initialize the DataLoaders
-    train_loader = DataLoader(
-        train_dataset,
-        batch_size=TRAIN_BATCH_SIZE,
-        num_workers=DATALOADER_WORKERS,
-        collate_fn=collate_fn,
-        prefetch_factor=PREFETCH_FACTOR,  # Prefetch next batch while current batch is being processed
-        pin_memory=True,
-    )
-    test_loader = DataLoader(
-        test_dataset,
-        batch_size=TRAIN_BATCH_SIZE,
-        num_workers=DATALOADER_WORKERS,
-        collate_fn=collate_fn,
-        prefetch_factor=PREFETCH_FACTOR,  # Prefetch next batch while current batch is being processed
-        pin_memory=True,
+    train_loader, test_loader = (
+        DataLoader(
+            dataset,
+            batch_size=TRAIN_BATCH_SIZE,
+            num_workers=DATALOADER_WORKERS,
+            collate_fn=collate_fn,
+            prefetch_factor=PREFETCH_FACTOR,
+            pin_memory=True,
+        ) for dataset in [train_dataset, test_dataset]
     )
 
     # Determine the number of unique categories from label encoders
