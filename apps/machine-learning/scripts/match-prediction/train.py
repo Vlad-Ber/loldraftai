@@ -38,14 +38,19 @@ from utils.match_prediction.column_definitions import (
 )
 from utils.match_prediction.task_definitions import TASKS, TaskType
 from utils.match_prediction.config import TrainingConfig
-
+from utils.match_prediction.train import (
+    get_optimizer_grouped_parameters,
+    set_random_seeds,
+    get_num_champions,
+)
 
 # Enable cuDNN auto-tuner, source https://x.com/karpathy/status/1299921324333170689/photo/1
 torch.backends.cudnn.benchmark = True
+# should use TensorFloat-32, which is faster that "highest" precision
+torch.set_float32_matmul_precision("high")
 
 
 device = get_best_device()
-print(f"Using device: {device}")
 
 if device.type == "mps":
     DATALOADER_WORKERS = (
@@ -58,40 +63,6 @@ else:
     num_cpus = multiprocessing.cpu_count()
     DATALOADER_WORKERS = max(1, min(num_cpus - 1, 8))  # Use at most 8 workers
     PREFETCH_FACTOR = 2
-
-
-# should use TensorFloat-32, which is faster that "highest" precision
-torch.set_float32_matmul_precision("high")
-
-
-def get_optimizer_grouped_parameters(model, weight_decay):
-    # Get all parameters that require gradients
-    param_dict = {pn: p for pn, p in model.named_parameters() if p.requires_grad}
-
-    # Separate parameters into decay and no-decay groups
-    # dim >= 2 are the weight matrices, dim < 2 are biases
-    # decaying biases and normalization layers is not needed
-    # source: https://youtu.be/l8pRSuU81PU?si=f_taru0joQ5LW19e&t=8861
-    decay_params = [p for n, p in param_dict.items() if p.dim() >= 2]
-    nodecay_params = [p for n, p in param_dict.items() if p.dim() < 2]
-
-    # Create optimizer groups
-    optim_groups = [
-        {"params": decay_params, "weight_decay": weight_decay},
-        {"params": nodecay_params, "weight_decay": 0.0},
-    ]
-
-    # Print statistics
-    num_decay_params = sum(p.numel() for p in decay_params)
-    num_nodecay_params = sum(p.numel() for p in nodecay_params)
-    print(
-        f"num decayed parameter tensors: {len(decay_params)}, with {num_decay_params:,} parameters"
-    )
-    print(
-        f"num non-decayed parameter tensors: {len(nodecay_params)}, with {num_nodecay_params:,} parameters"
-    )
-
-    return optim_groups
 
 
 def save_model(model, timestamp=None):
@@ -114,15 +85,6 @@ def signal_handler(signum, frame):
     print("Received interrupt signal. Saving model and exiting...")
     cleanup()
     exit(0)
-
-
-def set_random_seeds(seed=42):
-    torch.manual_seed(seed)
-    torch.cuda.manual_seed_all(seed)
-    torch.mps.manual_seed(seed)
-    torch.backends.cudnn.deterministic = True
-    torch.backends.cudnn.benchmark = False
-    os.environ["PYTHONHASHSEED"] = str(seed)
 
 
 def collate_fn(batch):
@@ -156,55 +118,12 @@ def collate_fn(batch):
     return collated, collated_labels
 
 
-def get_num_champions():
-    with open(ENCODERS_PATH, "rb") as f:
-        label_encoders = pickle.load(f)
-
-    champion_encoder = label_encoders["champion_ids"]
-    max_champion_id = max(
-        int(champ_id) for champ_id in champion_encoder.classes_ if champ_id != "UNKNOWN"
-    )
-    unknown_champion_id = max_champion_id + 1
-    num_champions = unknown_champion_id + 1  # Total number of embeddings
-
-    return num_champions, unknown_champion_id
-
-
-def train_model(
-    run_name: str,
+def init_model(
     config: TrainingConfig,
-    continue_training: bool = False,
+    num_champions: int,
+    continue_training: bool,
     load_path: str = None,
 ):
-    global model  # to be able to save the model on interrupt
-    best_metric = float("inf")  # For loss minimization
-    best_model_state = None
-    # Initialize wandb
-    if config.log_wandb:
-        wandb.init(project="draftking", name=run_name, config=config.to_dict())
-
-    num_champions, unknown_champion_id = get_num_champions()
-
-    # Initialize the datasets with masking parameters
-    train_dataset, test_dataset = (
-        MatchDataset(
-            mask_champions=config.mask_champions,
-            unknown_champion_id=unknown_champion_id,
-            train_or_test=split
-        ) for split in ["train", "test"]
-    )
-
-    train_loader, test_loader = (
-        DataLoader(
-            dataset,
-            batch_size=TRAIN_BATCH_SIZE,
-            num_workers=DATALOADER_WORKERS,
-            collate_fn=collate_fn,
-            prefetch_factor=PREFETCH_FACTOR,
-            pin_memory=True,
-        ) for dataset in [train_dataset, test_dataset]
-    )
-
     # Determine the number of unique categories from label encoders
     with open(ENCODERS_PATH, "rb") as f:
         label_encoders = pickle.load(f)
@@ -212,7 +131,6 @@ def train_model(
     num_categories = {
         col: len(label_encoders[col].classes_) for col in CATEGORICAL_COLUMNS
     }
-
     # Initialize the model
     model = MatchOutcomeModel(
         num_categories=num_categories,
@@ -250,6 +168,48 @@ def train_model(
 
     if config.log_wandb:
         wandb.watch(model, log_freq=1000)
+
+    return model
+
+
+def train_model(
+    run_name: str,
+    config: TrainingConfig,
+    continue_training: bool = False,
+    load_path: str = None,
+):
+    global model  # to be able to save the model on interrupt
+    best_metric = float("inf")  # For loss minimization
+    best_model_state = None
+    # Initialize wandb
+    if config.log_wandb:
+        wandb.init(project="draftking", name=run_name, config=config.to_dict())
+
+    num_champions, unknown_champion_id = get_num_champions()
+
+    # Initialize the datasets with masking parameters
+    train_dataset, test_dataset = (
+        MatchDataset(
+            mask_champions=config.mask_champions,
+            unknown_champion_id=unknown_champion_id,
+            train_or_test=split,
+        )
+        for split in ["train", "test"]
+    )
+
+    train_loader, test_loader = (
+        DataLoader(
+            dataset,
+            batch_size=TRAIN_BATCH_SIZE,
+            num_workers=DATALOADER_WORKERS,
+            collate_fn=collate_fn,
+            prefetch_factor=PREFETCH_FACTOR,
+            pin_memory=True,
+        )
+        for dataset in [train_dataset, test_dataset]
+    )
+
+    model = init_model(config, num_champions, continue_training, load_path)
 
     # Initialize loss functions for each task
     criterion = {}
