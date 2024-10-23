@@ -256,7 +256,6 @@ class LoLDraftEnv(gym.Env):
         winrate_prediction = fetch_blue_side_winrate_prediction(champion_ids)
         # Reward is winrate_prediction for blue team
         reward = winrate_prediction
-        # TODO: reward should depend on agent's team
 
         return reward
 

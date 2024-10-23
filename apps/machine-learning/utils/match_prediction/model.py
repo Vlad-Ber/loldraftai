@@ -79,7 +79,7 @@ class MatchOutcomeModel(nn.Module):
                     128, 1
                 )  # Remove Sigmoid, needed for BCEWithLogitsLoss(which is needed for autocast)
             elif task_def.task_type == TaskType.REGRESSION:
-                self.output_layers[task_name] = nn.Linear(128, 1) # TODO: could try removing bias, because bias gradients are around 0
+                self.output_layers[task_name] = nn.Linear(128, 1)
 
     def forward(self, features):
         # Compute context vector
