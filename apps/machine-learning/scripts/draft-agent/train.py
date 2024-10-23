@@ -1,9 +1,9 @@
 from sb3_contrib import MaskablePPO
 from stable_baselines3.common.vec_env import DummyVecEnv
 from sb3_contrib.common.wrappers import ActionMasker
-from sb3_contrib.common.maskable.utils import get_action_masks
 
-from utils import DATA_DIR, get_best_device
+from utils import DATA_DIR
+from utils.match_prediction import get_best_device
 from utils.rl.visualizer import integrate_with_env
 from utils.rl.env import LoLDraftEnv, SelfPlayWrapper, action_mask_fn
 

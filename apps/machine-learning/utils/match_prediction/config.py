@@ -4,7 +4,7 @@ import json
 class TrainingConfig:
     def __init__(self):
         # Default values
-        self.num_epochs = 1
+        self.num_epochs = 25
         self.embed_dim = 64
         self.num_heads = 8
         self.num_transformer_layers = 2

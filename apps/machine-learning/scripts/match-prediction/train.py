@@ -337,6 +337,7 @@ def calculate_final_metrics(
 def log_validation_metrics(
     val_metrics: Dict[str, float], config: TrainingConfig
 ) -> None:
+    # TODO: should log all at once to avoid jump in wandb graph
     for task_name, metric_value in val_metrics.items():
         if config.calculate_val_win_prediction_only and task_name != "win_prediction":
             continue

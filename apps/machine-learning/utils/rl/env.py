@@ -5,7 +5,7 @@ import numpy as np
 from typing import List, Dict
 
 from utils.rl import fetch_blue_side_winrate_prediction
-from utils import MODEL_CONFIG_PATH
+from utils.match_prediction import MODEL_CONFIG_PATH
 from utils.rl.champions import VALID_CHAMPION_IDS, ROLE_CHAMPIONS
 
 
@@ -117,9 +117,7 @@ class LoLDraftEnv(gym.Env):
             action_mask = np.sum(unassigned_champions, axis=0)
         else:
             raise ValueError(f"Unknown phase: {phase}")
-        return (
-            action_mask * self.valid_champion_mask
-        )  # TODO: delete after fixing match prediction
+        return action_mask * self.valid_champion_mask
 
     def step(self, action):
         if self.done:

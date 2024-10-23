@@ -21,24 +21,31 @@ class ColumnDefinition:
         self.extractor = extractor
 
 
-def extract_region(match: Match):
-    return match.region.value
+def extract_numerical_elo(match: Match):
+    tier = match.averageTier.value
+    division = match.averageDivision.value
+
+    if (tier, division) in [
+        ("DIAMOND", "II"),
+        ("DIAMOND", "I"),
+        ("MASTER", "I"),
+        ("GRANDMASTER", "I"),
+        ("CHALLENGER", "I"),
+    ]:
+        return 0
+    elif (tier, division) in [("DIAMOND", "III")]:
+        return 1
+    elif (tier, division) in [("DIAMOND", "IV")]:
+        return 2
+    elif (tier, division) in [("EMERALD", "I")]:
+        return 3
+    else:
+        raise ValueError(f"Unknown elo: {tier} {division}")
 
 
-def extract_average_tier(match: Match):
-    return match.averageTier.value
-
-
-def extract_average_division(match: Match):
-    return match.averageDivision.value
-
-
-def extract_game_version_major_patch(match: Match):
-    return match.gameVersionMajorPatch
-
-
-def extract_game_version_minor_patch(match: Match):
-    return match.gameVersionMinorPatch
+def extract_numerical_patch(match: Match):
+    # max minor patch last 3 years is 24
+    return match.gameVersionMajorPatch * 50 + match.gameVersionMinorPatch
 
 
 POSITIONS = ["TOP", "JUNGLE", "MIDDLE", "BOTTOM", "UTILITY"]
@@ -54,21 +61,23 @@ def extract_champion_ids(match: Match):
 
 
 COLUMNS: Dict[str, ColumnDefinition] = {
-    "region": ColumnDefinition(ColumnType.CATEGORICAL, extract_region),
-    "averageTier": ColumnDefinition(ColumnType.CATEGORICAL, extract_average_tier),
-    "averageDivision": ColumnDefinition(
-        ColumnType.CATEGORICAL, extract_average_division
-    ),
+    # "region": ColumnDefinition(ColumnType.CATEGORICAL, extract_region),
+    # "averageTier": ColumnDefinition(ColumnType.CATEGORICAL, extract_average_tier),
+    # "averageDivision": ColumnDefinition(
+    # ColumnType.CATEGORICAL, extract_average_division
+    # ),
     "champion_ids": ColumnDefinition(ColumnType.LIST, extract_champion_ids),
     "champion_role_percentages": ColumnDefinition(
         ColumnType.LIST, lambda match: None
     ),  # This will be filled by the MatchDataset
-    "gameVersionMajorPatch": ColumnDefinition(
-        ColumnType.NUMERICAL, extract_game_version_major_patch
-    ),
-    "gameVersionMinorPatch": ColumnDefinition(
-        ColumnType.NUMERICAL, extract_game_version_minor_patch
-    ),
+    "numerical_elo": ColumnDefinition(ColumnType.NUMERICAL, extract_numerical_elo),
+    "numerical_patch": ColumnDefinition(ColumnType.NUMERICAL, extract_numerical_patch),
+    # "gameVersionMajorPatch": ColumnDefinition(
+    # ColumnType.NUMERICAL, extract_game_version_major_patch
+    # ),
+    # "gameVersionMinorPatch": ColumnDefinition(
+    # ColumnType.NUMERICAL, extract_game_version_minor_patch
+    # ),
 }
 
 CATEGORICAL_COLUMNS = [

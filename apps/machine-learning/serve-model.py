@@ -19,12 +19,9 @@ from utils.match_prediction import (
 
 
 class APIInput(BaseModel):
-    region: str
-    averageTier: str
-    averageDivision: str
     champion_ids: List[int]
-    gameVersionMajorPatch: float
-    gameVersionMinorPatch: float
+    numerical_elo: int
+    numerical_patch: int
 
 
 class ModelInput(APIInput):

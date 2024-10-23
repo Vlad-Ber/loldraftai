@@ -164,6 +164,7 @@ class Champion(Enum):
     K_SANTE = (897, "K'Sante")
     MILIO = (902, "Milio")
     NAAFIRI = (950, "Naafiri")
+    SETT = (875, "Sett")
     BRIAR = (233, "Briar")
     HWEI = (910, "Hwei")
     SMOLDER = (901, "Smolder")
