@@ -109,33 +109,39 @@ async function updateLadder() {
 }
 
 async function batchUpsertSummoners(entries: LeagueEntryDTO[]) {
-  const batchData = entries.map((entry) => ({
-    where: {
-      summonerId_region: {
+  const batchSize = 100;
+
+  for (let i = 0; i < entries.length; i += batchSize) {
+    const batch = entries.slice(i, i + batchSize);
+
+    const batchData = batch.map((entry) => ({
+      where: {
+        summonerId_region: {
+          summonerId: entry.summonerId,
+          region: region,
+        },
+      },
+      update: {
+        tier: entry.tier,
+        rank: entry.rank,
+        leaguePoints: entry.leaguePoints,
+        rankUpdateTime: new Date(),
+      },
+      create: {
         summonerId: entry.summonerId,
         region: region,
+        tier: entry.tier,
+        rank: entry.rank,
+        leaguePoints: entry.leaguePoints,
+        rankUpdateTime: new Date(),
       },
-    },
-    update: {
-      tier: entry.tier,
-      rank: entry.rank,
-      leaguePoints: entry.leaguePoints,
-      rankUpdateTime: new Date(),
-    },
-    create: {
-      summonerId: entry.summonerId,
-      region: region,
-      tier: entry.tier,
-      rank: entry.rank,
-      leaguePoints: entry.leaguePoints,
-      rankUpdateTime: new Date(),
-    },
-  }));
+    }));
 
-  // Perform batch upsert
-  await prisma.$transaction(
-    batchData.map((data) => prisma.summoner.upsert(data))
-  );
+    // Perform batch upsert for the current batch
+    await prisma.$transaction(
+      batchData.map((data) => prisma.summoner.upsert(data))
+    );
+  }
 }
 
 updateLadder();

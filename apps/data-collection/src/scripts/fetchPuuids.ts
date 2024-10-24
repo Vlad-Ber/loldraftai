@@ -52,16 +52,13 @@ async function fetchPuuids() {
           puuid: null,
           region: region,
         },
-        take: 1000, // Adjust the batch size as needed
+        take: 100, // Not too many to avoid spikes in db usage
       });
 
       if (summoners.length === 0) {
-        console.log("No summoners without PUUID found. Sleeping for 1 minute.");
         await sleep(60 * 1000);
         continue;
       }
-
-      console.log(`Processing ${summoners.length} summoners.`);
 
       for (const summoner of summoners) {
         await limiter.schedule(async () => {

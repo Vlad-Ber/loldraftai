@@ -74,9 +74,6 @@ async function collectMatchIds() {
       });
 
       if (summoners.length === 0) {
-        console.log(
-          "No summoners to fetch match IDs for. Sleeping for 1 minute."
-        );
         await sleep(60 * 1000);
         continue;
       }
