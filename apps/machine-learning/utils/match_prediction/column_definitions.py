@@ -61,23 +61,12 @@ def extract_champion_ids(match: Match):
 
 
 COLUMNS: Dict[str, ColumnDefinition] = {
-    # "region": ColumnDefinition(ColumnType.CATEGORICAL, extract_region),
-    # "averageTier": ColumnDefinition(ColumnType.CATEGORICAL, extract_average_tier),
-    # "averageDivision": ColumnDefinition(
-    # ColumnType.CATEGORICAL, extract_average_division
-    # ),
     "champion_ids": ColumnDefinition(ColumnType.LIST, extract_champion_ids),
     "champion_role_percentages": ColumnDefinition(
         ColumnType.LIST, lambda match: None
     ),  # This will be filled by the MatchDataset
     "numerical_elo": ColumnDefinition(ColumnType.NUMERICAL, extract_numerical_elo),
     "numerical_patch": ColumnDefinition(ColumnType.NUMERICAL, extract_numerical_patch),
-    # "gameVersionMajorPatch": ColumnDefinition(
-    # ColumnType.NUMERICAL, extract_game_version_major_patch
-    # ),
-    # "gameVersionMinorPatch": ColumnDefinition(
-    # ColumnType.NUMERICAL, extract_game_version_minor_patch
-    # ),
 }
 
 CATEGORICAL_COLUMNS = [
