@@ -13,9 +13,9 @@ mkdir -p logs
 yarn tsx "./src/scripts/extractToAzure.ts" > "./logs/log_extractToAzure.txt" 2>&1 &
 sleep 30 # to avoid spikes in db usage
 
-# Launch all scripts for all regions
-for script in "${scripts[@]}"; do
-    for region in "${regions[@]}"; do
+# Launch all scripts for all regions (looping over regions first to have different db patterns)
+for region in "${regions[@]}"; do
+    for script in "${scripts[@]}"; do
         yarn tsx "./src/scripts/$script" --region "$region" > "./logs/log_${script%.ts}_${region}.txt" 2>&1 &
         echo "Started $script for $region"
         sleep 30 # to avoid spikes in db usage
