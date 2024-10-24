@@ -1,4 +1,5 @@
 import yargs from "yargs";
+import axios from "axios";
 import { hideBin } from "yargs/helpers";
 import Bottleneck from "bottleneck";
 import { sleep } from "../utils";
@@ -66,8 +67,10 @@ async function collectMatchIds() {
           rankUpdateTime: {
             gt: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000),
           },
+          // Not errored
+          matchFetchErrored: false,
         },
-        take: 1000, // Adjust the batch size as needed
+        take: 100, // Not too many to avoid spikes in db usage
       });
 
       if (summoners.length === 0) {
@@ -77,7 +80,6 @@ async function collectMatchIds() {
         await sleep(60 * 1000);
         continue;
       }
-      console.log(`Processing ${summoners.length} summoners.`);
 
       for (const summoner of summoners) {
         await limiter.schedule(async () => {
@@ -124,11 +126,24 @@ async function collectMatchIds() {
                 matchesFetchedAt: new Date(),
               },
             });
-          } catch (error) {
-            console.error(
-              `Error fetching match IDs for summoner ${summoner.summonerId}:`,
-              error
-            );
+          } catch (error: any) {
+            if (axios.isAxiosError(error) && error.response?.status === 400) {
+              // Mark summoner as having match fetch errors
+              await prisma.summoner.update({
+                where: { id: summoner.id },
+                data: {
+                  matchFetchErrored: true,
+                  matchesFetchedAt: new Date(),
+                },
+              });
+              // TODO: could track error as event
+            } else {
+              // Log other errors but don't mark as errored (could be temporary API issues)
+              console.error(
+                `Error fetching match IDs for summoner ${summoner.summonerId}:`,
+                error
+              );
+            }
           }
         });
       }

@@ -64,6 +64,10 @@ model Summoner {
   rankUpdateTime   DateTime
   matchesFetchedAt DateTime?
 
+  // If an account has been deleted it could error 400 on fetch.
+  // We mark it as error to stop fetching it but don't delete it entirely
+  matchFetchErrored Boolean @default(false)
+
   @@unique([summonerId, region])
   @@index([puuid])
   @@index([region])
