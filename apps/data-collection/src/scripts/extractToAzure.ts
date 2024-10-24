@@ -181,9 +181,6 @@ class MatchExtractor {
         } else {
           console.log(`Processed ${processedCount} matches`);
         }
-
-        telemetry.flush();
-        break; // TODO: Remove this
       }
     } catch (error) {
       await telemetry.flush();

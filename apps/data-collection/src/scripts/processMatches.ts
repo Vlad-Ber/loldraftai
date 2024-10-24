@@ -53,7 +53,7 @@ async function processMatches() {
           processingErrored: false,
           region: region,
         },
-        take: 1000, // Adjust the batch size as needed
+        take: 100, // Not too many to avoid spikes in db usage
       });
 
       if (matches.length === 0) {

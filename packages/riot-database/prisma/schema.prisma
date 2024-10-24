@@ -68,10 +68,12 @@ model Summoner {
   // We mark it as error to stop fetching it but don't delete it entirely
   matchFetchErrored Boolean @default(false)
 
+  // Used in updateLadder.ts
   @@unique([summonerId, region])
-  @@index([puuid])
-  @@index([region])
-  @@index([matchesFetchedAt])
+  // composite index for collectMatchIds.ts main query
+  @@index([matchesFetchedAt, rankUpdateTime, region])
+  // For fetchPuuids.ts
+  @@index([puuid, region])
 }
 
 model Match {
@@ -102,9 +104,8 @@ model Match {
 
   // TODO: can probably change to just unique, because starts with region name ex: EUW1_7117841287
   @@unique([matchId, region])
-  @@index([exported])
-  @@index([region])
-  @@index([processed])
-  @@index([processed, processingErrored])
-  @@index([gameStartTimestamp])
+  // processMatches.ts query: processed first (highest selectivity)
+  @@index([processed, region, processingErrored])
+  // extractToAzure.ts query: processed and exported first (highest selectivity)
+  @@index([processed, exported, processingErrored])
 }
