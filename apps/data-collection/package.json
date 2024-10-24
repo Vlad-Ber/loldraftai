@@ -8,6 +8,7 @@
     "lint": "eslint ."
   },
   "dependencies": {
+    "@azure/storage-blob": "^12.25.0",
     "@draftking/eslint-config": "*",
     "@draftking/riot-api": "*",
     "@draftking/riot-database": "*",

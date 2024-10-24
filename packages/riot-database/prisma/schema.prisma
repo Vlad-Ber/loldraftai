@@ -93,8 +93,12 @@ model Match {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  // Whether the match has been exported to Azure storage
+  exported Boolean @default(false)
+
   // TODO: can probably change to just unique, because starts with region name ex: EUW1_7117841287
   @@unique([matchId, region])
+  @@index([exported])
   @@index([region])
   @@index([processed])
   @@index([processed, processingErrored])
