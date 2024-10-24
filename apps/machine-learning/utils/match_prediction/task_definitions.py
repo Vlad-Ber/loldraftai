@@ -94,17 +94,6 @@ def extract_team_stats(match: Match, team_id: str, stat: str, timestamp: str):
 
 
 # Define tasks
-"""
-TASKS = {
-    "win_prediction": TaskDefinition(
-        name="win_prediction",
-        task_type=TaskType.BINARY_CLASSIFICATION,
-        extractor=extract_win_label,
-        weight=1,
-    ),
-}
-"""
-
 TASKS = {
     "win_prediction": TaskDefinition(
         name="win_prediction",
