@@ -57,8 +57,8 @@ class MatchExtractor {
       take: this.config.batchSize,
     });
 
-    if (matches.length === 0) {
-      return 0;
+    if (matches.length < this.config.batchSize) {
+      return 0; // We wait until we can have at least a full batch
     }
 
     const batchId = new Date().toISOString().replace(/[:.]/g, "-");
