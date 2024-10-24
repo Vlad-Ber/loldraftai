@@ -6,6 +6,7 @@ import { RegionSchema } from "@draftking/riot-api";
 import { RiotAPIClient } from "@draftking/riot-api";
 import { PrismaClient } from "@draftking/riot-database";
 import { config } from "dotenv";
+import { telemetry } from "../utils/telemetry";
 
 config();
 
@@ -100,9 +101,18 @@ async function collectMatchIds() {
             }));
 
             // Perform batch create, skipping duplicates
-            await prisma.match.createMany({
+            const { count } = await prisma.match.createMany({
               data: matchCreates,
               skipDuplicates: true,
+            });
+
+            telemetry.trackEvent("MatchesCollected", {
+              count: matchIds.length,
+              region,
+            });
+            telemetry.trackEvent("NewMatchesCreated", {
+              count,
+              region,
             });
 
             // Update the summoner's matchesFetchedAt timestamp

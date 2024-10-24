@@ -5,6 +5,7 @@ import { sleep } from "../utils";
 import { RiotAPIClient, RegionSchema } from "@draftking/riot-api";
 import { PrismaClient } from "@draftking/riot-database";
 import { config } from "dotenv";
+import { telemetry } from "../utils/telemetry";
 
 config();
 
@@ -79,7 +80,10 @@ async function fetchPuuids() {
               },
             });
 
-            console.log(`Updated PUUID for summoner ${summoner.summonerId}`);
+            telemetry.trackEvent("PUUIDsFetched", {
+              count: 1,
+              region,
+            });
           } catch (error) {
             console.error(
               `Error updating summoner ${summoner.summonerId}:`,

@@ -10,6 +10,7 @@ import {
 } from "@draftking/riot-api"; // Adjust the import path as needed
 import { RiotAPIClient } from "@draftking/riot-api";
 import { PrismaClient } from "@draftking/riot-database";
+import { telemetry } from "../utils/telemetry";
 import { config } from "dotenv";
 
 config();
@@ -81,6 +82,11 @@ async function updateLadder() {
                 hasMore = false;
               } else {
                 await batchUpsertSummoners(leagueEntries);
+                telemetry.trackEvent("LadderUpdated", {
+                  count: leagueEntries.length,
+                  region,
+                  tier: tierDivision[0],
+                });
                 page++;
               }
             });

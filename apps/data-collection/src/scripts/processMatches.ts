@@ -7,6 +7,7 @@ import { RiotAPIClient } from "@draftking/riot-api";
 import { PrismaClient } from "@draftking/riot-database";
 import { config } from "dotenv";
 import { processMatchData } from "../utils/matchProcessing";
+import { telemetry } from "../utils/telemetry";
 
 config();
 
@@ -86,6 +87,11 @@ async function processMatches() {
                 gameVersionMinorPatch: processedData.gameVersionMinorPatch,
                 teams: processedData.teams,
               },
+            });
+
+            telemetry.trackEvent("MatchesProcessed", {
+              count: 1,
+              region,
             });
           } catch (error) {
             // Mark the match as processed but with an error
