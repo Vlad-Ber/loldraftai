@@ -27,23 +27,59 @@ interface ExtractorConfig {
   tempDir: string;
 }
 
+interface FileSaver {
+  saveFile(fileName: string, data: string | Buffer): Promise<void>;
+}
+
+class AzureFileSaver implements FileSaver {
+  constructor(private containerClient: ContainerClient) {}
+
+  async saveFile(fileName: string, data: string | Buffer): Promise<void> {
+    const blob = this.containerClient.getBlockBlobClient(fileName);
+    if (typeof data === "string") {
+      await blob.upload(data, data.length);
+    } else {
+      await blob.uploadData(data);
+    }
+  }
+}
+
+class LocalFileSaver implements FileSaver {
+  private tempDir: string;
+
+  constructor() {
+    const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
+    this.tempDir = `/tmp/${timestamp}`;
+    fs.mkdirSync(this.tempDir, { recursive: true });
+  }
+
+  async saveFile(fileName: string, data: string | Buffer): Promise<void> {
+    const filePath = path.join(this.tempDir, fileName);
+    const dir = path.dirname(filePath);
+    fs.mkdirSync(dir, { recursive: true });
+    fs.writeFileSync(filePath, data);
+  }
+}
+
 class MatchExtractor {
   private prisma: PrismaClient;
-  private blobServiceClient: BlobServiceClient;
-  private containerClient: ContainerClient;
+  private remoteFileSaver: FileSaver;
 
   constructor(private config: ExtractorConfig) {
     this.prisma = new PrismaClient();
-    this.blobServiceClient = BlobServiceClient.fromConnectionString(
+    const blobServiceClient = BlobServiceClient.fromConnectionString(
       AZURE_CONNECTION_STRING
     );
-    this.containerClient =
-      this.blobServiceClient.getContainerClient(CONTAINER_NAME);
-    this.config = config;
+    const containerClient =
+      blobServiceClient.getContainerClient(CONTAINER_NAME);
+
+    this.remoteFileSaver =
+      process.env.NODE_ENV === "development"
+        ? new LocalFileSaver()
+        : new AzureFileSaver(containerClient);
   }
 
   async initialize() {
-    await this.containerClient.createIfNotExists();
     fs.mkdirSync(this.config.tempDir, { recursive: true });
   }
 
@@ -64,26 +100,33 @@ class MatchExtractor {
       }
 
       const batchId = new Date().toISOString().replace(/[:.]/g, "-");
-      const rawFilePath = `${this.config.tempDir}/batch_${batchId}.json`;
-      const processedFilePath = `${this.config.tempDir}/processed_${batchId}.parquet`;
+      const remoteRawFileName = `${RAW_DATA_PREFIX}/${batchId}.json`;
+      const processedFileName = `${PROCESSED_DATA_PREFIX}/${batchId}.parquet`;
 
-      // Save raw JSON
-      const rawBlob = this.containerClient.getBlockBlobClient(
-        `${RAW_DATA_PREFIX}/${batchId}.json`
+      // Save raw JSON to remote storage
+      await this.remoteFileSaver.saveFile(
+        remoteRawFileName,
+        JSON.stringify(matches)
       );
-      await rawBlob.upload(
-        JSON.stringify(matches),
-        JSON.stringify(matches).length
+
+      // Save raw JSON to local storage(to be processed by python)
+      const rawLocalFilePath = path.join(
+        this.config.tempDir,
+        `raw_${batchId}.json`
       );
-      fs.writeFileSync(rawFilePath, JSON.stringify(matches));
+      const processedLocalFilePath = path.join(
+        this.config.tempDir,
+        `processed_${batchId}.parquet`
+      );
+      fs.writeFileSync(rawLocalFilePath, JSON.stringify(matches));
 
       // Create parquet file
       const pythonProcess = spawn("python", [
         path.join(currentFileDir, "createParquet.py"),
         "--batch-file",
-        rawFilePath,
+        rawLocalFilePath,
         "--output-file",
-        processedFilePath,
+        processedLocalFilePath,
       ]);
 
       await new Promise((resolve, reject) => {
@@ -93,11 +136,9 @@ class MatchExtractor {
         });
       });
 
-      // Upload processed parquet
-      const processedBlob = this.containerClient.getBlockBlobClient(
-        `${PROCESSED_DATA_PREFIX}/${batchId}.parquet`
-      );
-      await processedBlob.uploadFile(processedFilePath);
+      // Save processed parquet
+      const processedData = fs.readFileSync(processedLocalFilePath);
+      await this.remoteFileSaver.saveFile(processedFileName, processedData);
 
       // Mark as exported
       await this.prisma.match.updateMany({

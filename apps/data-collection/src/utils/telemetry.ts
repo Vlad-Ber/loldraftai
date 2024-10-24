@@ -1,5 +1,8 @@
 // src/utils/telemetry.ts
 import * as appInsights from "applicationinsights";
+import { config } from "dotenv";
+
+config();
 
 export class TelemetryClient {
   private static instance: TelemetryClient;
@@ -55,6 +58,11 @@ export class TelemetryClient {
       error?: string;
     } = {}
   ) {
+    if (process.env.NODE_ENV === "development") {
+      console.log(`Event tracked: ${name}`, properties);
+      return;
+    }
+
     if (!this.client) {
       console.debug(`Event not tracked (telemetry disabled): ${name}`);
       return;
@@ -80,6 +88,11 @@ export class TelemetryClient {
     value: number,
     properties: { region?: string } = {}
   ) {
+    if (process.env.NODE_ENV === "development") {
+      console.log(`Metric tracked: ${name}`, { value, ...properties });
+      return;
+    }
+
     if (!this.client) {
       console.debug(`Metric not tracked (telemetry disabled): ${name}`);
       return;
