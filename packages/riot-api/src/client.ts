@@ -43,8 +43,15 @@ export class RiotAPIClient {
   private axiosInstance: AxiosInstance;
   private platformRoutingValue: string;
   private skipValidation: boolean;
+  private maxRetries: number;
+  private baseDelay: number;
 
-  constructor(apiKey: string, region: Region = "EUW1") {
+  constructor(
+    apiKey: string,
+    region: Region = "EUW1",
+    maxRetries: number = 3,
+    baseDelay: number = 1000
+  ) {
     this.axiosInstance = axios.create({
       baseURL: `https://${region}.api.riotgames.com`,
       headers: {
@@ -53,6 +60,8 @@ export class RiotAPIClient {
     });
     this.platformRoutingValue = REGION_TO_PLATFORM_ROUTING[region];
     this.skipValidation = process.env.SKIP_VALIDATION === "true";
+    this.maxRetries = maxRetries;
+    this.baseDelay = baseDelay;
   }
 
   private validate<T>(schema: z.ZodSchema<T>, data: unknown): T {
@@ -62,38 +71,67 @@ export class RiotAPIClient {
     return schema.parse(data);
   }
 
+  private async withRetry<T>(
+    operation: () => Promise<T>,
+    retryCount: number = 0
+  ): Promise<T> {
+    try {
+      return await operation();
+    } catch (error) {
+      if (
+        retryCount < this.maxRetries &&
+        axios.isAxiosError(error) &&
+        (error.code === "ECONNRESET" || error.code === "ETIMEDOUT")
+      ) {
+        const delay = this.baseDelay * Math.pow(2, retryCount);
+        console.warn(
+          `Request failed, retrying in ${delay}ms... (Attempt ${
+            retryCount + 1
+          }/${this.maxRetries})`
+        );
+        await new Promise((resolve) => setTimeout(resolve, delay));
+        return this.withRetry(operation, retryCount + 1);
+      }
+      throw error;
+    }
+  }
+
   async getLeagueEntries(
     queue: QueueType,
     tierDivision: TierDivisionPair,
     page: number = 1
   ): Promise<LeagueEntryDTO[]> {
-    const [tier, division] = tierDivision;
+    return this.withRetry(async () => {
+      const [tier, division] = tierDivision;
 
-    // The riot api is inconsistent, it has different endpoints for master+ leagues
-    // We internally map the answers to have a more consistent api
-    if (["CHALLENGER", "GRANDMASTER", "MASTER"].includes(tier)) {
-      if (page !== 1) return []; // Return empty array for pages > 1 for these tiers
-      const response = await this.axiosInstance.get(
-        `/lol/league/v4/${tier.toLowerCase()}leagues/by-queue/${queue}`
-      );
-      const leagueList = LeagueListDTOSchema.parse(response.data);
-      return this.mapLeagueItemsToLeagueEntries(leagueList);
-    } else {
-      const response = await this.axiosInstance.get(
-        `/lol/league/v4/entries/${queue}/${tier}/${division}`,
-        {
-          params: { page },
-        }
-      );
-      return this.validate(z.array(LeagueEntryDTOSchema), response.data);
-    }
+      // The riot api is inconsistent, it has different endpoints for master+ leagues
+      // We internally map the answers to have a more consistent api
+      if (["CHALLENGER", "GRANDMASTER", "MASTER"].includes(tier)) {
+        if (page !== 1) return []; // Return empty array for pages > 1 for these tiers
+        const response = await this.axiosInstance.get(
+          `/lol/league/v4/${tier.toLowerCase()}leagues/by-queue/${queue}`
+        );
+        const leagueList = LeagueListDTOSchema.parse(response.data);
+        return this.mapLeagueItemsToLeagueEntries(leagueList);
+      } else {
+        const response = await this.axiosInstance.get(
+          `/lol/league/v4/entries/${queue}/${tier}/${division}`,
+          {
+            params: { page },
+          }
+        );
+        return this.validate(z.array(LeagueEntryDTOSchema), response.data);
+      }
+    });
   }
 
   async getSummonerById(encryptedSummonerId: string): Promise<SummonerDTO> {
-    const response = await this.axiosInstance.get(
-      `/lol/summoner/v4/summoners/${encryptedSummonerId}`
-    );
-    return this.validate(SummonerDTOSchema, response.data);
+    return this.withRetry(async () => {
+      const response = await this.axiosInstance.get(
+        `/lol/summoner/v4/summoners/${encryptedSummonerId}`
+      );
+      return this.validate(SummonerDTOSchema, response.data);
+    });
   }
 
   async getMatchIdsByPuuid(
@@ -107,39 +145,45 @@ export class RiotAPIClient {
       count?: number;
     } = {}
   ): Promise<string[]> {
-    const response = await this.axiosInstance.get(
-      `https://${this.platformRoutingValue}.api.riotgames.com/lol/match/v5/matches/by-puuid/${puuid}/ids`,
-      { params: options }
-    );
-    return this.validate(z.array(z.string()), response.data);
+    return this.withRetry(async () => {
+      const response = await this.axiosInstance.get(
+        `https://${this.platformRoutingValue}.api.riotgames.com/lol/match/v5/matches/by-puuid/${puuid}/ids`,
+        { params: options }
+      );
+      return this.validate(z.array(z.string()), response.data);
+    });
   }
 
   async getMatchById(matchId: string): Promise<MatchDto> {
-    const response = await this.axiosInstance.get(
-      `https://${this.platformRoutingValue}.api.riotgames.com/lol/match/v5/matches/${matchId}`
-    );
-    // save to /tmp/match.json
-    if (DEBUG_SAVE_REQUESTS) {
-      fs.writeFileSync(
-        `/tmp/match.json`,
-        JSON.stringify(response.data, null, 2)
+    return this.withRetry(async () => {
+      const response = await this.axiosInstance.get(
+        `https://${this.platformRoutingValue}.api.riotgames.com/lol/match/v5/matches/${matchId}`
       );
-    }
-    return this.validate(MatchDtoSchema, response.data);
+      // save to /tmp/match.json
+      if (DEBUG_SAVE_REQUESTS) {
+        fs.writeFileSync(
+          `/tmp/match.json`,
+          JSON.stringify(response.data, null, 2)
+        );
+      }
+      return this.validate(MatchDtoSchema, response.data);
+    });
   }
 
   async getMatchTimelineById(matchId: string): Promise<TimelineDto> {
-    const response = await this.axiosInstance.get(
-      `https://${this.platformRoutingValue}.api.riotgames.com/lol/match/v5/matches/${matchId}/timeline`
-    );
-    // save to /tmp/timeline.json
-    if (DEBUG_SAVE_REQUESTS) {
-      fs.writeFileSync(
-        `/tmp/timeline.json`,
-        JSON.stringify(response.data, null, 2)
+    return this.withRetry(async () => {
+      const response = await this.axiosInstance.get(
+        `https://${this.platformRoutingValue}.api.riotgames.com/lol/match/v5/matches/${matchId}/timeline`
       );
-    }
-    return this.validate(TimelineDtoSchema, response.data);
+      // save to /tmp/timeline.json
+      if (DEBUG_SAVE_REQUESTS) {
+        fs.writeFileSync(
+          `/tmp/timeline.json`,
+          JSON.stringify(response.data, null, 2)
+        );
+      }
+      return this.validate(TimelineDtoSchema, response.data);
+    });
   }
 
   private mapLeagueItemsToLeagueEntries(
