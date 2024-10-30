@@ -1,5 +1,9 @@
 import numpy as np
 import requests
+import os
+from utils import DATA_DIR
+
+ROLE_CHAMPIONS_PATH = os.path.join(DATA_DIR, "role_champions.json")
 
 
 def fetch_blue_side_winrate_prediction(champion_ids: np.ndarray):

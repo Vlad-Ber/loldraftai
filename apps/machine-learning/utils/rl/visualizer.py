@@ -64,7 +64,6 @@ def integrate_with_env(env):
             self.visualizer = LoLDraftVisualizer()
             self.draft_image = None
 
-
         def _is_draft_complete(self):
             is_complete = super()._is_draft_complete()
             if is_complete:
@@ -72,14 +71,13 @@ def integrate_with_env(env):
                 red_team = np.argmax(self.red_ordered_picks, axis=1)
                 self.draft_image = self.visualizer.get_draft_array(blue_team, red_team)
             return is_complete
-              
 
         def render(self):
             # this could return draft_image of last draft, but it helps also getting an image in vectorized envs
             # because vectorized envs automatically reset so it's hard to call render when state is done
             if self.draft_image is not None:
                 # Convert numpy array to PIL Image
-                img = Image.fromarray(self.draft_image.astype('uint8'), 'RGB')
+                img = Image.fromarray(self.draft_image.astype("uint8"), "RGB")
                 # Create a bytes buffer
                 buffer = BytesIO()
                 # Save the image to the buffer in PNG format

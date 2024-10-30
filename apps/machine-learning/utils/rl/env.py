@@ -2,9 +2,10 @@ import pickle
 import gymnasium as gym
 from gymnasium import spaces
 import numpy as np
+import json
 from typing import List, Dict
 
-from utils.rl import fetch_blue_side_winrate_prediction
+from utils.rl import fetch_blue_side_winrate_prediction, ROLE_CHAMPIONS_PATH
 from utils.match_prediction import MODEL_CONFIG_PATH
 from utils.rl.champions import VALID_CHAMPION_IDS, ROLE_CHAMPIONS
 
@@ -86,6 +87,11 @@ class LoLDraftEnv(gym.Env):
         # This is can be set to restrict the model picks
         self.valid_champion_mask = np.zeros(self.num_champions, dtype=np.int8)
         self.valid_champion_mask[VALID_CHAMPION_IDS] = 1
+
+        # Verify champion_to_role mapping
+        for champ_id in VALID_CHAMPION_IDS:
+            if champ_id not in self.champion_to_role:
+                print(f"Warning: Champion {champ_id} has no role mapping!")
 
         self.reset()
 
@@ -334,6 +340,298 @@ class SelfPlayWrapper(gym.Wrapper):
     def reset(self, **kwargs):
         self.opponent_picks = []
         return super().reset(**kwargs)
+
+
+class FixedRoleDraftEnv(gym.Env):
+    metadata = {"render_modes": []}
+
+    def __init__(self):
+        super(FixedRoleDraftEnv, self).__init__()
+
+        with open(MODEL_CONFIG_PATH, "rb") as f:
+            model_params = pickle.load(f)
+
+        self.num_champions = model_params["num_champions"]
+        self.action_space = spaces.Discrete(self.num_champions)
+        self.roles = ["TOP", "JUNGLE", "MID", "BOT", "UTILITY"]
+        self.num_roles = len(self.roles)
+
+        # Load role-champion mapping
+        with open(ROLE_CHAMPIONS_PATH, "r") as f:
+            self.role_champions = json.load(f)
+
+        # Convert champion IDs to sets for efficient lookup
+        self.role_champion_sets = {
+            role: set(champs) for role, champs in self.role_champions.items()
+        }
+
+        # Create champion to role mapping for quick lookups
+        self.champion_to_role = {}
+        for role, champions in self.role_champions.items():
+            for champ in champions:
+                self.champion_to_role[champ] = role
+
+        # Define the draft order
+        self.draft_order = self._create_draft_order()
+
+        self.observation_space = spaces.Dict(
+            {
+                "available_champions": spaces.Box(
+                    0, 1, shape=(self.num_champions,), dtype=np.int8
+                ),
+                "blue_picks": spaces.Box(
+                    0, 1, shape=(5, self.num_champions), dtype=np.int8
+                ),
+                "red_picks": spaces.Box(
+                    0, 1, shape=(5, self.num_champions), dtype=np.int8
+                ),
+                "blue_ordered_picks": spaces.Box(
+                    0, 1, shape=(5, self.num_champions), dtype=np.int8
+                ),
+                "red_ordered_picks": spaces.Box(
+                    0, 1, shape=(5, self.num_champions), dtype=np.int8
+                ),
+                "blue_roles_picked": spaces.Box(0, 1, shape=(5,), dtype=np.int8),
+                "red_roles_picked": spaces.Box(0, 1, shape=(5,), dtype=np.int8),
+                "phase": spaces.Discrete(2),  # 0: ban, 1: pick
+                "turn": spaces.Discrete(2),  # 0: blue, 1: red
+                "action_mask": spaces.Box(
+                    0, 1, shape=(self.num_champions,), dtype=np.int8
+                ),
+            }
+        )
+
+        # Create valid champion mask
+        self.valid_champion_mask = np.zeros(self.num_champions, dtype=np.int8)
+        self.valid_champion_mask[VALID_CHAMPION_IDS] = 1
+
+        self.reset()
+
+    def _create_draft_order(self):
+        draft_order = []
+        # Ban phase: 5 bans per team
+        for _ in range(5):
+            draft_order.append({"team": 0, "phase": 0})  # Blue ban
+            draft_order.append({"team": 1, "phase": 0})  # Red ban
+
+        # Pick phase: maintain original pick order
+        draft_order.extend(
+            [
+                {"team": 0, "phase": 1},  # Blue pick 1
+                {"team": 1, "phase": 1},  # Red pick 1
+                {"team": 1, "phase": 1},  # Red pick 2
+                {"team": 0, "phase": 1},  # Blue pick 2
+                {"team": 0, "phase": 1},  # Blue pick 3
+                {"team": 1, "phase": 1},  # Red pick 3
+                {"team": 1, "phase": 1},  # Red pick 4
+                {"team": 0, "phase": 1},  # Blue pick 4
+                {"team": 0, "phase": 1},  # Blue pick 5
+                {"team": 1, "phase": 1},  # Red pick 5
+            ]
+        )
+
+        return draft_order
+
+    def reset(self, *, seed=None, options=None):
+        super().reset(seed=seed)
+
+        self.available_champions = np.ones(self.num_champions, dtype=np.int8)
+        self.blue_picks = np.zeros((5, self.num_champions), dtype=np.int8)
+        self.red_picks = np.zeros((5, self.num_champions), dtype=np.int8)
+        # Keep track of order for visualization
+        self.blue_ordered_picks = np.zeros((5, self.num_champions), dtype=np.int8)
+        self.red_ordered_picks = np.zeros((5, self.num_champions), dtype=np.int8)
+        self.blue_roles_picked = np.zeros(5, dtype=np.int8)
+        self.red_roles_picked = np.zeros(5, dtype=np.int8)
+        self.blue_pick_count = 0
+        self.red_pick_count = 0
+        self.current_step = 0
+        self.done = False
+
+        observation = self._get_obs()
+        info = {}
+        return observation, info
+
+    def get_action_mask(self):
+        action_info = self._get_action_info()
+        team = action_info["team"]
+        phase = action_info["phase"]
+
+        # Start with available champions
+        action_mask = self.available_champions.copy()
+
+        if phase == 1:  # Pick phase
+            # Get the roles that have already been picked
+            roles_picked = (
+                self.blue_roles_picked if team == 0 else self.red_roles_picked
+            )
+            picked_roles = {
+                self.roles[i] for i in range(len(roles_picked)) if roles_picked[i] == 1
+            }
+
+            # Mask out champions from roles that have already been picked
+            for champ_id in range(self.num_champions):
+                if action_mask[champ_id] == 1:  # If champion is available
+                    champ_role = self.champion_to_role.get(champ_id)
+                    if champ_role in picked_roles:
+                        action_mask[champ_id] = 0
+
+        return action_mask * self.valid_champion_mask
+
+    def step(self, action):
+        if self.done:
+            raise Exception("Cannot call step() on a done environment")
+
+        # Add safety check(because rare invalid actions) TODO: why are there invalid actions?
+        action_mask = self.get_action_mask()
+        if action_mask[action] == 0:
+            print(f"Warning: Agent tried to take masked action {action}")
+            # Either raise exception or take random valid action
+            valid_actions = np.where(action_mask == 1)[0]
+            if len(valid_actions) == 0:
+                raise Exception("No valid actions available!")
+            action = np.random.choice(valid_actions)
+
+        action_info = self.draft_order[self.current_step]
+        current_team = action_info["team"]
+        phase = action_info["phase"]
+
+        # Validate and process action
+        valid = self._process_action(action, phase, current_team)
+        if not valid:
+            raise Exception("Invalid action")
+
+        # Update state
+        self.current_step += 1
+
+        # Get new observation
+        observation = self._get_obs()
+
+        # Check if draft is complete
+        terminated = self.current_step >= len(self.draft_order)
+        truncated = False
+        info = {}
+
+        # Calculate reward
+        if terminated:
+            reward = self._calculate_reward()
+            self.done = True
+        else:
+            reward = 0
+
+        return observation, reward, terminated, truncated, info
+
+    def _process_action(self, action, phase, current_team):
+        if self.available_champions[action] == 0:
+            return False
+
+        if phase == 0:  # Ban phase
+            self.available_champions[action] = 0
+            return True
+
+        elif phase == 1:  # Pick phase
+            # Get champion's role
+            champ_role = self.champion_to_role.get(action)
+            if champ_role is None:
+                print("Invalid champion ID")
+                return False
+
+            # Get team's current roles and picks
+            roles_picked = (
+                self.blue_roles_picked if current_team == 0 else self.red_roles_picked
+            )
+            picks = self.blue_picks if current_team == 0 else self.red_picks
+            ordered_picks = (
+                self.blue_ordered_picks if current_team == 0 else self.red_ordered_picks
+            )
+
+            # Check if role is already picked
+            role_index = self.roles.index(champ_role)
+            if roles_picked[role_index] == 1:
+                return False
+
+            # Make the pick
+            self.available_champions[action] = 0
+
+            # Update role-based picks
+            picks[role_index][action] = 1
+            roles_picked[role_index] = 1
+
+            # Update ordered picks for visualization
+            if current_team == 0:
+                ordered_picks[self.blue_pick_count][action] = 1
+                self.blue_pick_count += 1
+            else:
+                ordered_picks[self.red_pick_count][action] = 1
+                self.red_pick_count += 1
+
+            return True
+
+    def _is_draft_complete(self):
+        is_complete = (
+            np.sum(self.blue_roles_picked) == 5 and np.sum(self.red_roles_picked) == 5
+        )
+
+        if is_complete:
+            # Create new ordered arrays in role order (TOP, JUNGLE, MID, BOT, UTILITY)
+            new_blue_ordered = np.zeros_like(self.blue_ordered_picks)
+            new_red_ordered = np.zeros_like(self.red_ordered_picks)
+
+            # Fill the arrays in role order
+            for role_idx, role in enumerate(self.roles):
+                # Find champion for this role in blue team
+                blue_champ = np.argmax(self.blue_picks[role_idx])
+                new_blue_ordered[role_idx][blue_champ] = 1
+
+                # Find champion for this role in red team
+                red_champ = np.argmax(self.red_picks[role_idx])
+                new_red_ordered[role_idx][red_champ] = 1
+
+            # Update the ordered picks arrays
+            self.blue_ordered_picks = new_blue_ordered
+            self.red_ordered_picks = new_red_ordered
+
+        return is_complete
+
+    def _get_obs(self):
+        action_info = self._get_action_info()
+
+        return {
+            "available_champions": self.available_champions.copy(),
+            "blue_picks": self.blue_picks.copy(),
+            "red_picks": self.red_picks.copy(),
+            "blue_ordered_picks": self.blue_ordered_picks.copy(),
+            "red_ordered_picks": self.red_ordered_picks.copy(),
+            "blue_roles_picked": self.blue_roles_picked.copy(),
+            "red_roles_picked": self.red_roles_picked.copy(),
+            "phase": np.array([action_info["phase"]], dtype=np.int8),
+            "turn": np.array([action_info["team"]], dtype=np.int8),
+            "action_mask": self.get_action_mask(),
+        }
+
+    def _get_action_info(self):
+        return self.draft_order[min(self.current_step, len(self.draft_order) - 1)]
+
+    def _calculate_reward(self):
+        # Get picks in role order (TOP, JUNGLE, MID, BOT, UTILITY)
+        champion_ids = []
+        for role in self.roles:
+            # Add blue team champion for this role
+            for role_idx, r in enumerate(self.roles):
+                if r == role:
+                    champion_ids.append(np.argmax(self.blue_picks[role_idx]))
+                    break
+
+        for role in self.roles:
+            # Add red team champion for this role
+            for role_idx, r in enumerate(self.roles):
+                if r == role:
+                    champion_ids.append(np.argmax(self.red_picks[role_idx]))
+                    break
+
+        self._is_draft_complete()  # calling just to enable visualization
+
+        return fetch_blue_side_winrate_prediction(np.array(champion_ids))
 
 
 def action_mask_fn(env):

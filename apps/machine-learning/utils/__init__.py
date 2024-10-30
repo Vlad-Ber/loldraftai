@@ -7,3 +7,4 @@ machine_learning_dir = os.path.dirname(current_file_dir)
 
 DATA_DIR = os.path.join(machine_learning_dir, "data")
 os.makedirs(DATA_DIR, exist_ok=True)
+
