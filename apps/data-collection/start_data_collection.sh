@@ -11,6 +11,7 @@ mkdir -p logs
 
 # Launch extractToAzure
 yarn tsx "./src/scripts/extractToAzure.ts" > "./logs/log_extractToAzure.txt" 2>&1 &
+echo "Started extractToAzure"
 sleep 30 # to avoid spikes in db usage
 
 # Launch all scripts for all regions (looping over regions first to have different db patterns)
