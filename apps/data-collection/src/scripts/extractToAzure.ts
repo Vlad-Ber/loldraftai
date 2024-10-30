@@ -118,6 +118,7 @@ class MatchExtractor {
         this.config.tempDir,
         `processed_${batchId}.parquet`
       );
+      fs.mkdirSync(path.dirname(rawLocalFilePath), { recursive: true }); // in case the /tmp directory was deleted
       fs.writeFileSync(rawLocalFilePath, JSON.stringify(matches));
 
       // Create parquet file
