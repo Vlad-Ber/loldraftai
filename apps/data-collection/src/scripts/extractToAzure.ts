@@ -194,11 +194,8 @@ class MatchExtractor {
         const processedCount = await this.extractBatch();
 
         if (processedCount === 0) {
-          console.log("No more matches to process");
           // Sleep for 1 hour
           await new Promise((resolve) => setTimeout(resolve, 1000 * 60 * 60));
-        } else {
-          console.log(`Processed ${processedCount} matches`);
         }
       }
     } catch (error) {
