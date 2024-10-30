@@ -129,10 +129,28 @@ class MatchExtractor {
         processedLocalFilePath,
       ]);
 
+      let pythonOutput = "";
+      let pythonError = "";
+
+      pythonProcess.stdout.on("data", (data) => {
+        pythonOutput += data.toString();
+      });
+
+      pythonProcess.stderr.on("data", (data) => {
+        pythonError += data.toString();
+      });
+
       await new Promise((resolve, reject) => {
         pythonProcess.on("exit", (code) => {
-          if (code === 0) resolve(null);
-          else reject(new Error(`Python process exited with code ${code}`));
+          if (code === 0) {
+            resolve(null);
+          } else {
+            reject(
+              new Error(
+                `Python process exited with code ${code}.\nError: ${pythonError}\nOutput: ${pythonOutput}`
+              )
+            );
+          }
         });
       });
 
