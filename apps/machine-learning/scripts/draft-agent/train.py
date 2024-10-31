@@ -8,7 +8,7 @@ from utils.rl.visualizer import integrate_with_env
 from utils.rl.env import LoLDraftEnv, SelfPlayWrapper, action_mask_fn, FixedRoleDraftEnv
 
 # Number of parallel environments
-NUM_ENVS = 8 #32 # TODO: maybe having more than the number of cpu leads to instability?
+NUM_ENVS = 8  # 32
 
 
 def make_env(rank):
