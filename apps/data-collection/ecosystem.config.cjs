@@ -23,7 +23,7 @@ module.exports = {
         (script) => ({
           name: `${script}-${region}`,
           script: `yarn tsx ./src/scripts/${script}.ts`,
-          args: `--region ${region}`,
+          args: [`--region`, `${region}`],
           autorestart: true,
           max_restarts: 10,
           restart_delay: 4000,
