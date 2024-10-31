@@ -111,7 +111,7 @@ class LoLDraftEnv(gym.Env):
         return observation, info
 
     def get_action_mask(self):
-        action_info = self._get_action_info()
+        action_info = self.get_action_info()
         team = action_info["team"]
         phase = action_info["phase"]
 
@@ -212,12 +212,12 @@ class LoLDraftEnv(gym.Env):
         if self.current_step >= len(self.draft_order):
             self.done = True
 
-    def _get_action_info(self):
+    def get_action_info(self):
         # we allow a final observation
         return self.draft_order[min(self.current_step, len(self.draft_order) - 1)]
 
     def _get_obs(self):
-        action_info = self._get_action_info()
+        action_info = self.get_action_info()
         current_turn = action_info["team"]
         current_role_index = action_info.get(
             "role_index", 0
@@ -296,7 +296,7 @@ class SelfPlayWrapper(gym.Wrapper):
         self.roles = ["TOP", "JUNGLE", "MID", "BOT", "UTILITY"]
 
     def step(self, action):
-        action_info = self.env._get_action_info()
+        action_info = self.env.get_action_info()
 
         if action_info["team"] == 0:  # Agent's turn
             observation, reward, terminated, truncated, info = self.env.step(action)
@@ -311,7 +311,7 @@ class SelfPlayWrapper(gym.Wrapper):
             and self.env.current_step < len(self.env.draft_order)
             and self.env.draft_order[self.env.current_step]["team"] != 0
         ):
-            action_info = self.env._get_action_info()
+            action_info = self.env.get_action_info()
             opponent_action = self._get_opponent_action(action_info)
             observation, _, terminated, truncated, info = self.env.step(opponent_action)
 
@@ -475,7 +475,7 @@ class FixedRoleDraftEnv(gym.Env):
         return observation, info
 
     def get_action_mask(self):
-        action_info = self._get_action_info()
+        action_info = self.get_action_info()
         team = action_info["team"]
         phase = action_info["phase"]
 
@@ -606,7 +606,7 @@ class FixedRoleDraftEnv(gym.Env):
         return is_complete
 
     def _get_obs(self):
-        action_info = self._get_action_info()
+        action_info = self.get_action_info()
 
         return {
             "available_champions": self.available_champions.copy(),
@@ -621,7 +621,7 @@ class FixedRoleDraftEnv(gym.Env):
             "action_mask": self.get_action_mask(),
         }
 
-    def _get_action_info(self):
+    def get_action_info(self):
         return self.draft_order[min(self.current_step, len(self.draft_order) - 1)]
 
     def _calculate_reward(self):

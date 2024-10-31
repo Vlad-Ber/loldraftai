@@ -1,0 +1,18 @@
+[Unit]
+Description=League Data Collection Service
+After=network.target
+
+[Service]
+Type=forking
+User=azureuser
+WorkingDirectory=/home/azureuser/draftking-monorepo/apps/data-collection
+Environment=PATH=/usr/local/bin:/usr/bin:/bin
+Environment=NODE_ENV=production
+ExecStart=/home/azureuser/.nvm/versions/node/v22.11.0/bin/pm2 start ecosystem.config.js
+ExecReload=/home/azureuser/.nvm/versions/node/v22.11.0/bin/pm2 reload all
+ExecStop=/home/azureuser/.nvm/versions/node/v22.11.0/bin/pm2 stop all
+Restart=always
+
+[Install]
+WantedBy=multi-user.target
+
