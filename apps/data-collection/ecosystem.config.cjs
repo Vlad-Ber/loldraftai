@@ -22,8 +22,7 @@ module.exports = {
       ["collectMatchIds", "fetchPuuids", "processMatches", "updateLadder"].map(
         (script) => ({
           name: `${script}-${region}`,
-          script: `yarn tsx ./src/scripts/${script}.ts`,
-          args: [`--region`, `${region}`],
+          script: `yarn tsx ./src/scripts/${script}.ts --region ${region}`,
           autorestart: true,
           max_restarts: 10,
           restart_delay: 4000,
