@@ -6,5 +6,5 @@ module.exports = {
   parserOptions: {
     project: true,
   },
-  ignorePatterns: ["ecosystem.config.js"],
+  ignorePatterns: ["ecosystem.config.cjs"],
 };
