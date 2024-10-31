@@ -278,6 +278,23 @@ class SelfPlayWrapper(gym.Wrapper):
         super().__init__(env)
         self.opponent_picks = []
 
+        # Load own role-champion mapping
+        with open(ROLE_CHAMPIONS_PATH, "r") as f:
+            self.role_champions = json.load(f)
+
+        # Convert champion IDs to sets for efficient lookup
+        self.role_champion_sets = {
+            role: set(champs) for role, champs in self.role_champions.items()
+        }
+
+        # Create champion to role mapping for quick lookups
+        self.champion_to_role = {}
+        for role, champions in self.role_champions.items():
+            for champ in champions:
+                self.champion_to_role[champ] = role
+
+        self.roles = ["TOP", "JUNGLE", "MID", "BOT", "UTILITY"]
+
     def step(self, action):
         action_info = self.env._get_action_info()
 
@@ -316,12 +333,22 @@ class SelfPlayWrapper(gym.Wrapper):
             return self.np_random.choice(valid_actions)
         elif phase == 1:  # Pick phase
             return self._get_role_based_pick(valid_actions)
-        elif phase == 2:  # Role selection phase
-            return self._get_role_selection(action_info["role_index"], valid_actions)
 
     def _get_role_based_pick(self, valid_actions: List[int]) -> int:
-        current_role = len(self.opponent_picks)
-        role_champions = set(ROLE_CHAMPIONS[current_role])
+        # Get unpicked roles
+        roles_picked = self.env.red_roles_picked  # opponent is always red team
+        available_roles = [
+            role for i, role in enumerate(self.roles) if roles_picked[i] == 0
+        ]
+
+        if not available_roles:
+            return self.np_random.choice(valid_actions)
+
+        # Choose a random available role
+        chosen_role = self.np_random.choice(available_roles)
+
+        # Get valid champions for this role that are also in valid actions
+        role_champions = self.role_champion_sets[chosen_role]
         valid_role_champions = list(role_champions.intersection(valid_actions))
 
         if valid_role_champions:
@@ -331,11 +358,6 @@ class SelfPlayWrapper(gym.Wrapper):
 
         self.opponent_picks.append(pick)
         return pick
-
-    def _get_role_selection(self, role_index: int, valid_actions: List[int]) -> int:
-        if role_index < len(self.opponent_picks):
-            return self.opponent_picks[role_index]
-        return self.np_random.choice(valid_actions)
 
     def reset(self, **kwargs):
         self.opponent_picks = []
@@ -481,16 +503,6 @@ class FixedRoleDraftEnv(gym.Env):
     def step(self, action):
         if self.done:
             raise Exception("Cannot call step() on a done environment")
-
-        # Add safety check(because rare invalid actions) TODO: why are there invalid actions?
-        action_mask = self.get_action_mask()
-        if action_mask[action] == 0:
-            print(f"Warning: Agent tried to take masked action {action}")
-            # Either raise exception or take random valid action
-            valid_actions = np.where(action_mask == 1)[0]
-            if len(valid_actions) == 0:
-                raise Exception("No valid actions available!")
-            action = np.random.choice(valid_actions)
 
         action_info = self.draft_order[self.current_step]
         current_team = action_info["team"]

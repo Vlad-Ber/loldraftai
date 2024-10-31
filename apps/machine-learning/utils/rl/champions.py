@@ -175,8 +175,8 @@ class Champion(Enum):
         self.display_name = display_name
 
 
-# we limit the numbr of ids to simplify the rl model for now
-VALID_CHAMPION_IDS = [champion.id for champion in Champion if champion.id < 60]
+# Valid ids, because they are not incremental
+VALID_CHAMPION_IDS = [champion.id for champion in Champion]
 
 
 # Champion role constants with names as comments
