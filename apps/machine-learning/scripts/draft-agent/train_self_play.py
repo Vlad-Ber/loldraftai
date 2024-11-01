@@ -7,7 +7,8 @@ from sb3_contrib.common.wrappers import ActionMasker
 from utils import DATA_DIR
 from utils.match_prediction import get_best_device
 from utils.rl.env import FixedRoleDraftEnv
-from utils.rl.self_play import ModelPool, SelfPlayWithPoolWrapper, action_mask_fn
+from utils.rl.self_play import ModelPool, SelfPlayWithPoolWrapper
+from utils.rl.env import action_mask_fn
 
 
 def make_env(rank, model_pool, agent_side="random"):

@@ -10,6 +10,11 @@ from utils.match_prediction import MODEL_CONFIG_PATH
 from utils.rl.champions import VALID_CHAMPION_IDS, ROLE_CHAMPIONS
 
 
+def action_mask_fn(env):
+    """Action mask function that can be pickled."""
+    return env.get_action_mask()
+
+
 RoleType = Literal["TOP", "JUNGLE", "MID", "BOT", "UTILITY"]
 
 
@@ -439,8 +444,9 @@ class FixedRoleDraftEnv(gym.Env):
             for champ in champions:
                 self.champion_to_role[champ] = role
 
-        # Define the draft order
-        self.draft_order = self._create_draft_order()
+        # We can remove role selection phase from the draft order, that was created in super()
+        base_draft_order = create_solo_queue_draft_order()
+        self.draft_order = [step for step in base_draft_order if step["phase"] != 2]
 
         self.observation_space = spaces.Dict(
             {
@@ -475,31 +481,6 @@ class FixedRoleDraftEnv(gym.Env):
 
         self.reset()
 
-    def _create_draft_order(self):
-        draft_order = []
-        # Ban phase: 5 bans per team
-        for _ in range(5):
-            draft_order.append({"team": 0, "phase": 0})  # Blue ban
-            draft_order.append({"team": 1, "phase": 0})  # Red ban
-
-        # Pick phase: maintain original pick order
-        draft_order.extend(
-            [
-                {"team": 0, "phase": 1},  # Blue pick 1
-                {"team": 1, "phase": 1},  # Red pick 1
-                {"team": 1, "phase": 1},  # Red pick 2
-                {"team": 0, "phase": 1},  # Blue pick 2
-                {"team": 0, "phase": 1},  # Blue pick 3
-                {"team": 1, "phase": 1},  # Red pick 3
-                {"team": 1, "phase": 1},  # Red pick 4
-                {"team": 0, "phase": 1},  # Blue pick 4
-                {"team": 0, "phase": 1},  # Blue pick 5
-                {"team": 1, "phase": 1},  # Red pick 5
-            ]
-        )
-
-        return draft_order
-
     def reset(self, *, seed=None, options=None):
         super().reset(seed=seed)
 
@@ -525,7 +506,7 @@ class FixedRoleDraftEnv(gym.Env):
         team = action_info["team"]
         phase = action_info["phase"]
 
-        # Start with available champions
+        # Start with available champions, as they impact both ban and pick phases
         action_mask = self.available_champions.copy()
 
         if phase == 1:  # Pick phase
@@ -692,7 +673,3 @@ class FixedRoleDraftEnv(gym.Env):
         self._is_draft_complete()  # calling just to enable visualization
 
         return fetch_blue_side_winrate_prediction(np.array(champion_ids))
-
-
-def action_mask_fn(env):
-    return env.get_action_mask()

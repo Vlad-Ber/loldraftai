@@ -10,9 +10,6 @@ from gymnasium import Wrapper
 from sb3_contrib import MaskablePPO
 
 
-def action_mask_fn(env):
-    """Action mask function that can be pickled."""
-    return env.get_action_mask()
 
 
 class ModelPool:
