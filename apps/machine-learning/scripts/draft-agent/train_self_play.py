@@ -1,6 +1,7 @@
 # draft_agent/train_self_play.py
 
 import os
+import warnings
 from sb3_contrib import MaskablePPO
 from stable_baselines3.common.vec_env import SubprocVecEnv
 from sb3_contrib.common.wrappers import ActionMasker
@@ -9,6 +10,11 @@ from utils.match_prediction import get_best_device
 from utils.rl.env import FixedRoleDraftEnv
 from utils.rl.self_play import ModelPool, SelfPlayWithPoolWrapper
 from utils.rl.env import action_mask_fn
+
+
+# sb3_contrib is not updated to latest api, this is the message we are ignoring:
+# WARN: env.get_action_mask to get variables from other wrappers is deprecated and will be removed in v1.0
+warnings.filterwarnings("ignore", message=".*env.get_action_mask.*")
 
 
 def make_env(rank, model_pool, agent_side="random"):
@@ -22,7 +28,7 @@ def make_env(rank, model_pool, agent_side="random"):
 
 
 def train_self_play(
-    num_iterations: int = 1,
+    num_iterations: int = 10,
     timesteps_per_iteration: int = 50_000,
     num_envs: int = 32,
     pool_size: int = 5,
@@ -73,8 +79,8 @@ def train_self_play(
 
 if __name__ == "__main__":
     trained_model = train_self_play(
-        num_iterations=3,
-        timesteps_per_iteration=25_000,
+        num_iterations=15,
+        timesteps_per_iteration=50_000,
         num_envs=32,
         pool_size=5,
     )
