@@ -120,14 +120,15 @@ class LoLDraftEnv(gym.Env):
         )
 
         # Create a mask for valid champion IDs
-        # This is can be set to restrict the model picks
+        # This is required because ids are not consecutive, so some don't represent champions
         self.valid_champion_mask = np.zeros(self.num_champions, dtype=np.int8)
         self.valid_champion_mask[VALID_CHAMPION_IDS] = 1
 
-        # Verify champion_to_role mapping
+        # Verify champion_to_role mapping has all valid champions
         for champ_id in VALID_CHAMPION_IDS:
-            if champ_id not in self.champion_to_role:
-                print(f"Warning: Champion {champ_id} has no role mapping!")
+            assert (
+                champ_id in self.champion_to_role
+            ), f"Champion {champ_id} has no role mapping!"
 
         self.reset()
 
@@ -147,7 +148,7 @@ class LoLDraftEnv(gym.Env):
         return observation, info
 
     def get_action_mask(self):
-        action_info = self.get_action_info()
+        action_info = self.get_current_draft_step()
         team = action_info["team"]
         phase = action_info["phase"]
 
@@ -180,8 +181,9 @@ class LoLDraftEnv(gym.Env):
             print(f"Red picks: {self.red_picks}")
             raise Exception("Invalid action")
 
-        # Update the game state
-        self._update_state()
+        self.current_step += 1
+        if self.current_step >= len(self.draft_order):
+            self.done = True
 
         # Get the new observation
         observation = self._get_obs()
@@ -201,6 +203,7 @@ class LoLDraftEnv(gym.Env):
         return observation, reward, terminated, truncated, info
 
     def _process_action(self, action, phase, current_team, current_role_index):
+        # TODO: could also track the action history for visualizer
         if phase in [0, 1] and self.available_champions[action] == 0:
             print(f"Champion {action} is not available")
             return False  # Invalid action
@@ -232,7 +235,7 @@ class LoLDraftEnv(gym.Env):
             print(
                 f"Invalid action: Champion {action} is not in picks or already assigned"
             )
-            return False  # Invalid action (champion not in picks or already assigned)
+            return False  # Invalid action
         ordered_picks[current_role_index][action] = 1
         return True
 
@@ -243,17 +246,12 @@ class LoLDraftEnv(gym.Env):
             else (self.red_picks, self.red_ordered_picks)
         )
 
-    def _update_state(self):
-        self.current_step += 1
-        if self.current_step >= len(self.draft_order):
-            self.done = True
-
-    def get_action_info(self):
+    def get_current_draft_step(self):
         # we allow a final observation
         return self.draft_order[min(self.current_step, len(self.draft_order) - 1)]
 
     def _get_obs(self):
-        action_info = self.get_action_info()
+        action_info = self.get_current_draft_step()
         current_turn = action_info["team"]
         current_role_index = action_info.get(
             "role_index", 0
@@ -332,7 +330,7 @@ class SelfPlayWrapper(gym.Wrapper):
         self.roles = ["TOP", "JUNGLE", "MID", "BOT", "UTILITY"]
 
     def step(self, action):
-        action_info = self.env.get_action_info()
+        action_info = self.env.get_current_draft_step()
 
         if action_info["team"] == 0:  # Agent's turn
             observation, reward, terminated, truncated, info = self.env.step(action)
@@ -347,7 +345,7 @@ class SelfPlayWrapper(gym.Wrapper):
             and self.env.current_step < len(self.env.draft_order)
             and self.env.draft_order[self.env.current_step]["team"] != 0
         ):
-            action_info = self.env.get_action_info()
+            action_info = self.env.get_current_draft_step()
             opponent_action = self._get_opponent_action(action_info)
             observation, _, terminated, truncated, info = self.env.step(opponent_action)
 
@@ -511,7 +509,7 @@ class FixedRoleDraftEnv(gym.Env):
         return observation, info
 
     def get_action_mask(self):
-        action_info = self.get_action_info()
+        action_info = self.get_current_draft_step()
         team = action_info["team"]
         phase = action_info["phase"]
 
@@ -644,7 +642,7 @@ class FixedRoleDraftEnv(gym.Env):
         return is_complete
 
     def _get_obs(self):
-        action_info = self.get_action_info()
+        action_info = self.get_current_draft_step()
 
         return {
             "available_champions": self.available_champions.copy(),
@@ -659,7 +657,7 @@ class FixedRoleDraftEnv(gym.Env):
             "action_mask": self.get_action_mask(),
         }
 
-    def get_action_info(self):
+    def get_current_draft_step(self):
         return self.draft_order[min(self.current_step, len(self.draft_order) - 1)]
 
     def _calculate_reward(self):

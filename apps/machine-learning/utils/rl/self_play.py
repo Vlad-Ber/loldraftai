@@ -123,7 +123,7 @@ class SelfPlayWithPoolWrapper(Wrapper):
         """Make a move for the opponent (renamed from _make_opponent_move)."""
         if self.opponent_model is None:
             # Use random opponent logic
-            action_info = self.env.get_action_info()
+            action_info = self.env.get_current_draft_step()
             action = self.get_opponent_action(action_info)
         else:
             # Use model to choose action
