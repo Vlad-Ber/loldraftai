@@ -162,7 +162,7 @@ class LoLDraftEnv(gym.Env):
             raise ValueError(f"Unknown phase: {phase}")
         return action_mask * self.valid_champion_mask
 
-    def step(self, action):
+    def step(self, action: int):
         if self.done:
             raise Exception("Cannot call step() on a done environment")
 
@@ -202,7 +202,9 @@ class LoLDraftEnv(gym.Env):
 
         return observation, reward, terminated, truncated, info
 
-    def _process_action(self, action, phase, current_team, current_role_index):
+    def _process_action(
+        self, action: int, phase: int, current_team: int, current_role_index: int
+    ):
         # TODO: could also track the action history for visualizer
         if phase in [0, 1] and self.available_champions[action] == 0:
             print(f"Champion {action} is not available")
@@ -219,16 +221,16 @@ class LoLDraftEnv(gym.Env):
 
         return True
 
-    def _ban_champion(self, action):
+    def _ban_champion(self, action: int):
         self.available_champions[action] = 0
 
-    def _pick_champion(self, action, current_team):
+    def _pick_champion(self, action: int, current_team: int):
         self.available_champions[action] = 0
         picks, _ = self._get_team_picks(current_team)
         pick_index = np.where(np.sum(picks, axis=1) == 0)[0][0]
         picks[pick_index][action] = 1
 
-    def _assign_role(self, action, current_team, current_role_index):
+    def _assign_role(self, action: int, current_team: int, current_role_index: int):
         picks, ordered_picks = self._get_team_picks(current_team)
         unassigned_champions = picks - ordered_picks
         if unassigned_champions[:, action].sum() == 0:
@@ -239,7 +241,7 @@ class LoLDraftEnv(gym.Env):
         ordered_picks[current_role_index][action] = 1
         return True
 
-    def _get_team_picks(self, current_team):
+    def _get_team_picks(self, current_team: int):
         return (
             (self.blue_picks, self.blue_ordered_picks)
             if current_team == 0
