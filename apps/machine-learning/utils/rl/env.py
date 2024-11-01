@@ -3,16 +3,25 @@ import gymnasium as gym
 from gymnasium import spaces
 import numpy as np
 import json
-from typing import List, Dict
+from typing import List, Dict, TypedDict, Literal
 
 from utils.rl import fetch_blue_side_winrate_prediction, ROLE_CHAMPIONS_PATH
 from utils.match_prediction import MODEL_CONFIG_PATH
 from utils.rl.champions import VALID_CHAMPION_IDS, ROLE_CHAMPIONS
 
 
-def create_solo_queue_draft_order():
+RoleType = Literal["TOP", "JUNGLE", "MID", "BOT", "UTILITY"]
+
+
+class DraftStep(TypedDict, total=False):
+    team: Literal[0, 1]  # 0 for blue, 1 for red
+    phase: Literal[0, 1, 2]  # 0 for ban, 1 for pick, 2 for role selection
+    role_index: int  # optional, only present in role selection phase
+
+
+def create_solo_queue_draft_order() -> List[DraftStep]:
     # Define the draft order as a list of dicts
-    draft_order = []
+    draft_order: List[DraftStep] = []
     # Ban phase: 5 bans per team
     for _ in range(5):
         draft_order.append({"team": 0, "phase": 0})  # Blue ban
@@ -39,9 +48,9 @@ def create_solo_queue_draft_order():
     return draft_order
 
 
-def create_tournament_draft_order():
+def create_tournament_draft_order() -> List[DraftStep]:
     # Define the draft order as a list of dicts
-    draft_order = []
+    draft_order: List[DraftStep] = []
     # First Ban phase: 3 bans per team
     for _ in range(3):
         draft_order.append({"team": 0, "phase": 0})  # Blue ban
@@ -248,7 +257,7 @@ class LoLDraftEnv(gym.Env):
             else (self.red_picks, self.red_ordered_picks)
         )
 
-    def get_current_draft_step(self):
+    def get_current_draft_step(self) -> DraftStep:
         # we allow a final observation
         return self.draft_order[min(self.current_step, len(self.draft_order) - 1)]
 
@@ -316,7 +325,7 @@ class SelfPlayWrapper(gym.Wrapper):
 
         # Load own role-champion mapping
         with open(ROLE_CHAMPIONS_PATH, "r") as f:
-            self.role_champions = json.load(f)
+            self.role_champions: Dict[RoleType, List[int]] = json.load(f)
 
         # Convert champion IDs to sets for efficient lookup
         self.role_champion_sets = {
@@ -329,9 +338,9 @@ class SelfPlayWrapper(gym.Wrapper):
             for champ in champions:
                 self.champion_to_role[champ] = role
 
-        self.roles = ["TOP", "JUNGLE", "MID", "BOT", "UTILITY"]
+        self.roles: List[RoleType] = ["TOP", "JUNGLE", "MID", "BOT", "UTILITY"]
 
-    def step(self, action):
+    def step(self, action: int):
         action_info = self.env.get_current_draft_step()
 
         if action_info["team"] == 0:  # Agent's turn
@@ -372,6 +381,7 @@ class SelfPlayWrapper(gym.Wrapper):
 
     def _get_role_based_pick(self, valid_actions: List[int]) -> int:
         # Get unpicked roles
+        # TODO: can we adapt this to work from both sides?
         roles_picked = self.env.red_roles_picked  # opponent is always red team
         available_roles = [
             role for i, role in enumerate(self.roles) if roles_picked[i] == 0
@@ -411,12 +421,12 @@ class FixedRoleDraftEnv(gym.Env):
 
         self.num_champions = model_params["num_champions"]
         self.action_space = spaces.Discrete(self.num_champions)
-        self.roles = ["TOP", "JUNGLE", "MID", "BOT", "UTILITY"]
+        self.roles: List[RoleType] = ["TOP", "JUNGLE", "MID", "BOT", "UTILITY"]
         self.num_roles = len(self.roles)
 
         # Load role-champion mapping
         with open(ROLE_CHAMPIONS_PATH, "r") as f:
-            self.role_champions = json.load(f)
+            self.role_champions: Dict[RoleType, List[int]] = json.load(f)
 
         # Convert champion IDs to sets for efficient lookup
         self.role_champion_sets = {
@@ -659,7 +669,7 @@ class FixedRoleDraftEnv(gym.Env):
             "action_mask": self.get_action_mask(),
         }
 
-    def get_current_draft_step(self):
+    def get_current_draft_step(self) -> DraftStep:
         return self.draft_order[min(self.current_step, len(self.draft_order) - 1)]
 
     def _calculate_reward(self):
