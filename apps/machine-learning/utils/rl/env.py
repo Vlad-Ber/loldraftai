@@ -542,8 +542,10 @@ class FixedRoleDraftEnv(gym.Env):
             return True
 
         elif phase == 1:  # Pick phase
+            # Convert numpy array to integer before using as dictionary key
+            action_int = action.item() if hasattr(action, 'item') else int(action)
             # Get champion's role
-            champ_role = self.champion_to_role.get(action)
+            champ_role = self.champion_to_role.get(action_int)
             if champ_role is None:
                 print("Invalid champion ID")
                 return False
