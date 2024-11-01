@@ -9,12 +9,6 @@ from utils.rl import fetch_blue_side_winrate_prediction, ROLE_CHAMPIONS_PATH
 from utils.match_prediction import MODEL_CONFIG_PATH
 from utils.rl.champions import VALID_CHAMPION_IDS, ROLE_CHAMPIONS
 
-
-def action_mask_fn(env):
-    """Action mask function that can be pickled."""
-    return env.get_action_mask()
-
-
 RoleType = Literal["TOP", "JUNGLE", "MID", "BOT", "UTILITY"]
 
 
@@ -322,97 +316,9 @@ class LoLDraftEnv(gym.Env):
         pass  # Nothing to close
 
 
-# Wrapper for self-play
-class SelfPlayWrapper(gym.Wrapper):
-    def __init__(self, env):
-        super().__init__(env)
-        self.opponent_picks = []
-
-        # Load own role-champion mapping
-        with open(ROLE_CHAMPIONS_PATH, "r") as f:
-            self.role_champions: Dict[RoleType, List[int]] = json.load(f)
-
-        # Convert champion IDs to sets for efficient lookup
-        self.role_champion_sets = {
-            role: set(champs) for role, champs in self.role_champions.items()
-        }
-
-        # Create champion to role mapping for quick lookups
-        self.champion_to_role = {}
-        for role, champions in self.role_champions.items():
-            for champ in champions:
-                self.champion_to_role[champ] = role
-
-        self.roles: List[RoleType] = ["TOP", "JUNGLE", "MID", "BOT", "UTILITY"]
-
-    def step(self, action: int):
-        action_info = self.env.get_current_draft_step()
-
-        if action_info["team"] == 0:  # Agent's turn
-            observation, reward, terminated, truncated, info = self.env.step(action)
-        else:  # Opponent's turn
-            opponent_action = self._get_opponent_action(action_info)
-            observation, _, terminated, truncated, info = self.env.step(opponent_action)
-            reward = 0
-
-        while (
-            not terminated
-            and not truncated
-            and self.env.current_step < len(self.env.draft_order)
-            and self.env.draft_order[self.env.current_step]["team"] != 0
-        ):
-            action_info = self.env.get_current_draft_step()
-            opponent_action = self._get_opponent_action(action_info)
-            observation, _, terminated, truncated, info = self.env.step(opponent_action)
-
-        if terminated or truncated:
-            reward = (
-                self.env._calculate_reward()
-                if self.env.current_step >= len(self.env.draft_order)
-                else 0
-            )
-
-        return observation, reward, terminated, truncated, info
-
-    def _get_opponent_action(self, action_info: Dict) -> int:
-        phase = action_info["phase"]
-        action_mask = self.env.get_action_mask()
-        valid_actions = np.where(action_mask == 1)[0]
-
-        if phase == 0:  # Ban phase
-            return self.np_random.choice(valid_actions)
-        elif phase == 1:  # Pick phase
-            return self._get_role_based_pick(valid_actions)
-
-    def _get_role_based_pick(self, valid_actions: List[int]) -> int:
-        # Get unpicked roles
-        # TODO: can we adapt this to work from both sides?
-        roles_picked = self.env.red_roles_picked  # opponent is always red team
-        available_roles = [
-            role for i, role in enumerate(self.roles) if roles_picked[i] == 0
-        ]
-
-        if not available_roles:
-            return self.np_random.choice(valid_actions)
-
-        # Choose a random available role
-        chosen_role = self.np_random.choice(available_roles)
-
-        # Get valid champions for this role that are also in valid actions
-        role_champions = self.role_champion_sets[chosen_role]
-        valid_role_champions = list(role_champions.intersection(valid_actions))
-
-        if valid_role_champions:
-            pick = self.np_random.choice(valid_role_champions)
-        else:
-            pick = self.np_random.choice(valid_actions)
-
-        self.opponent_picks.append(pick)
-        return pick
-
-    def reset(self, **kwargs):
-        self.opponent_picks = []
-        return super().reset(**kwargs)
+def action_mask_fn(env: LoLDraftEnv):
+    """Action mask function that can be pickled."""
+    return env.get_action_mask()
 
 
 class FixedRoleDraftEnv(gym.Env):
@@ -444,8 +350,8 @@ class FixedRoleDraftEnv(gym.Env):
             for champ in champions:
                 self.champion_to_role[champ] = role
 
-        # We can remove role selection phase from the draft order, that was created in super()
-        base_draft_order = create_solo_queue_draft_order()
+        # We can remove role selection phase from the draft order, because we are fixing the roles
+        base_draft_order = create_tournament_draft_order()
         self.draft_order = [step for step in base_draft_order if step["phase"] != 2]
 
         self.observation_space = spaces.Dict(
@@ -670,6 +576,7 @@ class FixedRoleDraftEnv(gym.Env):
                     champion_ids.append(np.argmax(self.red_picks[role_idx]))
                     break
 
+        # TODO: could do this better! (the main issue is that we need to save last image because the env is automatically reset when done in validation)
         self._is_draft_complete()  # calling just to enable visualization
 
         return fetch_blue_side_winrate_prediction(np.array(champion_ids))
