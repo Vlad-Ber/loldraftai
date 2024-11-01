@@ -1,4 +1,4 @@
-# train_self_play.py
+# draft_agent/train_self_play.py
 
 import os
 from sb3_contrib import MaskablePPO
@@ -22,12 +22,11 @@ def make_env(rank, model_pool, agent_side="random"):
 
 
 def train_self_play(
-    num_iterations: int = 10,
+    num_iterations: int = 1,
     timesteps_per_iteration: int = 50_000,
-    num_envs: int = 8,
+    num_envs: int = 32,
     pool_size: int = 5,
     save_dir: str = f"{DATA_DIR}/self_play_models",
-    agent_side: str = "random",
 ):
     # Create save directory if it doesn't exist
     os.makedirs(save_dir, exist_ok=True)
@@ -40,6 +39,7 @@ def train_self_play(
         random_opponent_prob=0.1,
     )
 
+    agent_side: str = "random"  # We always want to play from both sides in training
     # Create vectorized environment
     env = SubprocVecEnv([make_env(i, model_pool, agent_side) for i in range(num_envs)])
 
@@ -73,9 +73,8 @@ def train_self_play(
 
 if __name__ == "__main__":
     trained_model = train_self_play(
-        num_iterations=10,
-        timesteps_per_iteration=50_000,
-        num_envs=8,
+        num_iterations=3,
+        timesteps_per_iteration=25_000,
+        num_envs=32,
         pool_size=5,
-        agent_side="random",  # or "blue" or "red"
     )

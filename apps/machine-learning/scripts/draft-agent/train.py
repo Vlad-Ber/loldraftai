@@ -1,3 +1,5 @@
+# draft_agent/train.py
+
 from sb3_contrib import MaskablePPO
 from stable_baselines3.common.vec_env import SubprocVecEnv
 from sb3_contrib.common.wrappers import ActionMasker
@@ -7,7 +9,7 @@ from utils.match_prediction import get_best_device
 from utils.rl.env import LoLDraftEnv, SelfPlayWrapper, action_mask_fn, FixedRoleDraftEnv
 
 # Number of parallel environments
-NUM_ENVS = 8  # 32
+NUM_ENVS = 32 
 
 
 def make_env(rank):

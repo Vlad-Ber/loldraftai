@@ -4,12 +4,9 @@ import os
 import random
 from typing import Dict, List, Optional, Tuple
 import numpy as np
-import torch
-import gymnasium as gym
 from gymnasium import Wrapper
 from sb3_contrib import MaskablePPO
-
-
+from utils.rl.env import DraftStep, FixedRoleDraftEnv
 
 
 class ModelPool:
@@ -61,9 +58,11 @@ class ModelPool:
 class SelfPlayWithPoolWrapper(Wrapper):
     """Environment wrapper that implements self-play with a pool of past iterations."""
 
+    env: FixedRoleDraftEnv
+
     def __init__(
         self,
-        env,
+        env: FixedRoleDraftEnv,
         model_pool: ModelPool,
         agent_side: str = "random",  # "blue", "red", or "random"
     ):
@@ -87,11 +86,7 @@ class SelfPlayWithPoolWrapper(Wrapper):
         self.opponent_model = self.model_pool.sample_opponent()
 
         # If it's opponent's turn first and we have a model, make their move
-        if (
-            self.env.current_step < len(self.env.draft_order)
-            and self.env.draft_order[self.env.current_step]["team"] != self.current_side
-        ):
-            obs, reward, terminated, truncated, info = self.make_opponent_move(obs)
+        obs, _, _, _, info = self.play_opponent_moves(obs, 0, False, False, {})
 
         return obs, info
 
@@ -106,22 +101,33 @@ class SelfPlayWithPoolWrapper(Wrapper):
             reward = -reward  # Invert the reward
 
         # Make opponent moves until it's agent's turn again or episode ends
+        return self.play_opponent_moves(obs, reward, terminated, truncated, info)
+
+    def play_opponent_moves(
+        self,
+        obs: np.ndarray,
+        reward: float,
+        terminated: bool,
+        truncated: bool,
+        info: dict,
+    ) -> Tuple[np.ndarray, float, bool, bool, dict]:
+        """Make opponent moves until it's agent's turn or episode ends."""
         while (
             not terminated
             and not truncated
             and self.env.current_step < len(self.env.draft_order)
             and self.env.draft_order[self.env.current_step]["team"] != self.current_side
         ):
-            obs, reward, terminated, truncated, info = self.make_opponent_move(obs)
+            obs, reward, terminated, truncated, info = self.play_opponent_move(obs)
 
         return obs, reward, terminated, truncated, info
 
-    def make_opponent_move(self, obs):
-        """Make a move for the opponent (renamed from _make_opponent_move)."""
+    def play_opponent_move(self, obs):
+        """Make a move for the opponent."""
         if self.opponent_model is None:
             # Use random opponent logic
-            action_info = self.env.get_current_draft_step()
-            action = self.get_opponent_action(action_info)
+            draft_step: DraftStep = self.env.get_current_draft_step()
+            action = self.get_random_opponent_action(draft_step)
         else:
             # Use model to choose action
             action_masks = self.env.get_action_mask()
@@ -131,20 +137,24 @@ class SelfPlayWithPoolWrapper(Wrapper):
 
         return self.env.step(action)
 
-    def get_opponent_action(self, action_info: Dict) -> int:
-        """Get opponent's action (renamed from _get_opponent_action)."""
-        phase = action_info["phase"]
+    def get_random_opponent_action(self, draft_step: DraftStep) -> int:
+        """Get random opponent's action."""
+        phase = draft_step["phase"]
         action_mask = self.env.get_action_mask()
         valid_actions = np.where(action_mask == 1)[0]
 
         if phase == 0:  # Ban phase
             return self.np_random.choice(valid_actions)
         elif phase == 1:  # Pick phase
-            return self.get_role_based_pick(valid_actions)
+            # return self.get_random_role_based_pick(valid_actions)
+            # We can pick a random valid action under FixedRoleDraftEnv and it will at least be a viable pick
+            return self.np_random.choice(valid_actions)
 
-    def get_role_based_pick(self, valid_actions: List[int]) -> int:
-        """Get role-based pick (renamed from _get_role_based_pick)."""
+    # TODO: i think can be deleted now that we are in fixed role env!
+    def get_random_role_based_pick(self, valid_actions: List[int]) -> int:
+        """Get random role-based pick."""
         # Get unpicked roles
+        # TODO: why always red team???
         roles_picked = self.env.red_roles_picked  # opponent is always red team
         available_roles = [
             role for i, role in enumerate(self.env.roles) if roles_picked[i] == 0
