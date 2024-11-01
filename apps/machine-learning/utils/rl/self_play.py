@@ -98,7 +98,7 @@ class SelfPlayWithPoolWrapper(Wrapper):
         if not terminated:
             reward = 0
         elif self.current_side == 1:  # If agent is red team
-            reward = -reward  # Invert the reward
+            reward = 1 - reward  # Invert the blue team reward # TODO: could the main env take into account the side?
 
         # Make opponent moves until it's agent's turn again or episode ends
         return self.play_opponent_moves(obs, reward, terminated, truncated, info)
