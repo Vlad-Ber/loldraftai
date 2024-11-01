@@ -577,6 +577,7 @@ class FixedRoleDraftEnv(gym.Env):
                     break
 
         # TODO: could do this better! (the main issue is that we need to save last image because the env is automatically reset when done in validation)
+        # TODO: the reset is not done when not using DummyVecEnv, so we can put probably put vizualization code into render and remove this check:
         self._is_draft_complete()  # calling just to enable visualization
 
         return fetch_blue_side_winrate_prediction(np.array(champion_ids))
