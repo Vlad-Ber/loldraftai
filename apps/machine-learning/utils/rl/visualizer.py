@@ -62,29 +62,25 @@ def integrate_with_env(env):
         def __init__(self, *args, **kwargs):
             super().__init__(*args, **kwargs)
             self.visualizer = LoLDraftVisualizer()
-            self.draft_image = None
-
-        def _is_draft_complete(self):
-            is_complete = super()._is_draft_complete()
-            if is_complete:
-                blue_team = np.argmax(self.blue_ordered_picks, axis=1)
-                red_team = np.argmax(self.red_ordered_picks, axis=1)
-                self.draft_image = self.visualizer.get_draft_array(blue_team, red_team)
-            return is_complete
 
         def render(self):
-            # this could return draft_image of last draft, but it helps also getting an image in vectorized envs
-            # because vectorized envs automatically reset so it's hard to call render when state is done
-            if self.draft_image is not None:
-                # Convert numpy array to PIL Image
-                img = Image.fromarray(self.draft_image.astype("uint8"), "RGB")
-                # Create a bytes buffer
+            """Render the current state of the draft"""
+            # Only render if we have picks
+            if (
+                np.sum(self.blue_ordered_picks) > 0
+                or np.sum(self.red_ordered_picks) > 0
+            ):
+                blue_team = np.argmax(self.blue_ordered_picks, axis=1)
+                red_team = np.argmax(self.red_ordered_picks, axis=1)
+
+                # Create the draft image
+                draft_image = self.visualizer.get_draft_array(blue_team, red_team)
+
+                # Convert numpy array to PNG bytes
+                img = Image.fromarray(draft_image.astype("uint8"), "RGB")
                 buffer = BytesIO()
-                # Save the image to the buffer in PNG format
                 img.save(buffer, format="PNG")
-                # Get the bytes data
-                image_data = buffer.getvalue()
-                return image_data
+                return buffer.getvalue()
             return None
 
     return LoLDraftEnvWithRender
