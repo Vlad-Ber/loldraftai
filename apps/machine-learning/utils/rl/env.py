@@ -39,6 +39,42 @@ def create_solo_queue_draft_order():
     return draft_order
 
 
+def create_tournament_draft_order():
+    # Define the draft order as a list of dicts
+    draft_order = []
+    # First Ban phase: 3 bans per team
+    for _ in range(3):
+        draft_order.append({"team": 0, "phase": 0})  # Blue ban
+        draft_order.append({"team": 1, "phase": 0})  # Red ban
+
+    # First Pick phase
+    draft_order.append({"team": 0, "phase": 1})  # Blue pick 1
+    draft_order.append({"team": 1, "phase": 1})  # Red pick 1
+    draft_order.append({"team": 1, "phase": 1})  # Red pick 2
+    draft_order.append({"team": 0, "phase": 1})  # Blue pick 2
+    draft_order.append({"team": 0, "phase": 1})  # Blue pick 3
+    draft_order.append({"team": 1, "phase": 1})  # Red pick 3
+
+    # Second Ban Phase
+    for _ in range(2):
+        draft_order.append({"team": 1, "phase": 0})  # Red ban
+        draft_order.append({"team": 0, "phase": 0})  # Blue ban
+
+    # Second Pick Phase
+    draft_order.append({"team": 1, "phase": 1})  # Red pick 4
+    draft_order.append({"team": 0, "phase": 1})  # Blue pick 4
+    draft_order.append({"team": 0, "phase": 1})  # Blue pick 5
+    draft_order.append({"team": 1, "phase": 1})  # Red pick 5
+
+    # Role selection phase: 5 picks per team
+    for role_index in range(5):
+        draft_order.append({"team": 0, "phase": 2, "role_index": role_index})
+    for role_index in range(5):
+        draft_order.append({"team": 1, "phase": 2, "role_index": role_index})
+
+    return draft_order
+
+
 class LoLDraftEnv(gym.Env):
     metadata = {"render_modes": []}
 
@@ -543,7 +579,7 @@ class FixedRoleDraftEnv(gym.Env):
 
         elif phase == 1:  # Pick phase
             # Convert numpy array to integer before using as dictionary key
-            action_int = action.item() if hasattr(action, 'item') else int(action)
+            action_int = action.item() if hasattr(action, "item") else int(action)
             # Get champion's role
             champ_role = self.champion_to_role.get(action_int)
             if champ_role is None:
