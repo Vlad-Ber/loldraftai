@@ -23,3 +23,5 @@ tqdm
 rich
 sb3_contrib
 gymnasium
+
+tensorboard
