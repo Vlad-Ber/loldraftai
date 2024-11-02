@@ -2,14 +2,9 @@ module.exports = {
   apps: [
     {
       name: "extract-to-azure",
-      script: "yarn tsx ./src/scripts/extractToAzure.ts",
+      script: "./extractToAzure.sh",
       interpreter: "/bin/bash",
-      interpreter_args: "-c",
-      env: {
-        PATH: "/home/azureuser/draftking-monorepo/apps/data-collection/.venv/bin:$PATH",
-        VIRTUAL_ENV:
-          "/home/azureuser/draftking-monorepo/apps/data-collection/.venv",
-      },
+      cwd: "/home/azureuser/draftking-monorepo/apps/data-collection",
       autorestart: true,
       max_restarts: 10,
       restart_delay: 4000,
