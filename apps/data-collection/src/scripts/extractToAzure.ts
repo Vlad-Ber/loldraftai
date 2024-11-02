@@ -99,9 +99,14 @@ class MatchExtractor {
         return 0;
       }
 
-      const batchId = new Date().toISOString().replace(/[:.]/g, "-");
-      const remoteRawFileName = `${RAW_DATA_PREFIX}/${batchId}.json`;
-      const processedFileName = `${PROCESSED_DATA_PREFIX}/${batchId}.parquet`;
+      const now = new Date();
+      const year = now.getFullYear();
+      const month = (now.getMonth() + 1).toString().padStart(2, "0");
+      const batchId = now.toISOString().replace(/[:.]/g, "-");
+
+      // Use hierarchical paths
+      const remoteRawFileName = `${RAW_DATA_PREFIX}/${year}/${month}/${batchId}.json`;
+      const processedFileName = `${PROCESSED_DATA_PREFIX}/${year}/${month}/${batchId}.parquet`;
 
       // Save raw JSON to remote storage
       await this.remoteFileSaver.saveFile(

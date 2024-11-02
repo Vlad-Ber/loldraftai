@@ -1,6 +1,8 @@
 import os
 import argparse
-from azure.storage.blob import BlobServiceClient
+from datetime import datetime, timedelta
+from typing import List
+from azure.storage.blob import BlobServiceClient, BlobProperties
 from tqdm import tqdm
 from dotenv import load_dotenv
 from utils import DATA_DIR
@@ -11,12 +13,38 @@ CONTAINER_NAME = "league-matches"
 PROCESSED_DATA_PREFIX = "processed"
 
 
-def download_new_parquet_files(output_dir: str) -> None:
+def get_blobs_for_timespan(container_client, months: int = 3) -> List[BlobProperties]:
+    """
+    Get blobs from the last N months.
+
+    Args:
+        container_client: Azure container client
+        months: Number of months to look back
+
+    Returns:
+        List of blob properties
+    """
+    all_blobs: List[BlobProperties] = []
+    current_date = datetime.now()
+
+    for month_offset in range(months):
+        date = current_date - timedelta(days=30 * month_offset)
+        prefix = f"{PROCESSED_DATA_PREFIX}/{date.year}/{date.month:02d}/"
+
+        # List blobs for this month
+        month_blobs = container_client.list_blobs(name_starts_with=prefix)
+        all_blobs.extend(list(month_blobs))
+
+    return all_blobs
+
+
+def download_new_parquet_files(output_dir: str, months: int = 3) -> None:
     """
     Download new parquet files from Azure that don't exist locally.
 
     Args:
         output_dir: Directory where to save the downloaded files
+        months: Number of months of data to download
     """
     # Validate Azure connection string
     connection_string = os.getenv("AZURE_CONNECTION_STRING")
@@ -33,15 +61,15 @@ def download_new_parquet_files(output_dir: str) -> None:
     # Get list of existing local files
     local_files = set(os.listdir(output_dir))
 
-    # List all processed files in Azure
-    azure_blobs = container_client.list_blobs(name_starts_with=PROCESSED_DATA_PREFIX)
-    azure_files = [blob for blob in azure_blobs]
+    # Get all blobs from the last N months
+    azure_files = get_blobs_for_timespan(container_client, months=months)
 
     # Filter files that need to be downloaded
     files_to_download = [
         blob for blob in azure_files if os.path.basename(blob.name) not in local_files
     ]
 
+    print(f"Found {len(azure_files)} files in Azure from the last {months} months")
     print(f"Files already downloaded: {len(azure_files) - len(files_to_download)}")
 
     if not files_to_download:
@@ -70,9 +98,15 @@ def main():
         default=os.path.join(DATA_DIR, "raw_azure"),
         help="Output directory for downloaded files (default: data/raw_azure)",
     )
+    parser.add_argument(
+        "--months",
+        type=int,
+        default=3,
+        help="Number of months of data to download (default: 3)",
+    )
     args = parser.parse_args()
 
-    download_new_parquet_files(args.output_dir)
+    download_new_parquet_files(args.output_dir, args.months)
 
 
 if __name__ == "__main__":
