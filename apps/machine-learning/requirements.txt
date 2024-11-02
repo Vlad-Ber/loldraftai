@@ -1,27 +1,37 @@
-scikit-learn
+# Data Processing and Analysis
 pandas
-tqdm
+pyarrow
+scikit-learn
 sqlalchemy
 psycopg2-binary
-pyarrow
+
+# Deep Learning and ML Frameworks
 torch
 torchvision
 torchaudio
 torchinfo
+tensorboard
 
-ipykernel
-ipywidgets
-
-wandb
-
-fastapi
-
-uvicorn
-
+# Reinforcement Learning
 stable_baselines3
-tqdm
-rich
 sb3_contrib
 gymnasium
 
-tensorboard
+# ML Experiment Tracking
+wandb
+
+# API Development
+fastapi
+uvicorn
+
+# Jupyter Notebook Support
+ipykernel
+ipywidgets
+
+# Progress and Display Utilities
+tqdm
+rich
+
+# Cloud Storage and Configuration
+python-dotenv
+azure-storage-blob
