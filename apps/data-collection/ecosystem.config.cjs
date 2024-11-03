@@ -12,12 +12,12 @@ module.exports = {
       error_file: "./logs/extractToAzure_error.log",
       out_file: "./logs/extractToAzure_out.log",
     },
-    // Dynamic generation of region-specific apps
-    ...["EUW1", "KR", "NA1", "OC1"].flatMap((region) =>
+    ...["EUW1", "KR", "NA1", "OC1"].flatMap((region, regionIndex) =>
       ["collectMatchIds", "fetchPuuids", "processMatches", "updateLadder"].map(
         (script) => ({
           name: `${script}-${region}`,
-          script: `yarn tsx ./src/scripts/${script}.ts --region ${region}`,
+          // Delay each region by 1 hour, to stagger the load on the database
+          script: `sleep ${regionIndex * 3600} && yarn tsx ./src/scripts/${script}.ts --region ${region}`,
           autorestart: true,
           max_restarts: 10,
           restart_delay: 4000,
