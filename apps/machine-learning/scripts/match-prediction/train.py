@@ -340,7 +340,10 @@ def log_validation_metrics(
     if config.log_wandb:
         log_data = {}
         for task_name, metric_value in val_metrics.items():
-            if config.calculate_val_win_prediction_only and task_name != "win_prediction":
+            if (
+                config.calculate_val_win_prediction_only
+                and task_name != "win_prediction"
+            ):
                 continue
             log_data[f"val_{task_name}_metric"] = metric_value
         wandb.log(log_data)
@@ -355,9 +358,6 @@ def train_model(
     global model  # to be able to save the model on interrupt
     best_metric = float("inf")  # For loss minimization
     best_model_state = None
-    # Initialize wandb
-    if config.log_wandb:
-        wandb.init(project="draftking", name=run_name, config=config.to_dict())
 
     num_champions, unknown_champion_id = get_num_champions()
 
@@ -370,6 +370,12 @@ def train_model(
         )
         for split in ["train", "test"]
     )
+
+    # Initialize wandb
+    if config.log_wandb:
+        config_dict = config.to_dict()
+        config_dict["num_samples"] = len(train_dataset)
+        wandb.init(project="draftking", name=run_name, config=config_dict)
 
     train_loader, test_loader = (
         DataLoader(
