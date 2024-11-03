@@ -95,7 +95,8 @@ class MatchExtractor {
         take: this.config.batchSize,
       });
 
-      if (matches.length === 0) {
+      // Process full batches only
+      if (matches.length < this.config.batchSize) {
         return 0;
       }
 
