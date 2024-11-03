@@ -43,9 +43,20 @@ const limiter = new Bottleneck({
   strategy: Bottleneck.strategy.BLOCK, // Add this line
 });
 
+// Add debug logger
+const debug = process.env.DEBUG === "true";
+const log = (message: string) => {
+  if (debug) {
+    console.log(`[${new Date().toISOString()}] ${message}`);
+  }
+};
+
 async function processMatches() {
   try {
     while (true) {
+      log("Starting new batch fetch");
+      const fetchStart = Date.now();
+
       // Fetch unprocessed matches
       const matches = await prisma.match.findMany({
         where: {
@@ -53,31 +64,50 @@ async function processMatches() {
           processingErrored: false,
           region: region,
         },
-        take: 100, // Not too many to avoid spikes in db usage
+        take: 100,
       });
 
+      log(
+        `Database fetch took ${Date.now() - fetchStart}ms for ${
+          matches.length
+        } matches`
+      );
+
       if (matches.length === 0) {
-        console.log("No unprocessed matches found. Sleeping for 1 minute.");
+        log("No matches found, sleeping");
         await sleep(60 * 1000);
         continue;
       }
 
-      console.log(`Processing ${matches.length} matches.`);
-
-      // Replace Promise.all with a for...of loop
+      // Process each match
       for (const match of matches) {
+        log(`Starting to process match ${match.matchId}`);
+
+        const limiterStart = Date.now();
         await limiter.schedule(async () => {
+          log(
+            `Limiter delay was ${Date.now() - limiterStart}ms for match ${
+              match.matchId
+            }`
+          );
+
           try {
+            // Time the API call
+            const apiStart = Date.now();
             const processedData = await processMatchData(
               riotApiClient,
               match.matchId
             );
+            log(
+              `API call took ${Date.now() - apiStart}ms for match ${
+                match.matchId
+              }`
+            );
 
-            // Update the match record with processed data
+            // Time the database update
+            const updateStart = Date.now();
             await prisma.match.update({
-              where: {
-                id: match.id,
-              },
+              where: { id: match.id },
               data: {
                 processed: true,
                 gameDuration: processedData.gameDuration,
@@ -88,28 +118,47 @@ async function processMatches() {
                 teams: processedData.teams,
               },
             });
+            log(
+              `Database update took ${Date.now() - updateStart}ms for match ${
+                match.matchId
+              }`
+            );
 
-            telemetry.trackEvent("MatchesProcessed", {
+            const telemetryStart = Date.now();
+            await telemetry.trackEvent("MatchesProcessed", {
               count: 1,
               region,
             });
+            log(
+              `Telemetry took ${Date.now() - telemetryStart}ms for match ${
+                match.matchId
+              }`
+            );
           } catch (error) {
-            // Mark the match as processed but with an error
+            log(`Error processing match ${match.matchId}: ${error}`);
+
+            const errorUpdateStart = Date.now();
             await prisma.match.update({
-              where: {
-                id: match.id,
-              },
+              where: { id: match.id },
               data: {
                 processed: true,
                 processingErrored: true,
               },
             });
+            log(
+              `Error update took ${Date.now() - errorUpdateStart}ms for match ${
+                match.matchId
+              }`
+            );
           }
         });
+
+        const totalTime = Date.now() - limiterStart;
+        log(`Total processing time for match ${match.matchId}: ${totalTime}ms`);
       }
     }
   } catch (error) {
-    console.error("Error in processMatches:", error);
+    log(`Fatal error in processMatches: ${error}`);
   } finally {
     await prisma.$disconnect();
   }
