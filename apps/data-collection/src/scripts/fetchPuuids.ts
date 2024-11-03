@@ -3,7 +3,7 @@ import { hideBin } from "yargs/helpers";
 import Bottleneck from "bottleneck";
 import { sleep } from "../utils";
 import { RiotAPIClient, RegionSchema } from "@draftking/riot-api";
-import { PrismaClient } from "@draftking/riot-database";
+import { PrismaClient, Summoner } from "@draftking/riot-database";
 import { config } from "dotenv";
 import { telemetry } from "../utils/telemetry";
 
@@ -47,13 +47,13 @@ async function fetchPuuids() {
   try {
     while (true) {
       // Fetch summoners without a PUUID
-      const summoners = await prisma.summoner.findMany({
-        where: {
-          puuid: null,
-          region: region,
-        },
-        take: 100, // Not too many to avoid spikes in db usage
-      });
+      const summoners = (await prisma.$queryRaw`
+        SELECT *
+        FROM "Summoner"
+        WHERE puuid IS NULL
+        AND region = ${region}::text::"Region"
+        LIMIT 100
+      `) as Summoner[];
 
       if (summoners.length === 0) {
         await sleep(60 * 1000);

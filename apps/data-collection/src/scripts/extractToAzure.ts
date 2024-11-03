@@ -1,7 +1,7 @@
 // src/scripts/extractToAzure.ts
 import fs from "fs";
 import { BlobServiceClient, ContainerClient } from "@azure/storage-blob";
-import { PrismaClient } from "@prisma/client";
+import { Match, PrismaClient } from "@prisma/client";
 import { spawn } from "child_process";
 import path from "path";
 import { config } from "dotenv";
@@ -86,14 +86,14 @@ class MatchExtractor {
   async extractBatch() {
     try {
       // Get batch of unprocessed matches
-      const matches = await this.prisma.match.findMany({
-        where: {
-          exported: false,
-          processed: true,
-          processingErrored: false,
-        },
-        take: this.config.batchSize,
-      });
+      const matches = (await this.prisma.$queryRaw`
+        SELECT *
+        FROM "Match"
+        WHERE exported = false
+        AND processed = true
+        AND "processingErrored" = false
+        LIMIT ${this.config.batchSize}
+      `) as Match[];
 
       // Process full batches only
       if (matches.length < this.config.batchSize) {

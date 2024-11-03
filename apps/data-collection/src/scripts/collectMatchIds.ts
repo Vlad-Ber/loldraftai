@@ -5,7 +5,7 @@ import Bottleneck from "bottleneck";
 import { sleep } from "../utils";
 import { RegionSchema } from "@draftking/riot-api";
 import { RiotAPIClient } from "@draftking/riot-api";
-import { PrismaClient } from "@draftking/riot-database";
+import { PrismaClient, Summoner } from "@draftking/riot-database";
 import { config } from "dotenv";
 import { telemetry } from "../utils/telemetry";
 
@@ -49,29 +49,23 @@ async function collectMatchIds() {
   try {
     while (true) {
       // Fetch summoners with a PUUID and outdated matchesFetchedAt
-      const summoners = await prisma.summoner.findMany({
-        where: {
-          puuid: {
-            not: null,
-          },
-          region: region,
-          OR: [
-            { matchesFetchedAt: null },
-            {
-              matchesFetchedAt: {
-                lt: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000), // Older than 3 days, because we get 100 games
-              },
-            },
-          ],
-          // Updated less than 1 week ago (up to date)
-          rankUpdateTime: {
-            gt: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000),
-          },
-          // Not errored
-          matchFetchErrored: false,
-        },
-        take: 100, // Not too many to avoid spikes in db usage
-      });
+      const summoners = (await prisma.$queryRaw`
+        SELECT *
+        FROM "Summoner"
+        WHERE puuid IS NOT NULL
+        AND region = ${region}::text::"Region"
+        AND (
+          "matchesFetchedAt" IS NULL -- Older than 3 days, because we get 100 games
+          OR "matchesFetchedAt" < ${new Date(
+            Date.now() - 3 * 24 * 60 * 60 * 1000
+          )}
+        )
+        AND "rankUpdateTime" > ${new Date(
+          Date.now() - 7 * 24 * 60 * 60 * 1000
+        )} -- Updated less than 1 week ago (up to date)
+        AND "matchFetchErrored" = false -- Not errored
+        LIMIT 100 -- Not too many to avoid spikes in db usage
+      `) as Summoner[];
 
       if (summoners.length === 0) {
         await sleep(60 * 1000);
