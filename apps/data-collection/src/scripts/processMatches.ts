@@ -4,7 +4,7 @@ import Bottleneck from "bottleneck";
 import { sleep } from "../utils";
 import { RegionSchema } from "@draftking/riot-api";
 import { RiotAPIClient } from "@draftking/riot-api";
-import { PrismaClient } from "@draftking/riot-database";
+import { Match, PrismaClient } from "@draftking/riot-database";
 import { config } from "dotenv";
 import { processMatchData } from "../utils/matchProcessing";
 import { telemetry } from "../utils/telemetry";
@@ -58,14 +58,14 @@ async function processMatches() {
       const fetchStart = Date.now();
 
       // Fetch unprocessed matches
-      const matches = await prisma.match.findMany({
-        where: {
-          processed: false,
-          processingErrored: false,
-          region: region,
-        },
-        take: 100,
-      });
+      const matches = (await prisma.$queryRaw`
+        SELECT *
+        FROM "Match"
+        WHERE processed = false 
+        AND "processingErrored" = false
+        AND region = ${region}::text::"Region"
+        LIMIT 100
+        `) as Match[];
 
       log(
         `Database fetch took ${Date.now() - fetchStart}ms for ${
