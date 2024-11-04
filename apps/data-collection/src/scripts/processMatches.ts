@@ -79,83 +79,77 @@ async function processMatches() {
         continue;
       }
 
-      // Process each match
-      for (const match of matches) {
-        log(`Starting to process match ${match.matchId}`);
+      // Process matches in parallel within rate limits
+      await Promise.all(
+        matches.map((match) =>
+          limiter.schedule(async () => {
+            log(`Starting to process match ${match.matchId}`);
 
-        const limiterStart = Date.now();
-        await limiter.schedule(async () => {
-          log(
-            `Limiter delay was ${Date.now() - limiterStart}ms for match ${
-              match.matchId
-            }`
-          );
-
-          try {
-            // Time the API call
-            const apiStart = Date.now();
-            const processedData = await processMatchData(
-              riotApiClient,
-              match.matchId
-            );
-            log(
-              `API call took ${Date.now() - apiStart}ms for match ${
+            try {
+              // Time the API call
+              const apiStart = Date.now();
+              const processedData = await processMatchData(
+                riotApiClient,
                 match.matchId
-              }`
-            );
+              );
+              log(
+                `API call took ${Date.now() - apiStart}ms for match ${
+                  match.matchId
+                }`
+              );
 
-            // Time the database update
-            const updateStart = Date.now();
-            await prisma.match.update({
-              where: { id: match.id },
-              data: {
-                processed: true,
-                gameDuration: processedData.gameDuration,
-                gameStartTimestamp: new Date(processedData.gameStartTimestamp),
-                queueId: processedData.queueId,
-                gameVersionMajorPatch: processedData.gameVersionMajorPatch,
-                gameVersionMinorPatch: processedData.gameVersionMinorPatch,
-                teams: processedData.teams,
-              },
-            });
-            log(
-              `Database update took ${Date.now() - updateStart}ms for match ${
-                match.matchId
-              }`
-            );
+              // Time the database update
+              const updateStart = Date.now();
+              await prisma.match.update({
+                where: { id: match.id },
+                data: {
+                  processed: true,
+                  gameDuration: processedData.gameDuration,
+                  gameStartTimestamp: new Date(
+                    processedData.gameStartTimestamp
+                  ),
+                  queueId: processedData.queueId,
+                  gameVersionMajorPatch: processedData.gameVersionMajorPatch,
+                  gameVersionMinorPatch: processedData.gameVersionMinorPatch,
+                  teams: processedData.teams,
+                },
+              });
+              log(
+                `Database update took ${Date.now() - updateStart}ms for match ${
+                  match.matchId
+                }`
+              );
 
-            const telemetryStart = Date.now();
-            await telemetry.trackEvent("MatchesProcessed", {
-              count: 1,
-              region,
-            });
-            log(
-              `Telemetry took ${Date.now() - telemetryStart}ms for match ${
-                match.matchId
-              }`
-            );
-          } catch (error) {
-            log(`Error processing match ${match.matchId}: ${error}`);
+              const telemetryStart = Date.now();
+              telemetry.trackEvent("MatchesProcessed", {
+                count: 1,
+                region,
+              });
+              log(
+                `Telemetry took ${Date.now() - telemetryStart}ms for match ${
+                  match.matchId
+                }`
+              );
+            } catch (error) {
+              log(`Error processing match ${match.matchId}: ${error}`);
 
-            const errorUpdateStart = Date.now();
-            await prisma.match.update({
-              where: { id: match.id },
-              data: {
-                processed: true,
-                processingErrored: true,
-              },
-            });
-            log(
-              `Error update took ${Date.now() - errorUpdateStart}ms for match ${
-                match.matchId
-              }`
-            );
-          }
-        });
-
-        const totalTime = Date.now() - limiterStart;
-        log(`Total processing time for match ${match.matchId}: ${totalTime}ms`);
-      }
+              const errorUpdateStart = Date.now();
+              await prisma.match.update({
+                where: { id: match.id },
+                data: {
+                  processed: true,
+                  processingErrored: true,
+                },
+              });
+              log(
+                `Error update took ${
+                  Date.now() - errorUpdateStart
+                }ms for match ${match.matchId}`
+              );
+            }
+          })
+        )
+      );
     }
   } catch (error) {
     log(`Fatal error in processMatches: ${error}`);
