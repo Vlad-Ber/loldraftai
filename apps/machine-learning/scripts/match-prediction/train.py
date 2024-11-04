@@ -23,7 +23,7 @@ import argparse
 
 
 from utils.match_prediction.match_dataset import MatchDataset
-from utils.match_prediction.model import MatchOutcomeModel
+from utils.match_prediction.model import MatchOutcomeModel, SimpleMatchModel
 from utils import DATA_DIR
 from utils.match_prediction import (
     get_best_device,
@@ -135,12 +135,10 @@ def init_model(
         col: len(label_encoders[col].classes_) for col in CATEGORICAL_COLUMNS
     }
     # Initialize the model
-    model = MatchOutcomeModel(
+    model = SimpleMatchModel(
         num_categories=num_categories,
         num_champions=num_champions,
         embed_dim=config.embed_dim,
-        num_heads=config.num_heads,
-        num_transformer_layers=config.num_transformer_layers,
         dropout=config.dropout,
     )
 
@@ -374,7 +372,7 @@ def train_model(
     # Initialize wandb
     if config.log_wandb:
         config_dict = config.to_dict()
-        config_dict["num_samples"] = len(train_dataset)
+        config_dict["num_samples"] = len(train_dataset) # TODO: this could take some time, maybe we should have a file with this stat and claculate it only once?
         wandb.init(project="draftking", name=run_name, config=config_dict)
 
     train_loader, test_loader = (

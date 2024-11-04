@@ -54,6 +54,10 @@ def train_self_play(
             sync_tensorboard=True,  # auto-upload sb3's tensorboard metrics
             save_code=True,  # optional
         )
+        # Set up a single tensorboard directory for all iterations
+        tensorboard_log = f"runs/{run.id}"
+    else:
+        tensorboard_log = None
 
     # Create save directory if it doesn't exist
     os.makedirs(save_dir, exist_ok=True)
@@ -78,7 +82,7 @@ def train_self_play(
         env,
         verbose=1,
         device=device,
-        tensorboard_log=f"runs/{run.id}" if use_wandb else None,
+        tensorboard_log=tensorboard_log,
     )
 
     # Training loop
@@ -101,6 +105,8 @@ def train_self_play(
                 total_timesteps=timesteps_per_iteration,
                 progress_bar=True,
                 callback=callback,
+                reset_num_timesteps=False,  # Important: Don't reset timesteps between iterations
+                tb_log_name="PPO",  # Use same name for all iterations
             )
 
             # Update the pool with the latest model
@@ -125,8 +131,8 @@ def train_self_play(
 if __name__ == "__main__":
     trained_model = train_self_play(
         num_iterations=15,
-        timesteps_per_iteration=250_000,
+        timesteps_per_iteration=500_000,
         num_envs=32,
-        pool_size=10,
+        pool_size=5,
         random_opponent_prob=0.05,
     )

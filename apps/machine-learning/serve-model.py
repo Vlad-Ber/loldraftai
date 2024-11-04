@@ -5,7 +5,7 @@ from typing import List, Dict
 import torch
 import uvicorn
 import pickle
-from utils.match_prediction.model import MatchOutcomeModel
+from utils.match_prediction.model import MatchOutcomeModel, SimpleMatchModel
 from utils.match_prediction.column_definitions import COLUMNS, ColumnType
 from utils.match_prediction import (
     MODEL_PATH,
@@ -68,7 +68,7 @@ with open(MODEL_CONFIG_PATH, "rb") as f:
 device = get_best_device()
 print(f"Using device: {device}")
 
-model = MatchOutcomeModel(
+model = SimpleMatchModel(
     num_categories=model_params["num_categories"],
     num_champions=model_params["num_champions"],
     embed_dim=model_params["embed_dim"],
