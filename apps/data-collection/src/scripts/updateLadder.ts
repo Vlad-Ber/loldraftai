@@ -41,7 +41,7 @@ const tiersDivisions: TierDivisionPair[] = [
   ["DIAMOND", "II"],
   ["DIAMOND", "III"],
   ["DIAMOND", "IV"],
-  ["EMERALD", "I"],
+  // ["EMERALD", "I"], // TOO much data, stopping collection for now
 ] as const; // we get high ranks because draft matters more in high elo
 const queue = "RANKED_SOLO_5x5";
 
