@@ -39,8 +39,6 @@ const limiter = new Bottleneck({
 
   // Adjust maxConcurrent based on your needs and system capabilities
   maxConcurrent: 50,
-  highWater: 1000, // Add this line
-  strategy: Bottleneck.strategy.BLOCK, // Add this line
 });
 
 // Add debug logger

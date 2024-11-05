@@ -53,8 +53,6 @@ const limiter = new Bottleneck({
   reservoirRefreshAmount: 50,
   reservoirRefreshInterval: 20 * 1000,
   maxConcurrent: 15,
-  highWater: 1000,
-  strategy: Bottleneck.strategy.BLOCK,
 });
 
 let lastUpdate: Date | null = null;
