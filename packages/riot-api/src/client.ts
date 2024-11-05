@@ -50,7 +50,7 @@ export class RiotAPIClient {
     apiKey: string,
     region: Region = "EUW1",
     maxRetries: number = 3,
-    baseDelay: number = 1000
+    baseDelay: number = 10000
   ) {
     this.axiosInstance = axios.create({
       baseURL: `https://${region}.api.riotgames.com`,
