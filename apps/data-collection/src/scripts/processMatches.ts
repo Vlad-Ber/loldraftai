@@ -51,25 +51,33 @@ const log = (message: string) => {
 
 async function processMatches() {
   try {
+    let nextMatchesPromise: Promise<Match[]> | null = null;
+
     while (true) {
       log("Starting new batch fetch");
-      const fetchStart = Date.now();
 
-      // Fetch unprocessed matches
-      const matches = (await prisma.$queryRaw`
+      // Use the pre-fetched matches if available, or fetch the first batch
+      const matches = await (nextMatchesPromise ??
+        (prisma.$queryRaw`
         SELECT *
         FROM "Match"
         WHERE processed = false 
         AND "processingErrored" = false
         AND region = ${region}::text::"Region"
-        LIMIT 100
-        `) as Match[];
+        LIMIT 500
+      ` as Promise<Match[]>));
 
-      log(
-        `Database fetch took ${Date.now() - fetchStart}ms for ${
-          matches.length
-        } matches`
-      );
+      // Start fetching next batch immediately, excluding currently processing IDs
+      const currentlyProcessingIds = new Set(matches.map((m) => m.id));
+      nextMatchesPromise = prisma.$queryRaw`
+        SELECT *
+        FROM "Match"
+        WHERE processed = false 
+        AND "processingErrored" = false
+        AND region = ${region}::text::"Region"
+        AND id NOT IN (${Array.from(currentlyProcessingIds)})
+        LIMIT 500
+      ` as Promise<Match[]>;
 
       if (matches.length === 0) {
         log("No matches found, sleeping");
