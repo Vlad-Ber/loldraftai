@@ -78,16 +78,35 @@ export class RiotAPIClient {
     try {
       return await operation();
     } catch (error) {
+      if (!axios.isAxiosError(error)) throw error;
+
+      // Handle rate limit (429)
+      if (error.response?.status === 429) {
+        const retryAfter = parseInt(
+          error.response.headers["retry-after"] || "1",
+          10
+        );
+        console.warn(
+          `Rate limit exceeded. Waiting ${retryAfter} seconds before retrying...`
+        );
+        await new Promise((resolve) => setTimeout(resolve, retryAfter * 1000));
+        return this.withRetry(operation, retryCount); // Don't increment retry count for rate limits
+      }
+
+      // Handle other retryable errors
       if (
         retryCount < this.maxRetries &&
-        axios.isAxiosError(error) &&
-        (error.code === "ECONNRESET" || error.code === "ETIMEDOUT")
+        (error.code === "ECONNRESET" ||
+          error.code === "ETIMEDOUT" ||
+          (error.response?.status && error.response.status >= 500)) // Also retry on server errors
       ) {
         const delay = this.baseDelay * Math.pow(2, retryCount);
         console.warn(
-          `Request failed, retrying in ${delay}ms... (Attempt ${
-            retryCount + 1
-          }/${this.maxRetries})`
+          `Request failed with ${
+            error.response?.status || error.code
+          }, retrying in ${delay}ms... (Attempt ${retryCount + 1}/${
+            this.maxRetries
+          })`
         );
         await new Promise((resolve) => setTimeout(resolve, delay));
         return this.withRetry(operation, retryCount + 1);
