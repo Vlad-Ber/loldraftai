@@ -23,10 +23,12 @@ def get_best_device():
 DATABASE_URL = os.getenv("DATABASE_URL")
 
 RAW_DATA_DIR = os.path.join(DATA_DIR, "raw_data")
+RAW_AZURE_DIR = os.path.join(DATA_DIR, "raw_azure")
 PREPARED_DATA_DIR = os.path.join(DATA_DIR, "prepared_data")
 MODEL_DIR = os.path.join(DATA_DIR, "models")
 # Ensure data directories exist, or create
 os.makedirs(RAW_DATA_DIR, exist_ok=True)
+os.makedirs(RAW_AZURE_DIR, exist_ok=True)
 os.makedirs(PREPARED_DATA_DIR, exist_ok=True)
 os.makedirs(MODEL_DIR, exist_ok=True)
 

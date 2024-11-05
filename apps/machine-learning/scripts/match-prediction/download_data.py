@@ -1,11 +1,12 @@
 import os
 import argparse
 from datetime import datetime, timedelta
-from typing import List
+from typing import List, Tuple
 from azure.storage.blob import BlobServiceClient, BlobProperties
 from tqdm import tqdm
 from dotenv import load_dotenv
-from utils import DATA_DIR
+from utils.match_prediction import RAW_AZURE_DIR
+from concurrent.futures import ThreadPoolExecutor, as_completed
 
 load_dotenv()
 
@@ -36,6 +37,32 @@ def get_blobs_for_timespan(container_client, months: int = 3) -> List[BlobProper
         all_blobs.extend(list(month_blobs))
 
     return all_blobs
+
+
+def download_single_file(args: Tuple[str, str, BlobProperties]) -> str:
+    """
+    Download a single file from Azure Blob Storage.
+
+    Args:
+        args: Tuple containing (connection_string, output_dir, blob)
+
+    Returns:
+        str: Name of the downloaded file
+    """
+    connection_string, output_dir, blob = args
+    file_name = os.path.basename(blob.name)
+    output_path = os.path.join(output_dir, file_name)
+
+    # Create new client for each thread to ensure thread safety
+    blob_service_client = BlobServiceClient.from_connection_string(connection_string)
+    container_client = blob_service_client.get_container_client(CONTAINER_NAME)
+    blob_client = container_client.get_blob_client(blob.name)
+
+    with open(output_path, "wb") as file:
+        download_stream = blob_client.download_blob()
+        file.write(download_stream.readall())
+
+    return file_name
 
 
 def download_new_parquet_files(output_dir: str, months: int = 3) -> None:
@@ -76,15 +103,31 @@ def download_new_parquet_files(output_dir: str, months: int = 3) -> None:
         print("No new files to download")
         return
 
-    # Download new files with progress bar
-    for blob in tqdm(files_to_download, desc="Downloading files"):
-        file_name = os.path.basename(blob.name)
-        output_path = os.path.join(output_dir, file_name)
+    # Prepare arguments for parallel download
+    download_args = [
+        (connection_string, output_dir, blob) for blob in files_to_download
+    ]
 
-        blob_client = container_client.get_blob_client(blob.name)
-        with open(output_path, "wb") as file:
-            download_stream = blob_client.download_blob()
-            file.write(download_stream.readall())
+    # Use ThreadPoolExecutor for parallel downloads
+    # Number of workers can be adjusted based on your system
+    max_workers = min(32, len(files_to_download))  # Limit max workers to 32
+
+    with ThreadPoolExecutor(max_workers=max_workers) as executor:
+        # Submit all download tasks
+        future_to_blob = {
+            executor.submit(download_single_file, args): args[2].name
+            for args in download_args
+        }
+
+        # Process completed downloads with progress bar
+        with tqdm(total=len(files_to_download), desc="Downloading files") as pbar:
+            for future in as_completed(future_to_blob):
+                blob_name = future_to_blob[future]
+                try:
+                    file_name = future.result()
+                    pbar.update(1)
+                except Exception as e:
+                    print(f"Error downloading {blob_name}: {str(e)}")
 
     print(f"Downloaded {len(files_to_download)} new files")
 
@@ -94,11 +137,6 @@ def main():
         description="Download new parquet files from Azure"
     )
     parser.add_argument(
-        "--output-dir",
-        default=os.path.join(DATA_DIR, "raw_azure"),
-        help="Output directory for downloaded files (default: data/raw_azure)",
-    )
-    parser.add_argument(
         "--months",
         type=int,
         default=3,
@@ -106,7 +144,7 @@ def main():
     )
     args = parser.parse_args()
 
-    download_new_parquet_files(args.output_dir, args.months)
+    download_new_parquet_files(RAW_AZURE_DIR, args.months)
 
 
 if __name__ == "__main__":
