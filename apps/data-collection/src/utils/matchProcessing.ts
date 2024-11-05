@@ -1,4 +1,5 @@
 import { z } from "zod";
+import Bottleneck from "bottleneck";
 import {
   RiotAPIClient,
   MatchDto,
@@ -397,10 +398,13 @@ function processTimelineFrame(
 
 async function processMatchData(
   client: RiotAPIClient,
-  matchId: string
+  matchId: string,
+  limiter: Bottleneck
 ): Promise<ProcessedMatchData> {
-  const matchData: MatchDto = await client.getMatchById(matchId);
-  const timelineData: TimelineDto = await client.getMatchTimelineById(matchId);
+  const [matchData, timelineData] = await Promise.all([
+    limiter.schedule(() => client.getMatchById(matchId)),
+    limiter.schedule(() => client.getMatchTimelineById(matchId)),
+  ]);
 
   // Round timestamp to the nearest frame interval (which is 60000ms)
   const frameInterval = timelineData.info.frameInterval;
