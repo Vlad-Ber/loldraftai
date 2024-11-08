@@ -41,7 +41,6 @@ const limiter = new Bottleneck({
 
   // Adjust maxConcurrent based on your needs and system capabilities
   maxConcurrent: 50,
-
 });
 
 async function collectMatchIds() {

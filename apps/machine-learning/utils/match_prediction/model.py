@@ -293,18 +293,8 @@ class SimpleMatchModel(nn.Module):
             champion_ids
         )  # [batch_size, num_champions, embed_dim]
 
-        # Process role percentages
-        role_percentages = features[
-            "champion_role_percentages"
-        ]  # [batch_size, num_champions, 5]
-        role_embeds = self.role_projection(
-            role_percentages
-        )  # [batch_size, num_champions, embed_dim]
-
-        # Combine champion and role embeddings
-        champion_features = (
-            champion_embeds + role_embeds
-        )  # [batch_size, num_champions, embed_dim]
+        # Combine champion and role embeddings(empty for now) #TODO: remove
+        champion_features = champion_embeds
 
         # Reshape champion features to [batch_size, num_champions * embed_dim]
         champion_features = champion_features.view(batch_size, -1)

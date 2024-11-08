@@ -1,8 +1,9 @@
-# utils/match_prediction/column_definitions.py
 from enum import Enum
-from typing import Any, Callable, Dict
+from dataclasses import dataclass
+from typing import Callable, Dict, Optional
+import pandas as pd
 
-from utils.match_prediction.database import Match
+POSITIONS = ["TOP", "JUNGLE", "MIDDLE", "BOTTOM", "UTILITY"]
 
 
 class ColumnType(Enum):
@@ -11,64 +12,73 @@ class ColumnType(Enum):
     LIST = "list"
 
 
-# Type alias for the extraction function
-ExtractorFunc = Callable[[Match], Any]
-
-
+@dataclass
 class ColumnDefinition:
-    def __init__(self, column_type: ColumnType, extractor: ExtractorFunc):
-        self.column_type = column_type
-        self.extractor = extractor
+    name: str
+    column_type: ColumnType
+    getter: Optional[Callable[[pd.DataFrame], pd.Series]] = None
 
 
-def extract_numerical_elo(match: Match):
-    tier = match.averageTier.value
-    division = match.averageDivision.value
+def get_numerical_elo(df: pd.DataFrame) -> pd.Series:
+    """Convert tier/division to numerical value."""
 
-    if (tier, division) in [
-        ("DIAMOND", "II"),
-        ("DIAMOND", "I"),
-        ("MASTER", "I"),
-        ("GRANDMASTER", "I"),
-        ("CHALLENGER", "I"),
-    ]:
-        return 0
-    elif (tier, division) in [("DIAMOND", "III")]:
-        return 1
-    elif (tier, division) in [("DIAMOND", "IV")]:
-        return 2
-    elif (tier, division) in [("EMERALD", "I")]:
-        return 3
-    else:
-        raise ValueError(f"Unknown elo: {tier} {division}")
+    def map_elo(row):
+        tier = row["averageTier"]
+        division = row["averageDivision"]
 
+        if (tier, division) in [
+            ("DIAMOND", "II"),
+            ("DIAMOND", "I"),
+            ("MASTER", "I"),
+            ("GRANDMASTER", "I"),
+            ("CHALLENGER", "I"),
+        ]:
+            return 0
+        elif (tier, division) == ("DIAMOND", "III"):
+            return 1
+        elif (tier, division) == ("DIAMOND", "IV"):
+            return 2
+        elif (tier, division) == ("EMERALD", "I"):
+            return 3
+        else:
+            raise ValueError(f"Unknown elo: {tier} {division}")
 
-def extract_numerical_patch(match: Match):
-    # max minor patch last 3 years is 24
-    return match.gameVersionMajorPatch * 50 + match.gameVersionMinorPatch
-
-
-POSITIONS = ["TOP", "JUNGLE", "MIDDLE", "BOTTOM", "UTILITY"]
+    return df.apply(map_elo, axis=1)
 
 
-def extract_champion_ids(match: Match):
+def get_numerical_patch(df: pd.DataFrame) -> pd.Series:
+    """Convert patch version to numerical value."""
+    return df["gameVersionMajorPatch"] * 50 + df["gameVersionMinorPatch"]
+
+
+def get_champion_ids(df: pd.DataFrame) -> pd.Series:
     champion_ids = []
-    for team_id in sorted(match.teams.keys()):
-        team = match.teams[team_id]
-        for position in POSITIONS:
-            champion_ids.append(team["participants"][position]["championId"])
-    return champion_ids
+    # Blue team, then red team from top to bottom
+    for team in [100, 200]:
+        for role in POSITIONS:
+            champion_ids.append(df[f"team_{team}_{role}_championId"])
+    # Concatenate horizontally and apply list conversion to each row
+    return pd.concat(champion_ids, axis=1).apply(lambda x: x.tolist(), axis=1)
 
 
+# Define all columns
 COLUMNS: Dict[str, ColumnDefinition] = {
-    "champion_ids": ColumnDefinition(ColumnType.LIST, extract_champion_ids),
-    "champion_role_percentages": ColumnDefinition(
-        ColumnType.LIST, lambda match: None
-    ),  # This will be filled by the MatchDataset
-    "numerical_elo": ColumnDefinition(ColumnType.NUMERICAL, extract_numerical_elo),
-    "numerical_patch": ColumnDefinition(ColumnType.NUMERICAL, extract_numerical_patch),
+    # Computed columns
+    "numerical_elo": ColumnDefinition(
+        name="numerical_elo", column_type=ColumnType.NUMERICAL, getter=get_numerical_elo
+    ),
+    "numerical_patch": ColumnDefinition(
+        name="numerical_patch",
+        column_type=ColumnType.NUMERICAL,
+        getter=get_numerical_patch,
+    ),
+    # TODO: Could change to categorical for simplification
+    "champion_ids": ColumnDefinition(
+        name="champion_ids", column_type=ColumnType.LIST, getter=get_champion_ids
+    ),
 }
 
+# Helper lists for different column types
 CATEGORICAL_COLUMNS = [
     col for col, def_ in COLUMNS.items() if def_.column_type == ColumnType.CATEGORICAL
 ]
@@ -78,7 +88,3 @@ NUMERICAL_COLUMNS = [
 LIST_COLUMNS = [
     col for col, def_ in COLUMNS.items() if def_.column_type == ColumnType.LIST
 ]
-
-
-def extract_raw_features(match: Match):
-    return {col: def_.extractor(match) for col, def_ in COLUMNS.items()}

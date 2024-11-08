@@ -9,7 +9,7 @@ from tqdm import tqdm
 from sklearn.preprocessing import LabelEncoder
 from sklearn.model_selection import train_test_split
 from utils.match_prediction import (
-    RAW_DATA_DIR,
+    RAW_AZURE_DIR,
     PREPARED_DATA_DIR,
     ENCODERS_PATH,
     NUMERICAL_STATS_PATH,
@@ -18,8 +18,10 @@ from utils.match_prediction import (
 from utils.match_prediction.column_definitions import (
     NUMERICAL_COLUMNS,
     CATEGORICAL_COLUMNS,
+    COLUMNS,
 )
 from utils.match_prediction.task_definitions import TASKS, TaskType
+from typing import List
 
 
 def load_data(file_path):
@@ -105,6 +107,10 @@ def prepare_data(
 ):
     os.makedirs(os.path.join(output_dir, "train"), exist_ok=True)
     os.makedirs(os.path.join(output_dir, "test"), exist_ok=True)
+    # clean up the folders
+    for folder in ["train", "test"]:
+        for file_path in glob.glob(os.path.join(output_dir, folder, "*.parquet")):
+            os.remove(file_path)
 
     for file_index, file_path in enumerate(tqdm(input_files, desc="Preparing data")):
         df = load_data(file_path)
@@ -152,10 +158,40 @@ def prepare_data(
         del df, df_train, df_test
 
 
+def add_computed_columns(input_files: List[str], output_dir: str) -> List[str]:
+    """
+    Add computed columns to parquet files and save them to a new directory.
+    Returns the list of new file paths.
+    """
+    os.makedirs(output_dir, exist_ok=True)
+    new_files = []
+
+    for file_path in tqdm(input_files, desc="Adding computed columns"):
+        df = load_data(file_path)
+
+        # Apply all getters to create new columns
+        for col, col_def in COLUMNS.items():
+            if col_def.getter is not None:
+                df[col] = col_def.getter(df)
+        for task, task_def in TASKS.items():
+            if task_def.getter is not None:
+                df[task] = task_def.getter(df)
+
+        # Save the enhanced dataframe
+        new_file_path = os.path.join(output_dir, os.path.basename(file_path))
+        save_data(df, new_file_path)
+        new_files.append(new_file_path)
+
+        # Clear memory
+        del df
+
+    return new_files
+
+
 def main():
     parser = argparse.ArgumentParser(description="Prepare data for machine learning")
     parser.add_argument(
-        "--input-dir", default=RAW_DATA_DIR, help="Input directory containing raw data"
+        "--input-dir", default=RAW_AZURE_DIR, help="Input directory containing raw data"
     )
     parser.add_argument(
         "--output-dir",
@@ -166,11 +202,19 @@ def main():
 
     input_files = glob.glob(os.path.join(args.input_dir, "*.parquet"))
 
+    # Create temporary directory for intermediate files
+    temp_dir = os.path.join(args.output_dir, "temp")
+
+    print("Adding computed columns...")
+    enhanced_files = add_computed_columns(input_files, temp_dir)
+
     print("Creating encoders...")
-    encoders = create_encoders(input_files)
+    encoders = create_encoders(enhanced_files)
 
     print("Computing statistics...")
-    numerical_means, numerical_stds, task_means, task_stds = compute_stats(input_files)
+    numerical_means, numerical_stds, task_means, task_stds = compute_stats(
+        enhanced_files
+    )
 
     print("Saving encoders and statistics...")
     with open(ENCODERS_PATH, "wb") as f:
@@ -180,9 +224,9 @@ def main():
     with open(TASK_STATS_PATH, "wb") as f:
         pickle.dump({"means": task_means, "stds": task_stds}, f)
 
-    print("Preparing data...")
+    print("Preparing final data...")
     prepare_data(
-        input_files,
+        enhanced_files,
         args.output_dir,
         encoders,
         numerical_means,
@@ -190,6 +234,11 @@ def main():
         task_means,
         task_stds,
     )
+
+    # Clean up temporary files
+    import shutil
+
+    shutil.rmtree(temp_dir)
 
     print("Data preparation completed.")
 

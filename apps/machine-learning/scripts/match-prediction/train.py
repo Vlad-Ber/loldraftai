@@ -348,7 +348,7 @@ def log_validation_metrics(
 
 
 def train_model(
-    run_name: str,
+    run_name: str | None,
     config: TrainingConfig,
     continue_training: bool = False,
     load_path: Optional[str] = None,
@@ -372,7 +372,9 @@ def train_model(
     # Initialize wandb
     if config.log_wandb:
         config_dict = config.to_dict()
-        config_dict["num_samples"] = len(train_dataset) # TODO: this could take some time, maybe we should have a file with this stat and claculate it only once?
+        config_dict["num_samples"] = len(
+            train_dataset
+        )  # TODO: this could take some time, maybe we should have a file with this stat and claculate it only once?
         wandb.init(project="draftking", name=run_name, config=config_dict)
 
     train_loader, test_loader = (
@@ -450,7 +452,7 @@ if __name__ == "__main__":
         "--run_name",
         type=str,
         required=False,
-        default="initial-setup",
+        default=None,
         help="Name for the Wandb run",
     )
     parser.add_argument(
