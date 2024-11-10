@@ -33,9 +33,7 @@ from utils.match_prediction import (
     TRAIN_BATCH_SIZE,
 )
 from utils.match_prediction.column_definitions import (
-    COLUMNS,
     CATEGORICAL_COLUMNS,
-    ColumnType,
 )
 from utils.match_prediction.task_definitions import TASKS, TaskType
 from utils.match_prediction.config import TrainingConfig
@@ -43,6 +41,7 @@ from utils.match_prediction.train import (
     get_optimizer_grouped_parameters,
     set_random_seeds,
     get_num_champions,
+    collate_fn,
 )
 
 # Enable cuDNN auto-tuner, source https://x.com/karpathy/status/1299921324333170689/photo/1
@@ -86,39 +85,6 @@ def signal_handler(signum: int, frame: Any) -> None:
     print("Received interrupt signal. Saving model and exiting...")
     cleanup()
     exit(0)
-
-
-def collate_fn(
-    batch: List[Dict[str, Any]]
-) -> Tuple[Dict[str, torch.Tensor], Dict[str, torch.Tensor]]:
-    collated = {col: [] for col in COLUMNS}
-    collated_labels = {task: [] for task in TASKS}
-
-    for item in batch:
-        for col, col_def in COLUMNS.items():
-            collated[col].append(item[col])
-        for task in TASKS:
-            collated_labels[task].append(item[task])
-
-    for col, col_def in COLUMNS.items():
-        if col_def.column_type == ColumnType.LIST:
-            collated[col] = torch.stack(collated[col])
-        elif col_def.column_type == ColumnType.CATEGORICAL:
-            collated[col] = torch.tensor(collated[col], dtype=torch.long)
-        elif col_def.column_type == ColumnType.NUMERICAL:
-            collated[col] = torch.tensor(collated[col], dtype=torch.float)
-
-    for task_name, task_def in TASKS.items():
-        dtype = (
-            torch.float
-            if task_def.task_type != TaskType.MULTICLASS_CLASSIFICATION
-            else torch.long
-        )
-        collated_labels[task_name] = torch.tensor(
-            collated_labels[task_name], dtype=dtype
-        )
-
-    return collated, collated_labels
 
 
 def init_model(
