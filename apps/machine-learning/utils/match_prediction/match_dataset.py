@@ -25,6 +25,7 @@ class MatchDataset(IterableDataset):
         mask_champions=0.0,
         unknown_champion_id=None,
         train_or_test="train",
+        small_dataset=False,  # Add this parameter
     ):
         self.data_files = sorted(
             glob.glob(
@@ -34,6 +35,13 @@ class MatchDataset(IterableDataset):
             )
         )
         self.transform = transform
+        self.small_dataset = small_dataset
+        
+        # If small_dataset is True, only use 5% of the files
+        if small_dataset:
+            num_files = max(1, int(len(self.data_files) * 0.05))
+            self.data_files = self.data_files[:num_files]
+        
         self.total_samples = self._count_total_samples()
         self.mask_champions = mask_champions
         self.unknown_champion_id = unknown_champion_id

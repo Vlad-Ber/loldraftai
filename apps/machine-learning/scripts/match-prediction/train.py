@@ -23,7 +23,7 @@ import argparse
 
 
 from utils.match_prediction.match_dataset import MatchDataset
-from utils.match_prediction.model import MatchOutcomeModel, SimpleMatchModel
+from utils.match_prediction.model import SimpleMatchModel
 from utils import DATA_DIR
 from utils.match_prediction import (
     get_best_device,
@@ -66,7 +66,7 @@ else:
     PREFETCH_FACTOR = 2
 
 
-def save_model(model: MatchOutcomeModel, timestamp: Optional[str] = None) -> str:
+def save_model(model: SimpleMatchModel, timestamp: Optional[str] = None) -> str:
     if timestamp is None:
         timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
     model_timestamp_path = f"{MODEL_PATH.rsplit('.', 1)[0]}_{timestamp}.pth"
@@ -174,7 +174,7 @@ def init_model(
 
 
 def train_epoch(
-    model: MatchOutcomeModel,
+    model: SimpleMatchModel,
     train_loader: DataLoader,
     optimizer: optim.Optimizer,
     criterion: Dict[str, nn.Module],
@@ -226,7 +226,7 @@ def train_epoch(
 
 
 def validate(
-    model: MatchOutcomeModel,
+    model: SimpleMatchModel,
     test_loader: DataLoader,
     criterion: Dict[str, nn.Module],
     config: TrainingConfig,
@@ -352,6 +352,7 @@ def train_model(
     config: TrainingConfig,
     continue_training: bool = False,
     load_path: Optional[str] = None,
+    small_dataset: bool = False,
 ):
     global model  # to be able to save the model on interrupt
     best_metric = float("inf")  # For loss minimization
@@ -365,6 +366,7 @@ def train_model(
             mask_champions=config.mask_champions,
             unknown_champion_id=unknown_champion_id,
             train_or_test=split,
+            small_dataset=small_dataset,
         )
         for split in ["train", "test"]
     )
@@ -446,7 +448,7 @@ def train_model(
 if __name__ == "__main__":
     # Set up argument parser
     parser = argparse.ArgumentParser(
-        description="Train the MatchOutcomeTransformer model"
+        description="Train the match-prediction model"
     )
     parser.add_argument(
         "--run_name",
@@ -477,6 +479,11 @@ if __name__ == "__main__":
         default=None,
         help="Path to load the model from (default: MODEL_PATH)",
     )
+    parser.add_argument(
+        "--small",
+        action="store_true",
+        help="Use only 5% of the dataset for quick iteration",
+    )
     args = parser.parse_args()
 
     # Initialize configuration
@@ -502,6 +509,7 @@ if __name__ == "__main__":
             config,
             continue_training=args.continue_training,
             load_path=args.load_path,
+            small_dataset=args.small,
         )
     except Exception as e:
         print(f"An error occurred: {e}")
