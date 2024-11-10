@@ -9,6 +9,7 @@ class TrainingConfig:
         self.num_heads = 8
         self.num_transformer_layers = 2
         self.dropout = 0.1
+        # weight decay didn't change much when training for a short time at 0.001, but for longer trianing runs, 0.01 might be better
         self.weight_decay = 0.01
         self.learning_rate = 1e-3
         self.max_grad_norm = 1.0
@@ -16,7 +17,7 @@ class TrainingConfig:
         self.mask_champions = 0.1
 
         self.calculate_val_loss = True
-        self.calculate_val_win_prediction_only = False
+        self.calculate_val_win_prediction_only = True
         self.log_wandb = True
 
     def update_from_json(self, json_file: str):

@@ -403,7 +403,6 @@ def train_model(
         elif task_def.task_type == TaskType.MULTICLASS_CLASSIFICATION:
             criterion[task_name] = nn.CrossEntropyLoss()
 
-    # weight decay didn't change much when training for a short time at 0.001, but for longer trianing runs, 0.01 might be better
     fused = True if device.type == "cuda" else False
     optimizer = optim.AdamW(
         get_optimizer_grouped_parameters(model, config.weight_decay),
