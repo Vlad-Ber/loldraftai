@@ -446,9 +446,7 @@ def train_model(
 
 if __name__ == "__main__":
     # Set up argument parser
-    parser = argparse.ArgumentParser(
-        description="Train the match-prediction model"
-    )
+    parser = argparse.ArgumentParser(description="Train the match-prediction model")
     parser.add_argument(
         "--run_name",
         type=str,
