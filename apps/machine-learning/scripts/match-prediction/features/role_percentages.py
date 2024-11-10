@@ -11,8 +11,8 @@ def calculate_champion_role_percentages():
     champion_role_counts = defaultdict(lambda: defaultdict(int))
     total_champion_counts = defaultdict(int)
 
-    # Process both train and test directories
-    for test_or_train in ["train", "test"]:
+    # Process train only, to not impact validation
+    for test_or_train in ["train"]:
         dir = os.path.join(PREPARED_DATA_DIR, test_or_train)
         for file in tqdm(
             os.listdir(dir),
