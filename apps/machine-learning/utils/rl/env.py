@@ -324,12 +324,19 @@ def action_mask_fn(env: LoLDraftEnv):
 class FixedRoleDraftEnv(gym.Env):
     metadata = {"render_modes": []}
 
-    def __init__(self):
+    def __init__(self, patches: List[int]):
         super(FixedRoleDraftEnv, self).__init__()
 
         with open(MODEL_CONFIG_PATH, "rb") as f:
             model_params = pickle.load(f)
 
+        # Changes on reset:
+        self.patches = patches
+        self.current_patch = patches[-1]
+        self.elos = [i for i in range(0, 4)]
+        self.current_elo = self.elos[-1]
+
+        # Fixed:
         self.num_champions = model_params["num_champions"]
         self.action_space = spaces.Discrete(self.num_champions)
         self.roles: List[RoleType] = ["TOP", "JUNGLE", "MID", "BOT", "UTILITY"]
@@ -378,6 +385,8 @@ class FixedRoleDraftEnv(gym.Env):
                 "action_mask": spaces.Box(
                     0, 1, shape=(self.num_champions,), dtype=np.int8
                 ),
+                "numerical_patch": spaces.Discrete(len(self.patches) + 1),
+                "numerical_elo": spaces.Discrete(len(self.elos) + 1),
             }
         )
 
@@ -389,6 +398,9 @@ class FixedRoleDraftEnv(gym.Env):
 
     def reset(self, *, seed=None, options=None):
         super().reset(seed=seed)
+
+        self.current_patch = np.random.choice(self.patches)
+        self.current_elo = np.random.choice(self.elos)
 
         self.available_champions = np.ones(self.num_champions, dtype=np.int8)
         self.blue_picks = np.zeros((5, self.num_champions), dtype=np.int8)
@@ -554,6 +566,8 @@ class FixedRoleDraftEnv(gym.Env):
             "phase": np.array([action_info["phase"]], dtype=np.int8),
             "turn": np.array([action_info["team"]], dtype=np.int8),
             "action_mask": self.get_action_mask(),
+            "numerical_patch": np.array([self.current_patch], dtype=np.int32),
+            "numerical_elo": np.array([self.current_elo], dtype=np.int32),
         }
 
     def get_current_draft_step(self) -> DraftStep:
@@ -576,4 +590,8 @@ class FixedRoleDraftEnv(gym.Env):
                     champion_ids.append(np.argmax(self.red_picks[role_idx]))
                     break
 
-        return fetch_blue_side_winrate_prediction(np.array(champion_ids))
+        return fetch_blue_side_winrate_prediction(
+            np.array(champion_ids),
+            numerical_patch=int(self.current_patch),
+            numerical_elo=int(self.current_elo),
+        )

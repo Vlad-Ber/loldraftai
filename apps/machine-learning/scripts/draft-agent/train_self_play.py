@@ -5,27 +5,43 @@ import warnings
 from sb3_contrib import MaskablePPO
 from stable_baselines3.common.vec_env import SubprocVecEnv
 from sb3_contrib.common.wrappers import ActionMasker
+import wandb
+from wandb.integration.sb3 import WandbCallback
+from pathlib import Path
+import pickle
+from typing import List
+
 from utils import DATA_DIR
 from utils.match_prediction import get_best_device
 from utils.rl.env import FixedRoleDraftEnv
 from utils.rl.self_play import ModelPool, SelfPlayWithPoolWrapper
 from utils.rl.env import action_mask_fn
-import wandb
-from wandb.integration.sb3 import WandbCallback
+from utils.match_prediction import PREPARED_DATA_DIR
 
 # sb3_contrib is not updated to latest api, this is the message we are ignoring:
 # WARN: env.get_action_mask to get variables from other wrappers is deprecated and will be removed in v1.0
 warnings.filterwarnings("ignore", message=".*env.get_action_mask.*")
 
 
-def make_env(rank, model_pool, agent_side="random"):
-    def _init():
-        env = FixedRoleDraftEnv()
-        env = SelfPlayWithPoolWrapper(env, model_pool, agent_side)
-        env = ActionMasker(env, action_mask_fn)
-        return env
+def get_latest_patches(n_patches: int = 5) -> List[int]:
+    """
+    Load patch mapping and return the n latest numerical patches.
 
-    return _init
+    Args:
+        n_patches: Number of latest patches to return
+
+    Returns:
+        List of numerical patch values, sorted from newest to oldest
+    """
+    patch_mapping_path = Path(PREPARED_DATA_DIR) / "patch_mapping.pkl"
+    with open(patch_mapping_path, "rb") as f:
+        patch_data = pickle.load(f)
+
+    # Get unique raw patch numbers
+    raw_patches = sorted(set(patch_data["mapping"].keys()))
+
+    # Return the n latest patches (highest numbers)
+    return raw_patches[-n_patches:]
 
 
 def train_self_play(
@@ -69,6 +85,18 @@ def train_self_play(
         latest_model_prob=latest_model_prob,
         random_opponent_prob=random_opponent_prob,
     )
+
+    patches = get_latest_patches(5)
+    print(f"Using latest patches: {patches}")
+
+    def make_env(rank, model_pool, agent_side="random"):
+        def _init():
+            env = FixedRoleDraftEnv(patches=patches)
+            env = SelfPlayWithPoolWrapper(env, model_pool, agent_side)
+            env = ActionMasker(env, action_mask_fn)
+            return env
+
+        return _init
 
     agent_side: str = "random"  # We always want to play from both sides in training
     # Create vectorized environment
