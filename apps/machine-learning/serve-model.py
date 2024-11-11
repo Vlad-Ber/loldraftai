@@ -129,7 +129,7 @@ def calculate_gold_differences(model_output: dict) -> List[float]:
             float(model_output[team_200_task]), team_200_task
         )
 
-        gold_diffs.append(team_200_gold - team_100_gold)
+        gold_diffs.append(team_100_gold - team_200_gold)
 
     return gold_diffs
 
@@ -251,10 +251,13 @@ async def predict_in_depth(api_input: APIInput):
 
     # Calculate champion impact (difference from base win probability)
     base_winrate = base_result["win_probability"]
-    champion_impact = [
-        base_winrate - masked_result["win_probability"]
-        for masked_result in masked_results
-    ]
+    champion_impact = []
+    for i, masked_result in enumerate(masked_results):
+        impact = base_winrate - masked_result["win_probability"]
+        # Reverse impact for red side champions (indices 5-9)
+        if i >= 5:  # Red side champions
+            impact = -impact
+        champion_impact.append(impact)
 
     return InDepthPrediction(
         win_probability=base_winrate,
