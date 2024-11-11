@@ -5,6 +5,8 @@ from typing import List, Dict
 import torch
 import uvicorn
 import pickle
+from pathlib import Path
+
 from utils.match_prediction.model import SimpleMatchModel
 from utils.match_prediction.column_definitions import COLUMNS, ColumnType
 from utils.match_prediction import (
@@ -15,6 +17,7 @@ from utils.match_prediction import (
     MODEL_CONFIG_PATH,
     CHAMPION_FEATURES_PATH,
     POSITIONS,
+    PREPARED_DATA_DIR,
     get_best_device,
 )
 
@@ -90,6 +93,9 @@ model.eval()
 
 with open(CHAMPION_FEATURES_PATH, "rb") as f:
     champion_features = pickle.load(f)
+
+with open(Path(PREPARED_DATA_DIR) / "patch_mapping.pkl", "rb") as f:
+    patch_mapping = pickle.load(f)["mapping"]
 
 
 # Create an asyncio.Queue to hold incoming requests
@@ -191,6 +197,11 @@ def create_masked_inputs(model_input: ModelInput) -> List[ModelInput]:
 
 @app.post("/predict")
 async def predict(api_input: APIInput):
+    raw_patch = api_input.numerical_patch
+    mapped_patch = patch_mapping.get(
+        float(raw_patch), 0
+    )  # Use 0 as fallback for unknown patches
+    api_input.numerical_patch = mapped_patch
     model_input = api_input_to_model_input(api_input)
 
     # Create a future to hold the response
@@ -205,6 +216,11 @@ async def predict(api_input: APIInput):
 
 @app.post("/predict-in-depth")
 async def predict_in_depth(api_input: APIInput):
+    raw_patch = api_input.numerical_patch
+    mapped_patch = patch_mapping.get(
+        float(raw_patch), 0
+    )  # Use 0 as fallback for unknown patches
+    api_input.numerical_patch = mapped_patch
     # Convert API input to model input
     base_input = api_input_to_model_input(api_input)
 
