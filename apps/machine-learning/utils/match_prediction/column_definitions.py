@@ -67,10 +67,11 @@ COLUMNS: Dict[str, ColumnDefinition] = {
     "numerical_elo": ColumnDefinition(
         name="numerical_elo", column_type=ColumnType.NUMERICAL, getter=get_numerical_elo
     ),
+    # special case for patch number, applied in prepare-data.py
     "numerical_patch": ColumnDefinition(
         name="numerical_patch",
         column_type=ColumnType.NUMERICAL,
-        getter=get_numerical_patch,
+        #getter=get_numerical_patch,
     ),
     # TODO: Could change to categorical for simplification
     "champion_ids": ColumnDefinition(

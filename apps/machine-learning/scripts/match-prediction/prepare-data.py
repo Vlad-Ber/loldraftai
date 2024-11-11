@@ -21,7 +21,8 @@ from utils.match_prediction.column_definitions import (
     COLUMNS,
 )
 from utils.match_prediction.task_definitions import TASKS, TaskType
-from typing import List
+from typing import List, Dict
+from collections import defaultdict
 
 
 def load_data(file_path):
@@ -96,6 +97,62 @@ def compute_stats(data_files):
     return numerical_means, numerical_stds, task_means, task_stds
 
 
+def compute_patch_mapping(input_files: List[str]) -> Dict[float, int]:
+    """
+    Analyze all files to create a mapping for patch numbers.
+    Returns a dictionary mapping original patch numbers to normalized ones.
+    """
+    patch_counts = defaultdict(int)
+
+    print("Computing patch distribution...")
+    for file_path in tqdm(input_files):
+        df = load_data(file_path)
+        raw_patches = df["gameVersionMajorPatch"] * 50 + df["gameVersionMinorPatch"]
+        for patch in raw_patches:
+            patch_counts[patch] += 1
+
+    all_patches = sorted(patch_counts.keys())  # All patches in chronological order
+
+    # Find significant patches (>200k games)
+    significant_patches = [
+        patch for patch in all_patches if patch_counts[patch] > 200000
+    ]
+
+    if not significant_patches:
+        raise ValueError("No patches have more than 200k games!")
+
+    # Create the normalized mapping (1 to N) for significant patches
+    normalized_values = {patch: i + 1 for i, patch in enumerate(significant_patches)}
+
+    # Create mapping for ALL patches to their nearest significant patch value
+    patch_mapping = {}
+    for patch in all_patches:
+        if patch in normalized_values:
+            # If it's a significant patch, use its normalized value
+            patch_mapping[patch] = normalized_values[patch]
+        else:
+            # Find the nearest significant patch
+            # Calculate distances to all significant patches
+            distances = [
+                (abs(patch - sig_patch), sig_patch) for sig_patch in significant_patches
+            ]
+            # Get the nearest significant patch
+            _, nearest_sig_patch = min(distances)
+            # Map to the normalized value of the nearest significant patch
+            patch_mapping[patch] = normalized_values[nearest_sig_patch]
+
+    # Log the mapping for transparency
+    print("\nPatch mapping:")
+    for patch in sorted(patch_mapping.keys()):
+        mapped_to = patch_mapping[patch]
+        original_patch = significant_patches[mapped_to - 1]
+        print(
+            f"Patch {patch:.2f} -> {mapped_to} (mapped to {original_patch:.2f}, {patch_counts[patch]} games)"
+        )
+
+    return patch_mapping, patch_counts
+
+
 def prepare_data(
     input_files,
     output_dir,
@@ -144,7 +201,7 @@ def prepare_data(
                     )  # Center the data if std is zero
 
         # Split into train and test
-        df_train, df_test = train_test_split(df, test_size=0.2, random_state=42)
+        df_train, df_test = train_test_split(df, test_size=0.1, random_state=42)
 
         # Save prepared data
         save_data(
@@ -166,8 +223,19 @@ def add_computed_columns(input_files: List[str], output_dir: str) -> List[str]:
     os.makedirs(output_dir, exist_ok=True)
     new_files = []
 
+    # First, compute the patch mapping from the entire dataset
+    patch_mapping, patch_counts = compute_patch_mapping(input_files)
+
+    # Save the patch mapping and counts for future reference
+    with open(os.path.join(PREPARED_DATA_DIR, "patch_mapping.pkl"), "wb") as f:
+        pickle.dump({"mapping": patch_mapping, "counts": patch_counts}, f)
+
     for file_path in tqdm(input_files, desc="Adding computed columns"):
         df = load_data(file_path)
+
+        # Calculate raw patch numbers
+        raw_patches = df["gameVersionMajorPatch"] * 50 + df["gameVersionMinorPatch"]
+        df["numerical_patch"] = raw_patches.map(lambda x: patch_mapping.get(x, 0))
 
         # Apply all getters to create new columns
         for col, col_def in COLUMNS.items():
