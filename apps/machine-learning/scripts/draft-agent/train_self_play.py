@@ -13,7 +13,8 @@ from typing import List
 
 from utils import DATA_DIR
 from utils.match_prediction import get_best_device
-from utils.rl.env import FixedRoleDraftEnv
+from utils.rl import ROLE_CHAMPIONS_PATH
+from utils.rl.env import FixedRoleDraftEnv, FlexibleRoleDraftEnv
 from utils.rl.self_play import ModelPool, SelfPlayWithPoolWrapper
 from utils.rl.env import action_mask_fn
 from utils.match_prediction import PREPARED_DATA_DIR
@@ -52,7 +53,7 @@ def train_self_play(
     save_dir: str = f"{DATA_DIR}/self_play_models",
     random_opponent_prob: float = 0.1,
     latest_model_prob: float = 0.5,
-    use_wandb: bool = True,
+    use_wandb: bool = False,
 ):
     run = None
     if use_wandb:
@@ -89,9 +90,15 @@ def train_self_play(
     patches = get_latest_patches(5)
     print(f"Using latest patches: {patches}")
 
+    role_rates_path = os.path.join(
+        os.path.dirname(ROLE_CHAMPIONS_PATH), "champion_role_rates.json"
+    )
+
     def make_env(rank, model_pool, agent_side="random"):
         def _init():
-            env = FixedRoleDraftEnv(patches=patches)
+            # env = FixedRoleDraftEnv(patches=patches)
+            # TODO: add patches to FlexibleRoleDraftEnv
+            env = FlexibleRoleDraftEnv(role_rates_path=role_rates_path)
             env = SelfPlayWithPoolWrapper(env, model_pool, agent_side)
             env = ActionMasker(env, action_mask_fn)
             return env
@@ -159,7 +166,8 @@ def train_self_play(
 if __name__ == "__main__":
     trained_model = train_self_play(
         num_iterations=15,
-        timesteps_per_iteration=500_000,
+        timesteps_per_iteration=2000,
+        # timesteps_per_iteration=500_000,
         num_envs=32,
         pool_size=5,
         random_opponent_prob=0.05,

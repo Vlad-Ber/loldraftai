@@ -95,10 +95,10 @@ class SelfPlayWithPoolWrapper(Wrapper):
         obs, reward, terminated, truncated, info = super().step(action)
 
         # Adjust reward based on agent's side
-        if not terminated:
-            reward = 0
-        elif self.current_side == 1:  # If agent is red team
-            reward = 1 - reward  # Invert the blue team reward # TODO: could the main env take into account the side?
+        if self.current_side == 1:  # If agent is red team
+            reward = (
+                1 - reward
+            )  # Invert the blue team reward # TODO: could the main env take into account the side?
 
         # Make opponent moves until it's agent's turn again or episode ends
         return self.play_opponent_moves(obs, reward, terminated, truncated, info)
@@ -143,36 +143,5 @@ class SelfPlayWithPoolWrapper(Wrapper):
         action_mask = self.env.get_action_mask()
         valid_actions = np.where(action_mask == 1)[0]
 
-        if phase == 0:  # Ban phase
-            return self.np_random.choice(valid_actions)
-        elif phase == 1:  # Pick phase
-            # return self.get_random_role_based_pick(valid_actions)
-            # We can pick a random valid action under FixedRoleDraftEnv and it will at least be a viable pick
-            return self.np_random.choice(valid_actions)
-
-    # TODO: i think can be deleted now that we are in fixed role env!
-    def get_random_role_based_pick(self, valid_actions: List[int]) -> int:
-        """Get random role-based pick."""
-        # Get unpicked roles
-        # TODO: why always red team???
-        roles_picked = self.env.red_roles_picked  # opponent is always red team
-        available_roles = [
-            role for i, role in enumerate(self.env.roles) if roles_picked[i] == 0
-        ]
-
-        if not available_roles:
-            return self.np_random.choice(valid_actions)
-
-        # Choose a random available role
-        chosen_role = self.np_random.choice(available_roles)
-
-        # Get valid champions for this role that are also in valid actions
-        role_champions = self.env.role_champion_sets[chosen_role]
-        valid_role_champions = list(role_champions.intersection(valid_actions))
-
-        if valid_role_champions:
-            pick = self.np_random.choice(valid_role_champions)
-        else:
-            pick = self.np_random.choice(valid_actions)
-
-        return pick
+        # under fixed and flex role env, we can pick a random valid action
+        return self.np_random.choice(valid_actions)
