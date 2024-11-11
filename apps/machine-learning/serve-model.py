@@ -253,6 +253,8 @@ async def predict_in_depth(api_input: APIInput):
     base_winrate = base_result["win_probability"]
     champion_impact = []
     for i, masked_result in enumerate(masked_results):
+        # If when the champion is removed, the winrate is higher, the champion has negative impact
+        # so if masked_result["win_probability"] > base_winrate, the impact is negative
         impact = base_winrate - masked_result["win_probability"]
         # Reverse impact for red side champions (indices 5-9)
         if i >= 5:  # Red side champions
