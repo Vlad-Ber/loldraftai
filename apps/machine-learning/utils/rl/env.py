@@ -5,6 +5,7 @@ import numpy as np
 import json
 from itertools import permutations
 from typing import List, Dict, TypedDict, Literal, Set
+import random
 
 from utils.rl import (
     fetch_blue_side_winrate_prediction,
@@ -641,6 +642,7 @@ class FlexibleRoleDraftEnv(gym.Env):
     def __init__(
         self,
         # default to global playrates with at least 0.5% global presence
+        patches: List[int],
         role_rates_path: str = ROLE_PLAYRATES_PATH,
         min_playrate_threshold: float = 0.5,
     ):
@@ -653,6 +655,8 @@ class FlexibleRoleDraftEnv(gym.Env):
         self.roles: List[RoleType] = ["TOP", "JUNGLE", "MID", "BOT", "UTILITY"]
         self.num_roles = len(self.roles)
         self.threshold = min_playrate_threshold
+        self.patches = patches
+        self.patch = random.choice(self.patches)
 
         # Load and decode role statistics
         self.role_rates = self._load_role_rates(role_rates_path)
@@ -687,6 +691,12 @@ class FlexibleRoleDraftEnv(gym.Env):
                 "turn": spaces.Discrete(2),  # 0: blue, 1: red
                 "action_mask": spaces.Box(
                     0, 1, shape=(self.num_champions,), dtype=np.int8
+                ),
+                "numerical_patch": spaces.Box(
+                    low=float(min(self.patches)),
+                    high=float(max(self.patches)),
+                    shape=(1,),
+                    dtype=np.float32,
                 ),
             }
         )
@@ -733,6 +743,7 @@ class FlexibleRoleDraftEnv(gym.Env):
         # Initialize draft state
         self.state = DraftState(self.num_champions, self.original_role_matrix)
         self.current_step = 0
+        self.patch = random.choice(self.patches)
 
         observation = self._get_obs()
         info = {}
@@ -1082,6 +1093,7 @@ class FlexibleRoleDraftEnv(gym.Env):
             "phase": np.array([action_info["phase"]], dtype=np.int8),
             "turn": np.array([action_info["team"]], dtype=np.int8),
             "action_mask": self.get_action_mask(),
+            "numerical_patch": np.array([float(self.patch)], dtype=np.float32),
         }
 
     def _calculate_reward(self) -> float:
@@ -1113,5 +1125,7 @@ class FlexibleRoleDraftEnv(gym.Env):
 
         # Use external model for win rate prediction
         return np.float32(
-            fetch_blue_side_winrate_prediction(np.array(champion_ids, dtype=np.int32))
+            fetch_blue_side_winrate_prediction(
+                np.array(champion_ids, dtype=np.int32), numerical_patch=self.patch
+            )
         )
