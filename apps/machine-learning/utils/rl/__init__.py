@@ -4,6 +4,7 @@ import os
 from utils import DATA_DIR
 
 ROLE_CHAMPIONS_PATH = os.path.join(DATA_DIR, "role_champions.json")
+ROLE_PLAYRATES_PATH = os.path.join(DATA_DIR, "champion_role_playrates.json")
 
 
 def fetch_blue_side_winrate_prediction(

@@ -6,7 +6,11 @@ import json
 from itertools import permutations
 from typing import List, Dict, TypedDict, Literal, Set
 
-from utils.rl import fetch_blue_side_winrate_prediction, ROLE_CHAMPIONS_PATH
+from utils.rl import (
+    fetch_blue_side_winrate_prediction,
+    ROLE_CHAMPIONS_PATH,
+    ROLE_PLAYRATES_PATH,
+)
 from utils.match_prediction import MODEL_CONFIG_PATH, ENCODERS_PATH
 from utils.rl.champions import VALID_CHAMPION_IDS, ROLE_CHAMPIONS
 
@@ -634,7 +638,12 @@ class DraftState:
 class FlexibleRoleDraftEnv(gym.Env):
     metadata = {"render_modes": []}
 
-    def __init__(self, role_rates_path: str, min_playrate_threshold: float = 5):
+    def __init__(
+        self,
+        # default to global playrates with at least 0.5% global presence
+        role_rates_path: str = ROLE_PLAYRATES_PATH,
+        min_playrate_threshold: float = 0.5,
+    ):
         super().__init__()
 
         with open(MODEL_CONFIG_PATH, "rb") as f:
@@ -932,12 +941,11 @@ class FlexibleRoleDraftEnv(gym.Env):
     def step(self, action: int):
         if self.current_step >= len(self.draft_order):
             raise Exception("Draft is already complete")
-        
+
         # Convert numpy array to integer at the entry point
         # Sometimes can be changed to numpy through multiple wrappers
         # TODO: debug why exactly, it happened in visualisation notebook
-        action = action.item() if hasattr(action, 'item') else int(action)
-
+        action = action.item() if hasattr(action, "item") else int(action)
 
         action_info = self.draft_order[self.current_step]
         team = action_info["team"]

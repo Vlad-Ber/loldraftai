@@ -9,6 +9,7 @@ import wandb
 from wandb.integration.sb3 import WandbCallback
 from pathlib import Path
 import pickle
+from datetime import datetime
 from typing import List
 
 from utils import DATA_DIR
@@ -98,7 +99,7 @@ def train_self_play(
         def _init():
             # env = FixedRoleDraftEnv(patches=patches)
             # TODO: add patches to FlexibleRoleDraftEnv
-            env = FlexibleRoleDraftEnv(role_rates_path=role_rates_path)
+            env = FlexibleRoleDraftEnv()
             env = SelfPlayWithPoolWrapper(env, model_pool, agent_side)
             env = ActionMasker(env, action_mask_fn)
             return env
@@ -154,7 +155,13 @@ def train_self_play(
     # Save the final model
     final_path = os.path.join(save_dir, "final_model")
     model.save(final_path)
-    print(f"Final model saved to {final_path}")
+    # Save timestamped to final_models/
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    final_models_dir = os.path.join(save_dir, "final_models")
+    os.makedirs(final_models_dir, exist_ok=True)
+    final_model_path = os.path.join(final_models_dir, f"{timestamp}.zip")
+    model.save(final_model_path)
+    print(f"Final model saved to {final_model_path} and {final_path}")
 
     # Finish W&B run if it was initialized
     if run is not None:
