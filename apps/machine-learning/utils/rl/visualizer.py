@@ -4,6 +4,7 @@ import requests
 from PIL import Image
 import numpy as np
 from utils import DATA_DIR
+from utils.rl.env import FlexibleRoleDraftEnv
 
 
 class LoLDraftVisualizer:
@@ -58,6 +59,8 @@ class LoLDraftVisualizer:
 
 
 def integrate_with_env(env):
+    env: FlexibleRoleDraftEnv
+
     class LoLDraftEnvWithRender(env):
         def __init__(self, *args, **kwargs):
             super().__init__(*args, **kwargs)
@@ -65,13 +68,29 @@ def integrate_with_env(env):
 
         def render(self):
             """Render the current state of the draft"""
-            # Only render if we have picks
-            if (
-                np.sum(self.blue_ordered_picks) > 0
-                or np.sum(self.red_ordered_picks) > 0
-            ):
-                blue_team = np.argmax(self.blue_ordered_picks, axis=1)
-                red_team = np.argmax(self.red_ordered_picks, axis=1)
+            # Only render if we have picks and roles assigned
+            if len(self.state.blue_picks) > 0 or len(self.state.red_picks) > 0:
+                # Get ordered picks based on role assignments
+                blue_team = np.zeros(5, dtype=np.int32)
+                red_team = np.zeros(5, dtype=np.int32)
+
+                # Fill in assigned picks in role order
+                for role_idx, role in enumerate(self.roles):
+                    # Find blue champion for this role
+                    for champ_id, assigned_role in self.state.blue_roles.items():
+                        if assigned_role == role:
+                            blue_team[role_idx] = champ_id
+                            break
+                    else:  # No champion assigned to this role yet
+                        blue_team[role_idx] = -1  # Use -1 for empty slots
+
+                    # Find red champion for this role
+                    for champ_id, assigned_role in self.state.red_roles.items():
+                        if assigned_role == role:
+                            red_team[role_idx] = champ_id
+                            break
+                    else:  # No champion assigned to this role yet
+                        red_team[role_idx] = -1  # Use -1 for empty slots
 
                 # Create the draft image
                 draft_image = self.visualizer.get_draft_array(blue_team, red_team)

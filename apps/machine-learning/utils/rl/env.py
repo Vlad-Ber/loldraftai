@@ -14,6 +14,8 @@ RoleType = Literal["TOP", "JUNGLE", "MID", "BOT", "UTILITY"]
 
 NOT_YET_PICKED = -1
 
+DEBUG_PRINT = False
+
 
 class DraftStep(TypedDict, total=False):
     team: Literal[0, 1]  # 0 for blue, 1 for red
@@ -714,7 +716,6 @@ class FlexibleRoleDraftEnv(gym.Env):
                 if np.float32(rates.get(role, 0.0)) >= np.float32(self.threshold):
                     matrix[champ_id, role_idx] = 1
                     total_valid_role_champion_pairs += 1
-        # print(f"Total valid role-champion pairs: {total_valid_role_champion_pairs}")
         return matrix
 
     def reset(self, seed=None, options=None):
@@ -814,7 +815,8 @@ class FlexibleRoleDraftEnv(gym.Env):
         else:
             self.state.red_valid_combinations = combinations
 
-        print(f"Generated {len(combinations)} valid combinations for team {team}")
+        if DEBUG_PRINT:
+            print(f"Generated {len(combinations)} valid combinations for team {team}")
 
     def _update_role_availability(self) -> None:
         """
@@ -828,9 +830,10 @@ class FlexibleRoleDraftEnv(gym.Env):
             valid_combinations = self._get_valid_role_combinations(
                 self.state.blue_picks, 0
             )
-            print(
-                f"Valid combinations for blue team: {valid_combinations}, blue_picks: {self.state.blue_picks}"
-            )
+            if DEBUG_PRINT:
+                print(
+                    f"Valid combinations for blue team: {valid_combinations}, blue_picks: {self.state.blue_picks}"
+                )
             # For each role, check if it's always assigned to a picked champion
             for role_idx, role in enumerate(self.roles):
                 # For each combination, check what champion is assigned to this role
@@ -913,20 +916,28 @@ class FlexibleRoleDraftEnv(gym.Env):
                 mask[champ] = 1
 
             # Add debug print to see valid champions
-            print(
-                f"Phase {phase}, team {team}, step {self.current_step}, valid champions for role {self.roles[role_index]}: {valid_champions}"
-            )
+            if DEBUG_PRINT:
+                print(
+                    f"Phase {phase}, team {team}, step {self.current_step}, valid champions for role {self.roles[role_index]}: {valid_champions}"
+                )
 
         action_mask = mask * self.valid_champion_mask
-        print(
-            f"Phase {phase}, team {team}, step {self.current_step}, non zero values count: {np.count_nonzero(action_mask)}"
-        )
+        if DEBUG_PRINT:
+            print(
+                f"Phase {phase}, team {team}, step {self.current_step}, non zero values count: {np.count_nonzero(action_mask)}"
+            )
 
         return action_mask
 
     def step(self, action: int):
         if self.current_step >= len(self.draft_order):
             raise Exception("Draft is already complete")
+        
+        # Convert numpy array to integer at the entry point
+        # Sometimes can be changed to numpy through multiple wrappers
+        # TODO: debug why exactly, it happened in visualisation notebook
+        action = action.item() if hasattr(action, 'item') else int(action)
+
 
         action_info = self.draft_order[self.current_step]
         team = action_info["team"]
@@ -1006,9 +1017,10 @@ class FlexibleRoleDraftEnv(gym.Env):
             new_combinations = [
                 combo for combo in combinations if combo.get(action) == current_role
             ]
-            print(f"Old combinations: {combinations}")
-            print(f"New combinations: {new_combinations}")
-            print(f"Action: {action}, Role: {current_role}")
+            if DEBUG_PRINT:
+                print(f"Old combinations: {combinations}")
+                print(f"New combinations: {new_combinations}")
+                print(f"Action: {action}, Role: {current_role}")
 
             if not new_combinations:
                 return False

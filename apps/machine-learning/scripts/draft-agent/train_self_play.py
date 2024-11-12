@@ -53,7 +53,7 @@ def train_self_play(
     save_dir: str = f"{DATA_DIR}/self_play_models",
     random_opponent_prob: float = 0.1,
     latest_model_prob: float = 0.5,
-    use_wandb: bool = False,
+    use_wandb: bool = True,
 ):
     run = None
     if use_wandb:
@@ -166,8 +166,8 @@ def train_self_play(
 if __name__ == "__main__":
     trained_model = train_self_play(
         num_iterations=15,
-        timesteps_per_iteration=2000,
-        # timesteps_per_iteration=500_000,
+        # timesteps_per_iteration=2000,
+        timesteps_per_iteration=500_000,
         num_envs=32,
         pool_size=5,
         random_opponent_prob=0.05,
