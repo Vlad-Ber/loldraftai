@@ -6,7 +6,7 @@ from typing import Dict, List, Optional, Tuple
 import numpy as np
 from gymnasium import Wrapper
 from sb3_contrib import MaskablePPO
-from utils.rl.env import DraftStep, FixedRoleDraftEnv
+from utils.rl.env import DraftStep, FlexibleRoleDraftEnv
 
 
 class ModelPool:
@@ -58,11 +58,11 @@ class ModelPool:
 class SelfPlayWithPoolWrapper(Wrapper):
     """Environment wrapper that implements self-play with a pool of past iterations."""
 
-    env: FixedRoleDraftEnv
+    env: FlexibleRoleDraftEnv
 
     def __init__(
         self,
-        env: FixedRoleDraftEnv,
+        env: FlexibleRoleDraftEnv,
         model_pool: ModelPool,
         agent_side: str = "random",  # "blue", "red", or "random"
     ):

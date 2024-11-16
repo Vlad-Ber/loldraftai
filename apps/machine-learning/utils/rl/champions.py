@@ -169,6 +169,7 @@ class Champion(Enum):
     HWEI = (910, "Hwei")
     SMOLDER = (901, "Smolder")
     AURORA = (893, "Aurora")
+    AMBESSA = (799, "Ambessa")
 
     def __init__(self, id: int, display_name: str):
         self.id = id
