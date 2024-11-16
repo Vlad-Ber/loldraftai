@@ -10,7 +10,8 @@ from wandb.integration.sb3 import WandbCallback
 from pathlib import Path
 import pickle
 from datetime import datetime
-from typing import List
+from typing import List, Optional, Any
+import signal
 
 from utils import DATA_DIR
 from utils.match_prediction import get_best_device
@@ -45,16 +46,49 @@ def get_latest_patches(n_patches: int = 5) -> List[int]:
     return raw_patches[-n_patches:]
 
 
+def cleanup(
+    model: Optional[MaskablePPO] = None, save_dir: str = None, run=None
+) -> None:
+    if model is not None:
+        # Save the model
+        final_path = os.path.join(save_dir, "final_model")
+        model.save(final_path)
+        # Save timestamped version
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        final_models_dir = os.path.join(save_dir, "final_models")
+        os.makedirs(final_models_dir, exist_ok=True)
+        final_model_path = os.path.join(final_models_dir, f"{timestamp}.zip")
+        model.save(final_model_path)
+        print(f"Model saved to {final_model_path} and {final_path}")
+
+    if run is not None:
+        run.finish()
+
+
+def signal_handler(signum: int, frame: Any) -> None:
+    print("Received interrupt signal. Saving model and exiting...")
+    if "model" in globals() and "save_dir" in globals():
+        cleanup(model, save_dir, run)
+    exit(0)
+
+
 def train_self_play(
     num_iterations: int = 10,
     timesteps_per_iteration: int = 50_000,
     num_envs: int = 32,
     pool_size: int = 5,
-    save_dir: str = f"{DATA_DIR}/self_play_models",
+    save_directory: str = f"{DATA_DIR}/self_play_models",  # renamed parameter
     random_opponent_prob: float = 0.1,
     latest_model_prob: float = 0.5,
     use_wandb: bool = True,
 ):
+    global model, run, save_dir
+    save_dir = save_directory  # assign global after declaration
+
+    # Set up signal handlers
+    signal.signal(signal.SIGINT, signal_handler)
+    signal.signal(signal.SIGTERM, signal_handler)
+
     run = None
     if use_wandb:
         # Initialize W&B run
@@ -76,89 +110,85 @@ def train_self_play(
     else:
         tensorboard_log = None
 
-    # Create save directory if it doesn't exist
-    os.makedirs(save_dir, exist_ok=True)
+    try:
+        # Create save directory if it doesn't exist
+        os.makedirs(save_dir, exist_ok=True)
 
-    # Initialize model pool
-    model_pool = ModelPool(
-        save_dir=save_dir,
-        pool_size=pool_size,
-        latest_model_prob=latest_model_prob,
-        random_opponent_prob=random_opponent_prob,
-    )
+        # Initialize model pool
+        model_pool = ModelPool(
+            save_dir=save_dir,
+            pool_size=pool_size,
+            latest_model_prob=latest_model_prob,
+            random_opponent_prob=random_opponent_prob,
+        )
 
-    patches = get_latest_patches(5)
-    print(f"Using latest patches: {patches}")
+        patches = get_latest_patches(5)
+        print(f"Using latest patches: {patches}")
 
-    def make_env(rank, model_pool, agent_side="random"):
-        def _init():
-            env = FlexibleRoleDraftEnv(patches=patches)
-            env = SelfPlayWithPoolWrapper(env, model_pool, agent_side)
-            env = ActionMasker(env, action_mask_fn)
-            return env
+        def make_env(rank, model_pool, agent_side="random"):
+            def _init():
+                env = FlexibleRoleDraftEnv(patches=patches)
+                env = SelfPlayWithPoolWrapper(env, model_pool, agent_side)
+                env = ActionMasker(env, action_mask_fn)
+                return env
 
-        return _init
+            return _init
 
-    agent_side: str = "random"  # We always want to play from both sides in training
-    # Create vectorized environment
-    env = SubprocVecEnv([make_env(i, model_pool, agent_side) for i in range(num_envs)])
+        agent_side: str = "random"  # We always want to play from both sides in training
+        # Create vectorized environment
+        env = SubprocVecEnv(
+            [make_env(i, model_pool, agent_side) for i in range(num_envs)]
+        )
 
-    device = get_best_device()
+        device = get_best_device()
 
-    # Initialize the agent
-    model = MaskablePPO(
-        "MultiInputPolicy",
-        env,
-        verbose=1,
-        device=device,
-        tensorboard_log=tensorboard_log,
-    )
+        # Initialize the agent
+        model = MaskablePPO(
+            "MultiInputPolicy",
+            env,
+            verbose=1,
+            device=device,
+            tensorboard_log=tensorboard_log,
+        )
 
-    # Training loop
-    for iteration in range(num_iterations):
-        print(f"\nStarting iteration {iteration + 1}/{num_iterations}")
+        # Training loop
+        for iteration in range(num_iterations):
+            print(f"\nStarting iteration {iteration + 1}/{num_iterations}")
 
-        try:
-            # Train the agent with optional W&B callback
-            callback = (
-                WandbCallback(
-                    gradient_save_freq=100,
-                    model_save_path=f"{save_dir}/models/{run.id}",
-                    verbose=2,
+            try:
+                # Train the agent with optional W&B callback
+                callback = (
+                    WandbCallback(
+                        gradient_save_freq=100,
+                        model_save_path=f"{save_dir}/models/{run.id}",
+                        verbose=2,
+                    )
+                    if use_wandb
+                    else None
                 )
-                if use_wandb
-                else None
-            )
 
-            model.learn(
-                total_timesteps=timesteps_per_iteration,
-                progress_bar=True,
-                callback=callback,
-                reset_num_timesteps=False,  # Important: Don't reset timesteps between iterations
-                tb_log_name="PPO",  # Use same name for all iterations
-            )
+                model.learn(
+                    total_timesteps=timesteps_per_iteration,
+                    progress_bar=True,
+                    callback=callback,
+                    reset_num_timesteps=False,  # Important: Don't reset timesteps between iterations
+                    tb_log_name="PPO",  # Use same name for all iterations
+                )
 
-            # Update the pool with the latest model
-            model_pool.update_pool(model, iteration)
+                # Update the pool with the latest model
+                model_pool.update_pool(model, iteration)
 
-        except Exception as e:
-            print(f"Training interrupted at iteration {iteration + 1}: {e}")
-            break
+            except Exception as e:
+                print(f"Training interrupted: {e}")
+                cleanup(model, save_dir, None)  # Don't finish wandb run here
+                raise
 
-    # Save the final model
-    final_path = os.path.join(save_dir, "final_model")
-    model.save(final_path)
-    # Save timestamped to final_models/
-    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    final_models_dir = os.path.join(save_dir, "final_models")
-    os.makedirs(final_models_dir, exist_ok=True)
-    final_model_path = os.path.join(final_models_dir, f"{timestamp}.zip")
-    model.save(final_model_path)
-    print(f"Final model saved to {final_model_path} and {final_path}")
+        # Only finish wandb run after all iterations complete
+        cleanup(model, save_dir, run)
 
-    # Finish W&B run if it was initialized
-    if run is not None:
-        run.finish()
+    except Exception as e:
+        cleanup(model, save_dir, run)
+        raise
 
     return model
 
