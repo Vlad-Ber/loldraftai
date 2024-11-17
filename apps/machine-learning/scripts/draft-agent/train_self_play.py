@@ -77,10 +77,11 @@ def train_self_play(
     timesteps_per_iteration: int = 50_000,
     num_envs: int = 32,
     pool_size: int = 5,
-    save_directory: str = f"{DATA_DIR}/self_play_models",  # renamed parameter
+    save_directory: str = f"{DATA_DIR}/self_play_models",
     random_opponent_prob: float = 0.1,
     latest_model_prob: float = 0.5,
     use_wandb: bool = True,
+    resume_training: bool = False,  # Added parameter
 ):
     global model, run, save_dir
     save_dir = save_directory  # assign global after declaration
@@ -101,6 +102,7 @@ def train_self_play(
                 "pool_size": pool_size,
                 "random_opponent_prob": random_opponent_prob,
                 "latest_model_prob": latest_model_prob,
+                "resume_training": resume_training,  # Log the new parameter
             },
             sync_tensorboard=True,  # auto-upload sb3's tensorboard metrics
             save_code=True,  # optional
@@ -122,6 +124,10 @@ def train_self_play(
             random_opponent_prob=random_opponent_prob,
         )
 
+        # Determine device
+        device = get_best_device()
+
+        # Prepare the environment
         patches = get_latest_patches(5)
         print(f"Using latest patches: {patches}")
 
@@ -140,16 +146,27 @@ def train_self_play(
             [make_env(i, model_pool, agent_side) for i in range(num_envs)]
         )
 
-        device = get_best_device()
+        # Initialize or load the agent
+        if resume_training:
+            final_model_path = os.path.join(save_dir, "final_model.zip")
+            if not os.path.exists(final_model_path):
+                raise FileNotFoundError(f"No saved model found at {final_model_path}")
+            print(f"Resuming training from {final_model_path}")
+            model = MaskablePPO.load(final_model_path, device=device)
+            model.set_env(env)
+            model.tensorboard_log = tensorboard_log  # Set tensorboard log if using W&B
 
-        # Initialize the agent
-        model = MaskablePPO(
-            "MultiInputPolicy",
-            env,
-            verbose=1,
-            device=device,
-            tensorboard_log=tensorboard_log,
-        )
+            # Initialize model pool with the last model
+            model_pool.update_pool(model, iteration=0)
+        else:
+            # Initialize the agent
+            model = MaskablePPO(
+                "MultiInputPolicy",
+                env,
+                verbose=1,
+                device=device,
+                tensorboard_log=tensorboard_log,
+            )
 
         # Training loop
         for iteration in range(num_iterations):
@@ -171,7 +188,7 @@ def train_self_play(
                     total_timesteps=timesteps_per_iteration,
                     progress_bar=True,
                     callback=callback,
-                    reset_num_timesteps=False,  # Important: Don't reset timesteps between iterations
+                    reset_num_timesteps=False,  # Don't reset timesteps between iterations
                     tb_log_name="PPO",  # Use same name for all iterations
                 )
 
@@ -197,9 +214,10 @@ if __name__ == "__main__":
     trained_model = train_self_play(
         # num_iterations=1,
         # timesteps_per_iteration=2000,
-        num_iterations=15,
-        timesteps_per_iteration=500_000,
+        num_iterations=30,
+        timesteps_per_iteration=50_000,
         num_envs=32,
         pool_size=5,
         random_opponent_prob=0.05,
+        resume_training=True,
     )
