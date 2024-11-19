@@ -215,7 +215,7 @@ if __name__ == "__main__":
         # num_iterations=1,
         # timesteps_per_iteration=2000,
         num_iterations=30,
-        timesteps_per_iteration=50_000,
+        timesteps_per_iteration=100_000,
         num_envs=32,
         pool_size=5,
         random_opponent_prob=0.05,
