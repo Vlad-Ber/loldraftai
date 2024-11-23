@@ -7,6 +7,7 @@ import torch
 import numpy as np
 import pyarrow.parquet as pq
 from torch.utils.data import IterableDataset
+from typing import Callable, Optional, List
 
 from utils.match_prediction import (
     PREPARED_DATA_DIR,
@@ -22,10 +23,10 @@ class MatchDataset(IterableDataset):
     def __init__(
         self,
         transform=None,
-        mask_champions=0.0,
+        masking_function: Optional[Callable[[], int]] = None,
         unknown_champion_id=None,
         train_or_test="train",
-        small_dataset=False,  # Add this parameter
+        small_dataset=False,
     ):
         self.data_files = sorted(
             glob.glob(
@@ -43,7 +44,7 @@ class MatchDataset(IterableDataset):
             self.data_files = self.data_files[:num_files]
         
         self.total_samples = self._count_total_samples()
-        self.mask_champions = mask_champions
+        self.masking_function = masking_function
         self.unknown_champion_id = unknown_champion_id
 
         # Shuffle the data files
@@ -97,16 +98,9 @@ class MatchDataset(IterableDataset):
                 df_chunk[col] = df_chunk[col].apply(
                     lambda x: [int(ch_id) for ch_id in x]
                 )
-                if self.mask_champions > 0 and self.unknown_champion_id is not None:
-                    mask = (
-                        np.random.random(df_chunk[col].apply(len).sum())
-                        > self.mask_champions
-                    )
+                if self.masking_function is not None and self.unknown_champion_id is not None:
                     df_chunk[col] = df_chunk[col].apply(
-                        lambda x: [
-                            ch_id if m else self.unknown_champion_id
-                            for ch_id, m in zip(x, mask[: len(x)])
-                        ]
+                        lambda x: self._mask_champions(x, self.masking_function())
                     )
                 # Add champion role percentages
                 df_chunk["champion_role_percentages"] = df_chunk[col].apply(
@@ -137,3 +131,15 @@ class MatchDataset(IterableDataset):
             samples = [self.transform(sample) for sample in samples]
 
         return samples
+
+    def _mask_champions(self, champion_list: List[int], num_to_mask: int) -> List[int]:
+        """Masks a specific number of champions in the list"""
+        mask_indices = np.random.choice(
+            len(champion_list), 
+            size=num_to_mask, 
+            replace=False
+        )
+        return [
+            self.unknown_champion_id if i in mask_indices else ch_id
+            for i, ch_id in enumerate(champion_list)
+        ]

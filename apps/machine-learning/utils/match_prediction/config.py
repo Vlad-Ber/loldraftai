@@ -1,4 +1,7 @@
 import json
+from typing import Callable
+
+from utils.match_prediction.masking_strategies import MASKING_STRATEGIES
 
 
 class TrainingConfig:
@@ -14,7 +17,10 @@ class TrainingConfig:
         self.learning_rate = 1e-3
         self.max_grad_norm = 1.0
         self.accumulation_steps = 1
-        self.mask_champions = 0.1
+        self.masking_strategy = {
+            "name": "linear_decay",
+            "params": {"max_value": 9, "decay_factor": 3.0},
+        }
 
         self.calculate_val_loss = True
         self.calculate_val_win_prediction_only = True
@@ -35,3 +41,8 @@ class TrainingConfig:
 
     def to_dict(self) -> dict:
         return {key: value for key, value in vars(self).items() if key != "log_wandb"}
+
+    def get_masking_function(self) -> Callable[[], int]:
+        """Returns a function that generates number of champions to mask"""
+        strategy = MASKING_STRATEGIES[self.masking_strategy["name"]]
+        return strategy(**self.masking_strategy["params"])

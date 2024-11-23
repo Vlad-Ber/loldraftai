@@ -327,14 +327,18 @@ def train_model(
     num_champions, unknown_champion_id = get_num_champions()
 
     # Initialize the datasets with masking parameters
-    train_dataset, test_dataset = (
+    train_dataset, test_dataset, test_masked_dataset = (
         MatchDataset(
-            mask_champions=config.mask_champions,
+            masking_function=(
+                config.get_masking_function()
+                if split in ["train", "test_masked"]
+                else None
+            ),
             unknown_champion_id=unknown_champion_id,
-            train_or_test=split,
+            train_or_test="test" if split.startswith("test") else "train",
             small_dataset=small_dataset,
         )
-        for split in ["train", "test"]
+        for split in ["train", "test", "test_masked"]
     )
 
     # Initialize wandb
@@ -345,7 +349,7 @@ def train_model(
         )  # TODO: this could take some time, maybe we should have a file with this stat and claculate it only once?
         wandb.init(project="draftking", name=run_name, config=config_dict)
 
-    train_loader, test_loader = (
+    train_loader, test_loader, test_masked_loader = (
         DataLoader(
             dataset,
             batch_size=TRAIN_BATCH_SIZE,
@@ -354,7 +358,7 @@ def train_model(
             prefetch_factor=PREFETCH_FACTOR,
             pin_memory=True,
         )
-        for dataset in [train_dataset, test_dataset]
+        for dataset in [train_dataset, test_dataset, test_masked_dataset]
     )
 
     model = init_model(config, num_champions, continue_training, load_path)
@@ -389,10 +393,20 @@ def train_model(
             wandb.log({"epoch": epoch + 1, "avg_train_loss": avg_loss})
 
         val_loss, val_metrics = validate(model, test_loader, criterion, config, device)
+        val_masked_loss, val_masked_metrics = validate(
+            model, test_masked_loader, criterion, config, device
+        )
 
         if config.calculate_val_loss:
             if config.log_wandb:
-                wandb.log({"avg_val_loss": val_loss})
+                wandb.log(
+                    {
+                        "val_loss": val_loss,
+                        "val_masked_loss": val_masked_loss,
+                        **{f"val_{k}": v for k, v in val_metrics.items()},
+                        **{f"val_masked_{k}": v for k, v in val_masked_metrics.items()},
+                    }
+                )
 
             if val_loss < best_metric:
                 best_metric = val_loss
