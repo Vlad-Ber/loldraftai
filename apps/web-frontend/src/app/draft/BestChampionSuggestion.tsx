@@ -90,6 +90,7 @@ export const BestChampionSuggestion = ({
         );
 
         // Wait for all predictions to complete
+        // TODO: batch API
         const results = await Promise.all(predictionPromises);
 
         // Filter out null results and sort by winrate
