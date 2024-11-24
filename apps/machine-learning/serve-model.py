@@ -27,6 +27,8 @@ class APIInput(BaseModel):
     numerical_elo: int
     numerical_patch: int
 
+    # TODO: could try adding validator
+
 
 class ModelInput(APIInput):
     pass
@@ -44,9 +46,9 @@ class WinratePrediction(BaseModel):
 
 def api_input_to_model_input(api_input: APIInput) -> ModelInput:
     try:
-        # Encode champion IDs
+        # Convert -1 to "UNKNOWN" and encode all champion IDs in one go
         encoded_champion_ids = label_encoders["champion_ids"].transform(
-            api_input.champion_ids
+            ["UNKNOWN" if id == -1 else id for id in api_input.champion_ids]
         )
     except ValueError as e:
         raise HTTPException(status_code=400, detail="Invalid champion IDs")
