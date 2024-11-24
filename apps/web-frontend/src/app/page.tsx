@@ -12,13 +12,7 @@ export default function HomePage() {
           Your <span className="text-yellow-300 ">League of Legends</span> Draft
           Analyzer
         </h2>
-        {/*
-        <p className="mt-4 text-center text-lg font-medium">
-          Instantly choose the best champions and predict game outcomes with{" "}
-          <span className="font-bold text-red-500">56% accuracy</span> using our
-          AI model. Start winning your drafts today.
-        </p>
-  */}
+
         <div className="mt-6">
           <Link
             href="/draft"

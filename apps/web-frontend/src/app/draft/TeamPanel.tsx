@@ -167,16 +167,11 @@ const RoleListItem = ({ role, teamMember, ...props }: RoleListItemProps) => {
       props.selectedSpot.championIndex === props.index &&
       props.selectedSpot.teamIndex === props.pannelTeamIndex) ??
     false;
-  //const boxShadowStyle = isSelected ? "shadow-inner shadow-yellow-300" : "hover:shadow-lg hover:shadow-yellow-300";
   const flexDirection = props.is_first_team ? "flex-row" : "flex-row-reverse";
 
   const borderStyle = isSelected
     ? "border-4 border-yellow-300"
     : "hover:border-2 hover:border-yellow-300";
-  //const backgroundColor = isSelected ? "bg-yellow-100" : "hover:bg-yellow-50";
-  //const scale = isSelected ? "transform scale-105" : "hover:scale-100";
-  //const opacity = isSelected ? "opacity-100" : "hover:opacity-75";
-  //const textStyle = isSelected ? "text-yellow-600 font-semibold" : "hover:text-yellow-400";
 
   return (
     <div

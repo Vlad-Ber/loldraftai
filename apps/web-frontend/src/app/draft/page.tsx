@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/non-nullable-type-assertion-style */
 "use client";
 
 import React, { useEffect, useState } from "react";

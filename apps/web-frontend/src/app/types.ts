@@ -8,7 +8,6 @@ export interface Champion {
 export type ChampionIndex = 0 | 1 | 2 | 3 | 4;
 export type TeamIndex = 1 | 2;
 
-// eslint-disable-next-line @typescript-eslint/consistent-indexed-object-style
 export type Team = {
   [K in ChampionIndex]: Champion | undefined;
 };
