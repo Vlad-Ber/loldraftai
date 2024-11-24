@@ -188,6 +188,7 @@ const ChampionGrid = ({
   const [filteredChampions, setFilteredChampions] = useState(champions);
 
   // Update the filtered champions whenever the search term or the list of champions changes
+  // TODO: can probably optmize all the id lookups in filteredChampions(and when hiding cards)
   useEffect(() => {
     const results = champions.filter((champion) =>
       champion.searchName.includes(searchTerm.toLowerCase())
@@ -306,7 +307,7 @@ const ChampionGrid = ({
       />
       <div className="h-[505px] overflow-y-auto p-1">
         <div className="grid grid-cols-1 justify-items-center gap-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6">
-          {filteredChampions.map((champion) => (
+          {champions.map((champion) => (
             <div
               key={champion.id}
               onContextMenu={(e) => handleContextMenu(e, champion)}
@@ -316,15 +317,12 @@ const ChampionGrid = ({
               onTouchMove={handleTouchMove}
               onDragStart={preventDefaultActions}
               onDrop={preventDefaultActions}
-              className="cursor-pointer"
-              /*
-              This was to disable image pop up on safari, but can't make touch gesture work even then :-/
-              style={{
-                userSelect: "none",
-                WebkitUserSelect: "none",
-                WebkitTouchCallout: "none", //disables picture pop-up on long press
-              }}
-              */
+              /* Using hidden to keep image in memory when doing search */
+              className={`cursor-pointer ${
+                filteredChampions.map((c) => c.id).includes(champion.id)
+                  ? "block"
+                  : "hidden"
+              }`}
             >
               <ChampionCard champion={champion} favorites={favorites} />
             </div>
