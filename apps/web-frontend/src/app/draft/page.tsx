@@ -31,7 +31,7 @@ export default function Draft() {
     useState<Champion[]>(champions);
   const [teamOne, setTeamOne] = useState<Team>(emptyTeam);
   const [teamTwo, setTeamTwo] = useState<Team>(emptyTeam);
-  const [analysisTrigger, setAnalysisTrigger] = useState(0);
+  const [analysisTrigger] = useState(0);
   const teams = [teamOne, teamTwo];
   const [selectedSpot, setSelectedSpot] = useState<SelectedSpot | null>(null);
   const [favorites, setFavorites] = useState<FavoriteChampions>({
@@ -220,7 +220,7 @@ export default function Draft() {
     }
   };
 
-  const handleDeleteChampion = (index: number, team: Team) => {
+  const handleDeleteChampion = (index: ChampionIndex, team: Team) => {
     const champion = team[index];
     if (champion === undefined) {
       return remainingChampions;
@@ -275,7 +275,7 @@ export default function Draft() {
               <TeamPanel
                 team={teamOne}
                 is_first_team={true}
-                onDeleteChampion={(index: number) =>
+                onDeleteChampion={(index: ChampionIndex) =>
                   handleDeleteChampion(index, teamOne)
                 }
                 selectedSpot={selectedSpot}
@@ -298,7 +298,7 @@ export default function Draft() {
               <TeamPanel
                 team={teamTwo}
                 is_first_team={false}
-                onDeleteChampion={(index: number) =>
+                onDeleteChampion={(index: ChampionIndex) =>
                   handleDeleteChampion(index, teamTwo)
                 }
                 selectedSpot={selectedSpot}

@@ -202,7 +202,7 @@ const RoleListItem = ({ role, teamMember, ...props }: RoleListItemProps) => {
 interface TeamPanelProps {
   team: Team;
   is_first_team: boolean;
-  onDeleteChampion: (index: number) => void;
+  onDeleteChampion: (index: ChampionIndex) => void;
   selectedSpot: SelectedSpot | null;
   onSpotSelected: (index: ChampionIndex, team: TeamIndex) => void;
 }
