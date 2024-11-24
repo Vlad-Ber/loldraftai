@@ -55,45 +55,55 @@ export const BestChampionSuggestion = ({
   useEffect(() => {
     const findBestChampion = async () => {
       setLoading(true);
-      const championsWinrates: ChampionWinrate[] = [];
 
-      for (const champId of championsIdsToConsider) {
-        const newTeam =
-          selectedSpot.teamIndex === 1 ? { ...team1 } : { ...team2 };
-        const champion = getChampionById(champId);
+      try {
+        // Create array of promises for each champion prediction
+        const predictionPromises = championsIdsToConsider.map(
+          async (champId) => {
+            const newTeam =
+              selectedSpot.teamIndex === 1 ? { ...team1 } : { ...team2 };
+            const champion = getChampionById(champId);
 
-        if (!champion) {
-          console.error(
-            "Champion in favorites not found in champions list:",
-            champId
-          );
-          continue;
-        }
-        newTeam[selectedSpot.championIndex] = champion;
+            if (!champion) {
+              console.error(
+                "Champion in favorites not found in champions list:",
+                champId
+              );
+              return null;
+            }
 
-        try {
-          const result = await predictGame(
-            selectedSpot.teamIndex === 1 ? newTeam : team1,
-            selectedSpot.teamIndex === 2 ? newTeam : team2,
-            elo
-          );
-          const winrate =
-            selectedSpot.teamIndex === 1
-              ? result.win_probability
-              : 100 - result.win_probability;
-          championsWinrates.push({ champion, winrate });
-        } catch (error) {
-          console.error("Error in finding best champion:", error);
-          setError("Failed to load champion suggestions. Please try again."); // Set error message on failure
-          setLoading(false);
-          return; // Exit the function early on error
-        }
+            newTeam[selectedSpot.championIndex] = champion;
+
+            const result = await predictGame(
+              selectedSpot.teamIndex === 1 ? newTeam : team1,
+              selectedSpot.teamIndex === 2 ? newTeam : team2,
+              elo
+            );
+
+            const winrate =
+              selectedSpot.teamIndex === 1
+                ? result.win_probability
+                : 100 - result.win_probability;
+
+            return { champion, winrate };
+          }
+        );
+
+        // Wait for all predictions to complete
+        const results = await Promise.all(predictionPromises);
+
+        // Filter out null results and sort by winrate
+        const championsWinrates = results
+          .filter((result): result is ChampionWinrate => result !== null)
+          .sort((a, b) => b.winrate - a.winrate);
+
+        setChampionData(championsWinrates);
+      } catch (error) {
+        console.error("Error in finding best champion:", error);
+        setError("Failed to load champion suggestions. Please try again.");
+      } finally {
+        setLoading(false);
       }
-
-      // Sort champions by winrate in descending order
-      championsWinrates.sort((a, b) => b.winrate - a.winrate);
-      setChampionData(championsWinrates);
-      setLoading(false);
     };
 
     if (selectedSpot) {
