@@ -5,9 +5,10 @@ import type {
   Team,
   SelectedSpot,
   FavoriteChampions,
+  Elo,
 } from "@/app/types";
 import { championIndexToFavoritesPosition } from "@/app/types";
-import { createChampion } from "@/app/champions";
+import { getChampionById } from "@/app/champions";
 import { WinrateBar } from "./WinrateBar";
 
 interface BestChampionSuggestionProps {
@@ -16,7 +17,7 @@ interface BestChampionSuggestionProps {
   selectedSpot: SelectedSpot;
   favorites: FavoriteChampions;
   remainingChampions: Champion[];
-  elo: string;
+  elo: Elo;
 }
 
 interface ChampionWinrate {
@@ -36,15 +37,15 @@ export const BestChampionSuggestion = ({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null); // Add an error state
 
-  const championsToConsider = useMemo(() => {
+  const championsIdsToConsider = useMemo(() => {
     if (selectedSpot) {
       const favoritesForSpot =
         favorites[championIndexToFavoritesPosition(selectedSpot.championIndex)];
-      const remainingChampionsNames = remainingChampions.map(
-        (champion) => champion.searchName
+      const remainingChampionsIds = remainingChampions.map(
+        (champion) => champion.id
       );
       const filteredFavorites = favoritesForSpot.filter((favorite) =>
-        remainingChampionsNames.includes(favorite)
+        remainingChampionsIds.includes(favorite)
       );
       return filteredFavorites;
     }
@@ -54,12 +55,20 @@ export const BestChampionSuggestion = ({
   useEffect(() => {
     const findBestChampion = async () => {
       setLoading(true);
-      const championsWinrates = [];
+      const championsWinrates: ChampionWinrate[] = [];
 
-      for (const champ of championsToConsider) {
+      for (const champId of championsIdsToConsider) {
         const newTeam =
           selectedSpot.teamIndex === 1 ? { ...team1 } : { ...team2 };
-        const champion = createChampion(champ);
+        const champion = getChampionById(champId);
+
+        if (!champion) {
+          console.error(
+            "Champion in favorites not found in champions list:",
+            champId
+          );
+          continue;
+        }
         newTeam[selectedSpot.championIndex] = champion;
 
         try {
@@ -70,8 +79,8 @@ export const BestChampionSuggestion = ({
           );
           const winrate =
             selectedSpot.teamIndex === 1
-              ? result.prediction
-              : 100 - result.prediction;
+              ? result.win_probability
+              : 100 - result.win_probability;
           championsWinrates.push({ champion, winrate });
         } catch (error) {
           console.error("Error in finding best champion:", error);
@@ -90,7 +99,7 @@ export const BestChampionSuggestion = ({
     if (selectedSpot) {
       void findBestChampion();
     }
-  }, [selectedSpot, team1, team2, championsToConsider, elo]);
+  }, [selectedSpot, team1, team2, championsIdsToConsider, elo]);
 
   useEffect(() => {
     // Scroll to bottom when analysis is shown

@@ -74,7 +74,7 @@ const ChampionCard = ({ champion, favorites }: ChampionCardProps) => {
 interface ChampionMenuProps {
   anchorEl: HTMLElement | null;
   handleClose: () => void;
-  selectedChampion: string | null;
+  selectedChampion: Champion | null;
   favorites: FavoriteChampions;
   handleAddToFavorites: (position: keyof FavoriteChampions) => void;
   handleRemoveFromFavorites: (position: keyof FavoriteChampions) => void;
@@ -122,7 +122,7 @@ const ChampionMenu = ({
         {["top", "jungle", "mid", "bot", "support"].map((position) =>
           selectedChampion &&
           favorites[position as keyof FavoriteChampions].includes(
-            selectedChampion
+            selectedChampion.id
           ) ? (
             <li
               key={position}
@@ -180,7 +180,9 @@ const ChampionGrid = ({
   setFavorites,
 }: ChampionGridProps) => {
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
-  const [selectedChampion, setSelectedChampion] = useState<null | string>(null);
+  const [selectedChampion, setSelectedChampion] = useState<null | Champion>(
+    null
+  );
   const [open, setOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
   const [filteredChampions, setFilteredChampions] = useState(champions);
@@ -195,11 +197,11 @@ const ChampionGrid = ({
 
   let touchTimeout: number | null = null;
 
-  const handleTouchStart = (event: React.TouchEvent, championId: string) => {
+  const handleTouchStart = (event: React.TouchEvent, champion: Champion) => {
     // Prevent firing the context menu for non-touch devices
     //event.preventDefault();
 
-    console.log("touchstart with id: ", championId);
+    console.log("touchstart with id: ", champion.id);
 
     // Clear any existing timeout to prevent multiple triggers
     if (touchTimeout) clearTimeout(touchTimeout);
@@ -207,7 +209,7 @@ const ChampionGrid = ({
     touchTimeout = window.setTimeout(() => {
       handleContextMenu(
         event as unknown as React.MouseEvent<HTMLElement>,
-        championId
+        champion
       );
     }, 300);
   };
@@ -228,11 +230,11 @@ const ChampionGrid = ({
 
   const handleContextMenu = (
     event: React.MouseEvent<HTMLElement>,
-    champion: string
+    champion: Champion
   ) => {
     //TODO: seperate into 1 that takes even and other that doesn't because touch can't be prevented
     event.preventDefault();
-    setSelectedChampion(champion.toLowerCase());
+    setSelectedChampion(champion);
     setAnchorEl(event.currentTarget);
     setOpen(true);
   };
@@ -247,9 +249,9 @@ const ChampionGrid = ({
       const updatedFavorites = {
         ...favorites,
         [position]:
-          selectedChampion in favorites[position]
+          selectedChampion.id in favorites[position]
             ? favorites[position]
-            : [...favorites[position], selectedChampion.toLowerCase()],
+            : [...favorites[position], selectedChampion.id],
       };
 
       setFavorites(updatedFavorites);
@@ -266,7 +268,7 @@ const ChampionGrid = ({
       const updatedFavorites = {
         ...favorites,
         [position]: favorites[position].filter(
-          (champion) => champion !== selectedChampion.toLowerCase()
+          (champion) => champion !== selectedChampion.id
         ),
       };
 
@@ -307,9 +309,9 @@ const ChampionGrid = ({
           {filteredChampions.map((champion) => (
             <div
               key={champion.id}
-              onContextMenu={(e) => handleContextMenu(e, champion.id)}
+              onContextMenu={(e) => handleContextMenu(e, champion)}
               onClick={() => handleChampionSelection(champion)}
-              onTouchStart={(e) => handleTouchStart(e, champion.id)}
+              onTouchStart={(e) => handleTouchStart(e, champion)}
               onTouchEnd={handleTouchEnd}
               onTouchMove={handleTouchMove}
               onDragStart={preventDefaultActions}

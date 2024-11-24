@@ -1,11 +1,12 @@
 import asyncio
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
-from typing import List, Dict
+from typing import List, Dict, Literal
 import torch
 import uvicorn
 import pickle
 from pathlib import Path
+from fastapi.middleware.cors import CORSMiddleware
 
 from utils.match_prediction.model import SimpleMatchModel
 from utils.match_prediction.column_definitions import COLUMNS, ColumnType
@@ -23,14 +24,17 @@ from utils.match_prediction import (
 
 
 class APIInput(BaseModel):
-    champion_ids: List[int]
+    champion_ids: List[int | Literal["UNKNOWN"]]
     numerical_elo: int
-    numerical_patch: int
+    numerical_patch: int | None = (
+        14 * 50 + 22
+    )  # TODO: don't hard code, have a way to get the latest patch
 
     # TODO: could try adding validator
 
 
 class ModelInput(APIInput):
+    champion_ids: List[int]
     pass
 
 
@@ -63,6 +67,16 @@ def api_input_to_model_input(api_input: APIInput) -> ModelInput:
 
 
 app = FastAPI()
+
+# Add CORS middleware configuration right after creating the FastAPI app
+# TODO: configure with env variables for prod
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://localhost:3000"],  # Add your frontend URL here
+    allow_credentials=True,
+    allow_methods=["*"],  # Allows all methods
+    allow_headers=["*"],  # Allows all headers
+)
 
 # Load label encoders
 with open(ENCODERS_PATH, "rb") as f:

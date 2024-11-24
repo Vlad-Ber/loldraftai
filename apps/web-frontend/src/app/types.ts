@@ -1,18 +1,17 @@
 export interface Champion {
-  id: string;
+  id: number;
   name: string;
   searchName: string;
   icon: string;
 }
 
-// eslint-disable-next-line @typescript-eslint/consistent-indexed-object-style
-export interface Team {
-  //TODO: championIndex or maybe indexed object style eslint fix
-  [key: number]: Champion | undefined;
-}
-
-export type TeamIndex = 1 | 2;
 export type ChampionIndex = 0 | 1 | 2 | 3 | 4;
+export type TeamIndex = 1 | 2;
+
+// eslint-disable-next-line @typescript-eslint/consistent-indexed-object-style
+export type Team = {
+  [K in ChampionIndex]: Champion | undefined;
+};
 
 export const championIndexToFavoritesPosition = (index: ChampionIndex) => {
   switch (index) {
@@ -30,14 +29,23 @@ export const championIndexToFavoritesPosition = (index: ChampionIndex) => {
 };
 
 export type FavoriteChampions = {
-  top: string[];
-  jungle: string[];
-  mid: string[];
-  bot: string[];
-  support: string[];
+  top: number[];
+  jungle: number[];
+  mid: number[];
+  bot: number[];
+  support: number[];
 };
 
 export interface SelectedSpot {
   teamIndex: TeamIndex;
   championIndex: ChampionIndex;
 }
+
+export const elos = [
+  "emerald",
+  "low diamond",
+  "high diamond",
+  "master +",
+] as const;
+export type Elo = (typeof elos)[number];
+export const eloToNumerical = (elo: Elo) => elos.indexOf(elo);

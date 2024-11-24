@@ -4,12 +4,11 @@ import type {
   Team,
   FavoriteChampions,
   SelectedSpot,
+  Elo,
 } from "@/app/types";
-import { championIndexToFavoritesPosition } from "@/app/types";
+import { championIndexToFavoritesPosition, elos } from "@/app/types";
 import { DraftAnalysis } from "./DraftAnalysis";
 import { BestChampionSuggestion } from "./BestChampionSuggestion";
-
-const elos = ["emerald", "diamond", "master", "grandmaster", "challenger"];
 
 interface AnalysisParentProps {
   team1: Team;
@@ -21,8 +20,8 @@ interface AnalysisParentProps {
 }
 
 interface EloSelectProps {
-  elo: string;
-  setElo: (elo: string) => void;
+  elo: Elo;
+  setElo: (elo: Elo) => void;
 }
 
 const EloSelect = ({ elo, setElo }: EloSelectProps) => (
@@ -34,7 +33,7 @@ const EloSelect = ({ elo, setElo }: EloSelectProps) => (
       id="elo-select"
       className="rounded p-2 text-black"
       value={elo}
-      onChange={(e) => setElo(e.target.value)}
+      onChange={(e) => setElo(e.target.value as Elo)}
       aria-label="Select Elo"
     >
       {elos.map((eloOption) => (
@@ -135,7 +134,7 @@ const AnalysisParent = ({
 }: AnalysisParentProps) => {
   const [showChampionSuggestion, setShowChampionSuggestion] = useState(false);
   const [showAnalysis, setShowAnalysis] = useState(false);
-  const [elo, setElo] = useState("emerald");
+  const [elo, setElo] = useState<Elo>("emerald");
 
   useEffect(() => {
     // reset when team changes

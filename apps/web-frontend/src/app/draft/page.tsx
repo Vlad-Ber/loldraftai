@@ -18,13 +18,19 @@ import type {
 import { champions, championToRolesMap, roleToIndexMap } from "@/app/champions";
 import Cookies from "js-cookie";
 
-
+const emptyTeam: Team = {
+  0: undefined,
+  1: undefined,
+  2: undefined,
+  3: undefined,
+  4: undefined,
+};
 
 export default function Draft() {
   const [remainingChampions, setRemainingChampions] =
     useState<Champion[]>(champions);
-  const [teamOne, setTeamOne] = useState<Team>({});
-  const [teamTwo, setTeamTwo] = useState<Team>({});
+  const [teamOne, setTeamOne] = useState<Team>(emptyTeam);
+  const [teamTwo, setTeamTwo] = useState<Team>(emptyTeam);
   const [analysisTrigger, setAnalysisTrigger] = useState(0);
   const teams = [teamOne, teamTwo];
   const [selectedSpot, setSelectedSpot] = useState<SelectedSpot | null>(null);
@@ -36,85 +42,23 @@ export default function Draft() {
     support: [],
   });
 
-
-
   const [showHelpModal, setShowHelpModal] = useState(false);
 
   const openHelpModal = () => setShowHelpModal(true);
   const closeHelpModal = () => setShowHelpModal(false);
 
-
   useEffect(() => {
-    const parseAndSetTeamsFromURL = () => {
-      const updateRemainingChampions = (selectedChampions: Champion[]) => {
-        setRemainingChampions(
-          remainingChampions.filter(
-            (champion) =>
-              !selectedChampions.find(
-                (selected) => selected.id === champion.id,
-              ),
-          ),
-        );
-      };
-      const searchParams = new URLSearchParams(window.location.search);
-      if (searchParams.has("team1") || searchParams.has("team2")) {
-        const teamOneIds = searchParams.get("team1")?.split(",") ?? [];
-        const teamTwoIds = searchParams.get("team2")?.split(",") ?? [];
-        
-        const mapIdsToChampionsWithIndex = (ids: string[]) => {
-          // eslint-disable-next-line @typescript-eslint/consistent-indexed-object-style
-          const championsMap: { [key: number]: Champion | undefined } = {};
-          ids.forEach((id, index) => {
-            if (id) {
-              const champion = champions.find((champion) => champion.id === id);
-              if (champion) {
-                championsMap[index] = champion;
-              }
-            }
-          });
-          return championsMap;
-        };
-
-        const teamOneChampions = mapIdsToChampionsWithIndex(teamOneIds);
-        const teamTwoChampions = mapIdsToChampionsWithIndex(teamTwoIds);
-
-        setTeamOne(teamOneChampions);
-        setTeamTwo(teamTwoChampions);
-        updateRemainingChampions(
-          [
-            ...Object.values(teamOneChampions),
-            ...Object.values(teamTwoChampions),
-          ].filter((champion): champion is Champion => champion !== undefined),
-        );
-
-        // Clear the parameters after they have been used
-        searchParams.delete("team1");
-        searchParams.delete("team2");
-        const newQueryString = searchParams.toString();
-        window.history.replaceState(
-          null,
-          "",
-          newQueryString ? `?${newQueryString}` : window.location.pathname,
-        );
-
-        // Trigger analysis
-        setAnalysisTrigger((prev) => prev + 1);
-      }
-    };
     // Existing code to initialize favorites
     const savedFavorites = Cookies.get("favorites");
     if (savedFavorites) {
       setFavorites(JSON.parse(savedFavorites) as FavoriteChampions);
     }
-
-    // New code to parse URL and set teams
-    parseAndSetTeamsFromURL();
   }, [remainingChampions]);
 
   const resetDraft = () => {
     setRemainingChampions(champions);
-    setTeamOne({});
-    setTeamTwo({});
+    setTeamOne(emptyTeam);
+    setTeamTwo(emptyTeam);
     setSelectedSpot(null);
   };
 
@@ -191,7 +135,7 @@ export default function Draft() {
 
       let updatedRemainingChampions = handleDeleteChampion(
         selectedSpot.championIndex,
-        team,
+        team
       );
 
       if (selectedSpot.teamIndex === 1) {
@@ -204,7 +148,7 @@ export default function Draft() {
         setTeamTwo(newTeam);
       }
       updatedRemainingChampions = updatedRemainingChampions.filter(
-        (c) => c.id !== champion.id,
+        (c) => c.id !== champion.id
       );
       setRemainingChampions(updatedRemainingChampions);
 
@@ -214,10 +158,10 @@ export default function Draft() {
     const pickOrder = [0, 1, 1, 0, 0, 1, 1, 0, 0, 1];
 
     const teamOneLength = Object.values(teamOne).filter(
-      (c) => c !== undefined,
+      (c) => c !== undefined
     ).length;
     const teamTwoLength = Object.values(teamTwo).filter(
-      (c) => c !== undefined,
+      (c) => c !== undefined
     ).length;
     const championsPicked = teamOneLength + teamTwoLength;
     if (championsPicked >= 10) {
@@ -249,7 +193,7 @@ export default function Draft() {
       potentialRoles = [];
     }
     const potentialRolesIndexes = potentialRoles.map(
-      (role) => roleToIndexMap[role],
+      (role) => roleToIndexMap[role]
     );
     // add rest of indexes at the end of potentialRolesIndexes
     for (let i = 0; i < 5; i++) {
@@ -282,11 +226,13 @@ export default function Draft() {
       return remainingChampions;
     }
     // Check if the champion is already in the remaining champions list
-    const isChampionAlreadyRemaining = remainingChampions.some(remainingChampion => remainingChampion.id === champion.id);
+    const isChampionAlreadyRemaining = remainingChampions.some(
+      (remainingChampion) => remainingChampion.id === champion.id
+    );
     let champions;
     if (!isChampionAlreadyRemaining) {
       champions = [...remainingChampions, champion].sort((a, b) =>
-        a.name.localeCompare(b.name),
+        a.name.localeCompare(b.name)
       );
       setRemainingChampions(champions);
     } else {
