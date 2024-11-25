@@ -2,6 +2,7 @@
 
 import React, { useEffect, useState } from "react";
 
+import { Button } from "@/components/ui/button";
 import ChampionGrid from "./ChampionGrid";
 import TeamPanel from "./TeamPanel";
 import HelpModal from "./HelpModal";
@@ -251,20 +252,14 @@ export default function Draft() {
   };
 
   return (
-    <main className="flex min-h-screen w-full flex-col items-center bg-gradient-to-b from-gray-700 to-gray-900 text-white">
+    <main className="flex min-h-screen w-full flex-col items-center">
       <div className="mx-auto lg:w-2/3">
-        <button
-          className="m-2 rounded bg-blue-500 px-4 py-2 font-bold text-white hover:bg-blue-700"
-          onClick={resetDraft}
-        >
+        <Button variant="outline" onClick={resetDraft}>
           Reset Draft
-        </button>
-        <button
-          className="m-2 rounded bg-green-600 px-4 py-2 font-bold text-white hover:bg-green-700"
-          onClick={openHelpModal}
-        >
+        </Button>
+        <Button variant="outline" onClick={openHelpModal}>
           Help
-        </button>
+        </Button>
         {showHelpModal && <HelpModal closeHandler={closeHelpModal} />}
 
         <div className="flex flex-wrap items-stretch justify-evenly">

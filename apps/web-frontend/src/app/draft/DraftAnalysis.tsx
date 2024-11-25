@@ -43,10 +43,6 @@ export const DraftAnalysis = ({ team1, team2, elo }: DraftAnalysisProps) => {
           {loading ? (
             <>
               <p>Loading...</p>
-              <p>
-                The first request could take up to 15s because we scale capacity
-                to 0 when traffic is low.
-              </p>
             </>
           ) : error ? (
             <p className="text-red-500">{error}</p>

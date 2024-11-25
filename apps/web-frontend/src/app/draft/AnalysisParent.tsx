@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
+import { Button } from "@/components/ui/button";
 import type {
   Champion,
   Team,
@@ -9,6 +10,14 @@ import type {
 import { championIndexToFavoritesPosition, elos } from "@/app/types";
 import { DraftAnalysis } from "./DraftAnalysis";
 import { BestChampionSuggestion } from "./BestChampionSuggestion";
+import {
+  Select,
+  SelectContent,
+  SelectGroup,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 interface AnalysisParentProps {
   team1: Team;
@@ -25,24 +34,20 @@ interface EloSelectProps {
 }
 
 const EloSelect = ({ elo, setElo }: EloSelectProps) => (
-  <>
-    <label htmlFor="elo-select" className="sr-only">
-      Select Elo
-    </label>
-    <select
-      id="elo-select"
-      className="rounded p-2 text-black"
-      value={elo}
-      onChange={(e) => setElo(e.target.value as Elo)}
-      aria-label="Select Elo"
-    >
-      {elos.map((eloOption) => (
-        <option key={eloOption} value={eloOption}>
-          {eloOption.toUpperCase()}
-        </option>
-      ))}
-    </select>
-  </>
+  <Select value={elo} onValueChange={setElo}>
+    <SelectTrigger>
+      <SelectValue placeholder="Select Elo" />
+    </SelectTrigger>
+    <SelectContent>
+      <SelectGroup>
+        {elos.map((eloOption) => (
+          <SelectItem key={eloOption} value={eloOption}>
+            {eloOption.toUpperCase()}
+          </SelectItem>
+        ))}
+      </SelectGroup>
+    </SelectContent>
+  </Select>
 );
 
 interface AnalyzeDraftButtonProps {
@@ -53,12 +58,9 @@ const AnalyzeDraftButton = ({
   toggleAnalyzeDraft,
   showAnalysis,
 }: AnalyzeDraftButtonProps) => (
-  <button
-    className={`hover:bg-blue-700} rounded bg-blue-500 p-2 font-bold text-white`}
-    onClick={toggleAnalyzeDraft}
-  >
+  <Button variant="outline" onClick={toggleAnalyzeDraft}>
     {showAnalysis ? "Hide Analysis" : "Analyze Draft"}
-  </button>
+  </Button>
 );
 
 interface TooltipProps {
@@ -100,12 +102,9 @@ const ChampionSuggestionButton = ({
   selectedSpot,
 }: ChampionSuggestionButtonProps) =>
   enableChampionSuggestion ? (
-    <button
-      className="rounded bg-blue-500 p-2 font-bold text-white hover:bg-blue-700"
-      onClick={toggleChampionSuggestion}
-    >
+    <Button variant="outline" onClick={toggleChampionSuggestion}>
       {showChampionSuggestion ? "Hide Suggestions" : "Suggest Champion"}
-    </button>
+    </Button>
   ) : (
     <Tooltip
       text={
@@ -114,13 +113,13 @@ const ChampionSuggestionButton = ({
           : "Right click a champion in the list to add to favorites."
       }
     >
-      <button
-        className="cursor-not-allowed rounded bg-blue-500 p-2 font-bold text-white opacity-50"
+      <Button
+        variant="outline"
         onClick={toggleChampionSuggestion}
         disabled={true}
       >
         {showChampionSuggestion ? "Hide Suggestions" : "Suggest Champion"}
-      </button>
+      </Button>
     </Tooltip>
   );
 
