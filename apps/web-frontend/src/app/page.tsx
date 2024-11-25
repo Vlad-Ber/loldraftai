@@ -3,20 +3,19 @@ import Image from "next/image";
 
 export default function HomePage() {
   return (
-    <main className="flex min-h-screen w-full flex-col items-center bg-gradient-to-b from-gray-700 to-gray-900 text-white">
+    <main className="flex min-h-screen w-full flex-col items-center bg-background text-foreground">
       <div className="container flex flex-col items-center justify-center gap-8 px-4 py-16 ">
-        <h1 className="text-5xl font-extrabold tracking-tight sm:text-[5rem]">
+        <h1 className="text-5xl font-extrabold tracking-tight text-primary sm:text-[5rem]">
           Draftking
         </h1>
-        <h2 className="text-center text-3xl font-bold text-blue-400">
-          Your <span className="text-yellow-300 ">League of Legends</span> Draft
-          Analyzer
+        <h2 className="text-center text-3xl font-bold">
+          Your <span className="text-primary">League of Legends</span> Draft Analyzer
         </h2>
 
         <div className="mt-6">
           <Link
             href="/draft"
-            className="inline-block rounded bg-blue-500 px-4 py-2 text-xl font-bold text-white transition duration-300 hover:bg-blue-700"
+            className="inline-block rounded bg-primary px-6 py-3 text-xl font-bold text-primary-foreground hover:bg-primary/90 transition duration-300"
           >
             <div className="flex items-center justify-center space-x-2">
               <span>Analyze a Draft Now</span>
@@ -59,14 +58,6 @@ export default function HomePage() {
             </div>
           </div>
         </div>
-
-        <p className="mt-4 text-lg">
-          Explore{" "}
-          <Link href="/topdrafts" className="text-blue-400 hover:underline">
-            Top Drafts
-          </Link>{" "}
-          to see the best META drafts.
-        </p>
       </div>
     </main>
   );
