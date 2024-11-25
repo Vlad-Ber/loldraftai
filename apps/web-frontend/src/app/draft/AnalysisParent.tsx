@@ -18,6 +18,12 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 
 interface AnalysisParentProps {
   team1: Team;
@@ -63,31 +69,6 @@ const AnalyzeDraftButton = ({
   </Button>
 );
 
-interface TooltipProps {
-  children: React.ReactNode;
-  text: string;
-}
-
-const Tooltip = ({ children, text }: TooltipProps) => {
-  const [isHovered, setIsHovered] = useState(false);
-
-  return (
-    <div className="relative flex items-center">
-      <div
-        onMouseEnter={() => setIsHovered(true)}
-        onMouseLeave={() => setIsHovered(false)}
-      >
-        {children}
-      </div>
-      {isHovered && (
-        <div className="absolute bottom-full z-10 mb-2 rounded-md bg-black px-2 py-1 text-xs text-white">
-          {text}
-        </div>
-      )}
-    </div>
-  );
-};
-
 interface ChampionSuggestionButtonProps {
   enableChampionSuggestion: boolean;
   toggleChampionSuggestion: () => void;
@@ -106,21 +87,28 @@ const ChampionSuggestionButton = ({
       {showChampionSuggestion ? "Hide Suggestions" : "Suggest Champion"}
     </Button>
   ) : (
-    <Tooltip
-      text={
-        !selectedSpot
-          ? "Click on a team position to select a position."
-          : "Right click a champion in the list to add to favorites."
-      }
-    >
-      <Button
-        variant="outline"
-        onClick={toggleChampionSuggestion}
-        disabled={true}
-      >
-        {showChampionSuggestion ? "Hide Suggestions" : "Suggest Champion"}
-      </Button>
-    </Tooltip>
+    <TooltipProvider delayDuration={0}>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <div className="inline-block">
+            <Button
+              variant="outline"
+              onClick={toggleChampionSuggestion}
+              disabled={true}
+            >
+              {showChampionSuggestion ? "Hide Suggestions" : "Suggest Champion"}
+            </Button>
+          </div>
+        </TooltipTrigger>
+        <TooltipContent>
+          <p>
+            {!selectedSpot
+              ? "Click on a team position to select a position."
+              : "Right click a champion in the list to add to favorites."}
+          </p>
+        </TooltipContent>
+      </Tooltip>
+    </TooltipProvider>
   );
 
 const AnalysisParent = ({
@@ -175,7 +163,7 @@ const AnalysisParent = ({
 
   return (
     <div className="draft-analysis p-5">
-      <div className="-mx-2 flex flex-wrap items-stretch">
+      <div className="flex flex-wrap items-stretch justify-center">
         <div className="flex w-full p-1 sm:w-auto">
           <div className="flex-1">
             <EloSelect elo={elo} setElo={setElo} />
