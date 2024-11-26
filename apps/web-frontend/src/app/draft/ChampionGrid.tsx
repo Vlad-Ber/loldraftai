@@ -7,9 +7,10 @@ import type { Champion, FavoriteChampions } from "@/app/types";
 import { Input } from "@/components/ui/input";
 import {
   ContextMenu,
+  ContextMenuTrigger,
   ContextMenuContent,
   ContextMenuItem,
-  ContextMenuTrigger,
+  ContextMenuPortal,
 } from "@/components/ui/context-menu";
 
 interface SearchBarProps {
@@ -202,8 +203,20 @@ const ChampionGrid = ({
       <div className="h-[505px] overflow-y-auto p-1">
         <div className="grid grid-cols-1 justify-items-center gap-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6">
           {champions.map((champion) => (
+            // Using ContextMenu from shadcn/ui which provides individual exports rather than dot notation
             <ContextMenu key={champion.id}>
-              <ContextMenuTrigger>
+              {/* 
+                Using absolute positioning for hidden champions instead of display: none
+                This keeps the components mounted (preserving loaded images) while removing them from layout flow
+                pointer-events-none prevents any interaction with hidden elements
+              */}
+              <ContextMenuTrigger
+                className={`${
+                  filteredChampions.map((c) => c.id).includes(champion.id)
+                    ? "relative"
+                    : "absolute invisible pointer-events-none"
+                }`}
+              >
                 <div
                   onClick={() => handleChampionSelection(champion)}
                   onTouchStart={(e) => handleTouchStart(e, champion)}
@@ -211,53 +224,59 @@ const ChampionGrid = ({
                   onTouchMove={handleTouchMove}
                   onDragStart={preventDefaultActions}
                   onDrop={preventDefaultActions}
-                  className={`cursor-pointer ${
-                    filteredChampions.map((c) => c.id).includes(champion.id)
-                      ? "block"
-                      : "hidden"
-                  }`}
                 >
                   <ChampionCard champion={champion} favorites={favorites} />
                 </div>
               </ContextMenuTrigger>
-              <ContextMenuContent>
-                {["top", "jungle", "mid", "bot", "support"].map((position) => {
-                  const isFavorite = favorites[
-                    position as keyof FavoriteChampions
-                  ].includes(champion.id);
-                  return (
-                    <ContextMenuItem
-                      key={position}
-                      onClick={() =>
-                        isFavorite
-                          ? handleRemoveFromFavorites(
-                              champion,
-                              position as keyof FavoriteChampions
-                            )
-                          : handleAddToFavorites(
-                              champion,
-                              position as keyof FavoriteChampions
-                            )
-                      }
-                    >
-                      <StarIcon
-                        className={`mr-2 h-5 w-5 ${
-                          isFavorite ? "text-yellow-500" : "text-white"
-                        }`}
-                        stroke="black"
-                        strokeWidth={2}
-                      />
-                      {isFavorite
-                        ? `Remove from ${
-                            position.charAt(0).toUpperCase() + position.slice(1)
-                          } Favorites`
-                        : `Add to ${
-                            position.charAt(0).toUpperCase() + position.slice(1)
-                          } Favorites`}
-                    </ContextMenuItem>
-                  );
-                })}
-              </ContextMenuContent>
+              {/* 
+                ContextMenuPortal ensures menu content is rendered in a portal
+                This prevents the menu from affecting grid layout or being clipped
+                by parent containers
+              */}
+              <ContextMenuPortal>
+                <ContextMenuContent>
+                  {["top", "jungle", "mid", "bot", "support"].map(
+                    (position) => {
+                      const isFavorite = favorites[
+                        position as keyof FavoriteChampions
+                      ].includes(champion.id);
+                      return (
+                        <ContextMenuItem
+                          key={position}
+                          onClick={() =>
+                            isFavorite
+                              ? handleRemoveFromFavorites(
+                                  champion,
+                                  position as keyof FavoriteChampions
+                                )
+                              : handleAddToFavorites(
+                                  champion,
+                                  position as keyof FavoriteChampions
+                                )
+                          }
+                        >
+                          <StarIcon
+                            className={`mr-2 h-5 w-5 ${
+                              isFavorite ? "text-yellow-500" : "text-white"
+                            }`}
+                            stroke="black"
+                            strokeWidth={2}
+                          />
+                          {isFavorite
+                            ? `Remove from ${
+                                position.charAt(0).toUpperCase() +
+                                position.slice(1)
+                              } Favorites`
+                            : `Add to ${
+                                position.charAt(0).toUpperCase() +
+                                position.slice(1)
+                              } Favorites`}
+                        </ContextMenuItem>
+                      );
+                    }
+                  )}
+                </ContextMenuContent>
+              </ContextMenuPortal>
             </ContextMenu>
           ))}
         </div>
