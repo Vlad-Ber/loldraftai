@@ -22,7 +22,6 @@ export const DraftAnalysisShowcase = ({
           <p>{`Red Side ${Math.round(team2Winrate)}%`}</p>
         </div>
         <WinrateBar team1Winrate={team1Winrate} />
-        <h2 className="mt-4 text-center text-lg font-bold">Team Advantages</h2>
       </div>
     </>
   );
