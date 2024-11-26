@@ -4,6 +4,7 @@ import Image from "next/image";
 import { StarIcon } from "@heroicons/react/24/solid";
 import Cookies from "js-cookie";
 import type { Champion, FavoriteChampions } from "@/app/types";
+import { Input } from "@/components/ui/input";
 
 interface SearchBarProps {
   searchTerm: string;
@@ -19,9 +20,9 @@ const SearchBar = ({
   filteredChampions,
 }: SearchBarProps) => {
   return (
-    <div className="w-full text-black">
-      <input
-        className="w-full rounded-t border p-2"
+    <div className="w-full">
+      <Input
+        className="rounded-t"
         type="text"
         placeholder="Search..."
         onChange={(e) => setSearchTerm(e.target.value)}
