@@ -12,6 +12,12 @@ import {
   ContextMenuItem,
   ContextMenuPortal,
 } from "@/components/ui/context-menu";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 
 interface SearchBarProps {
   searchTerm: string;
@@ -28,19 +34,23 @@ const SearchBar = ({
 }: SearchBarProps) => {
   return (
     <div className="w-full">
-      <Input
-        className="rounded-t"
-        type="text"
-        placeholder="Search..."
-        onChange={(e) => setSearchTerm(e.target.value)}
-        value={searchTerm}
-        onKeyDown={(e) => handleKeyDown(e)}
-      />
-      {filteredChampions.length === 1 && (
-        <div className="text-left text-white">
-          (press enter to select {filteredChampions[0]?.name})
-        </div>
-      )}
+      <TooltipProvider>
+        <Tooltip open={filteredChampions.length === 1}>
+          <TooltipTrigger asChild>
+            <Input
+              className="rounded-t"
+              type="text"
+              placeholder="Search..."
+              onChange={(e) => setSearchTerm(e.target.value)}
+              value={searchTerm}
+              onKeyDown={(e) => handleKeyDown(e)}
+            />
+          </TooltipTrigger>
+          <TooltipContent side="top" align="start">
+            Press enter to select {filteredChampions[0]?.name}
+          </TooltipContent>
+        </Tooltip>
+      </TooltipProvider>
     </div>
   );
 };
