@@ -2,6 +2,12 @@ import React, { useState } from "react";
 import Image from "next/image";
 import clsx from "clsx";
 import { TrashIcon } from "@heroicons/react/16/solid";
+import {
+  ContextMenu,
+  ContextMenuContent,
+  ContextMenuItem,
+  ContextMenuTrigger,
+} from "@/components/ui/context-menu";
 
 import type {
   Team,
@@ -60,91 +66,33 @@ const ChampionAvatar = ({
   setHoveredChampion,
   handleDeleteChampion,
 }: ChampionAvatarProps) => {
-  const menuRef = React.useRef<HTMLDivElement>(null);
-  const [anchorEl, setAnchorEl] = React.useState<null | HTMLElement>(null);
-  const [menuPosition, setMenuPosition] = React.useState<{
-    x: number;
-    y: number;
-  }>({ x: 0, y: 0 });
-  const open = Boolean(anchorEl);
-
-  const handleContextMenu = (event: React.MouseEvent<HTMLElement>) => {
-    event.preventDefault();
-    setAnchorEl(event.currentTarget);
-
-    // Calculate position with screen boundary consideration including window scroll
-    let x = event.clientX + window.scrollX;
-    let y = event.clientY + window.scrollY;
-    //TODO: hardcorded width and height is hacky
-    const menuWidth = 300; // Assuming the menu width
-    const menuHeight = 150; // Assuming the menu height
-    const screenWidth = window.innerWidth;
-    const screenHeight = window.innerHeight;
-
-    // Correct position if the menu goes outside of the screen
-    if (x + menuWidth > screenWidth) {
-      x -= x + menuWidth - screenWidth;
-    }
-    if (y + menuHeight > screenHeight) {
-      y -= y + menuHeight - screenHeight;
-    }
-
-    const correctedMenuPosition = { x, y };
-    setMenuPosition(correctedMenuPosition);
-  };
-
-  React.useEffect(() => {
-    const checkIfClickedOutside = (e: MouseEvent) => {
-      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
-        setAnchorEl(null);
-      }
-    };
-
-    document.addEventListener("mousedown", checkIfClickedOutside);
-
-    return () => {
-      document.removeEventListener("mousedown", checkIfClickedOutside);
-    };
-  }, []);
-
   return (
-    <div
-      onMouseEnter={() => setHoveredChampion(index)}
-      onMouseLeave={() => setHoveredChampion(null)}
-      onContextMenu={handleContextMenu}
-      className="flex cursor-pointer items-center justify-between"
-    >
-      <Image
-        src={`/icons/champions/${teamMember.icon}`}
-        alt={teamMember.name}
-        className="block"
-        width={80}
-        height={80}
-      />
-      {open && (
+    <ContextMenu>
+      <ContextMenuTrigger>
         <div
-          ref={menuRef}
-          id="context-menu"
-          className="absolute rounded bg-white text-black shadow"
-          style={{
-            top: `${menuPosition.y}px`,
-            left: `${menuPosition.x}px`,
-            zIndex: 1000,
-          }}
+          onMouseEnter={() => setHoveredChampion(index)}
+          onMouseLeave={() => setHoveredChampion(null)}
+          className="flex cursor-pointer items-center justify-between"
         >
-          <ul className="m-0 list-none p-0">
-            <li
-              className="flex cursor-pointer items-center rounded p-2 hover:bg-gray-100"
-              onClick={(event) => {
-                handleDeleteChampion(index, event);
-              }}
-            >
-              <TrashIcon className="mr-2 h-4 w-4" /> Remove Champion
-            </li>
-          </ul>
+          <Image
+            src={`/icons/champions/${teamMember.icon}`}
+            alt={teamMember.name}
+            className="block"
+            width={80}
+            height={80}
+          />
         </div>
-      )}
-    </div>
+      </ContextMenuTrigger>
+      <ContextMenuContent>
+        <ContextMenuItem
+          // @ts-expect-error event type not strict
+          onClick={(event) => handleDeleteChampion(index, event)}
+        >
+          <TrashIcon className="mr-2 h-4 w-4" />
+          Remove Champion
+        </ContextMenuItem>
+      </ContextMenuContent>
+    </ContextMenu>
   );
 };
 
