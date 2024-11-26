@@ -1,5 +1,10 @@
-import React, { useRef, useEffect } from "react";
-import { XMarkIcon } from "@heroicons/react/24/solid";
+import React from "react";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import {
   CursorArrowRaysIcon,
   StarIcon,
@@ -10,43 +15,17 @@ import {
 } from "@heroicons/react/24/outline";
 
 interface HelpModalProps {
+  isOpen: boolean;
   closeHandler: () => void;
 }
 
-const HelpModal: React.FC<HelpModalProps> = ({ closeHandler }) => {
-  const modalRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    // Function to detect any mouse clicks happening out of modal i.e., on the overlay
-    const handleClickOutside = (event: MouseEvent) => {
-      if (
-        modalRef.current &&
-        !modalRef.current.contains(event.target as Node)
-      ) {
-        closeHandler();
-      }
-    };
-
-    document.addEventListener("mousedown", handleClickOutside);
-
-    return () => {
-      document.removeEventListener("mousedown", handleClickOutside);
-    };
-  }, [closeHandler]);
-
+const HelpModal: React.FC<HelpModalProps> = ({ isOpen, closeHandler }) => {
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-75">
-      <div
-        ref={modalRef}
-        className="relative max-h-[80vh] w-full max-w-lg overflow-y-auto rounded-lg bg-white p-6 text-gray-700 shadow-lg"
-      >
-        <button
-          onClick={closeHandler}
-          className="absolute right-0 top-0 mr-4 mt-4 text-gray-500 hover:text-gray-700"
-        >
-          <XMarkIcon className="h-6 w-6" />
-        </button>
-        <h2 className="mb-4 text-xl font-bold">How to Use</h2>
+    <Dialog open={isOpen} onOpenChange={closeHandler}>
+      <DialogContent className="max-h-[80vh] overflow-y-auto sm:max-w-lg">
+        <DialogHeader>
+          <DialogTitle>How to Use</DialogTitle>
+        </DialogHeader>
         <div className="space-y-4">
           <p className="flex items-center">
             <CursorArrowRaysIcon className="mr-2 h-6 w-6 flex-shrink-0" />
@@ -94,8 +73,8 @@ const HelpModal: React.FC<HelpModalProps> = ({ closeHandler }) => {
           rates, matchups, and team synergies to suggest the best champions for
           your draft.
         </p>
-      </div>
-    </div>
+      </DialogContent>
+    </Dialog>
   );
 };
 

@@ -260,7 +260,7 @@ export default function Draft() {
         <Button variant="outline" onClick={openHelpModal}>
           Help
         </Button>
-        {showHelpModal && <HelpModal closeHandler={closeHelpModal} />}
+        <HelpModal isOpen={showHelpModal} closeHandler={closeHelpModal} />
 
         <div className="flex flex-wrap items-stretch justify-evenly">
           <div className="flex w-full justify-between">
