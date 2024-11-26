@@ -1,10 +1,16 @@
 "use client";
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect } from "react";
 import Image from "next/image";
 import { StarIcon } from "@heroicons/react/24/solid";
 import Cookies from "js-cookie";
 import type { Champion, FavoriteChampions } from "@/app/types";
 import { Input } from "@/components/ui/input";
+import {
+  ContextMenu,
+  ContextMenuContent,
+  ContextMenuItem,
+  ContextMenuTrigger,
+} from "@/components/ui/context-menu";
 
 interface SearchBarProps {
   searchTerm: string;
@@ -72,101 +78,6 @@ const ChampionCard = ({ champion, favorites }: ChampionCardProps) => {
   );
 };
 
-interface ChampionMenuProps {
-  anchorEl: HTMLElement | null;
-  handleClose: () => void;
-  selectedChampion: Champion | null;
-  favorites: FavoriteChampions;
-  handleAddToFavorites: (position: keyof FavoriteChampions) => void;
-  handleRemoveFromFavorites: (position: keyof FavoriteChampions) => void;
-}
-
-const ChampionMenu = ({
-  anchorEl,
-  handleClose,
-  selectedChampion,
-  favorites,
-  handleAddToFavorites,
-  handleRemoveFromFavorites,
-}: ChampionMenuProps) => {
-  const menuRef = useRef<HTMLDivElement>(null);
-  const rect = anchorEl?.getBoundingClientRect();
-
-  useEffect(() => {
-    const checkIfClickedOutside = (e: MouseEvent) => {
-      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
-        handleClose();
-      }
-    };
-
-    document.addEventListener("mousedown", checkIfClickedOutside);
-
-    return () => {
-      document.removeEventListener("mousedown", checkIfClickedOutside);
-    };
-  }, [handleClose]);
-
-  return (
-    <div
-      ref={menuRef}
-      id="champion-menu"
-      className={`absolute rounded-md bg-white text-black shadow-md ${
-        anchorEl ? "block" : "hidden"
-      }`}
-      style={{
-        top: `${window.scrollY + (rect?.bottom ?? 0)}px`,
-        left: `${window.scrollX + (rect?.left ?? 0)}px`,
-        zIndex: 1000,
-      }}
-    >
-      <ul className="m-0 list-none p-0">
-        {["top", "jungle", "mid", "bot", "support"].map((position) =>
-          selectedChampion &&
-          favorites[position as keyof FavoriteChampions].includes(
-            selectedChampion.id
-          ) ? (
-            <li
-              key={position}
-              className="flex cursor-pointer items-center p-2 hover:bg-gray-100"
-              onClick={() =>
-                handleRemoveFromFavorites(position as keyof FavoriteChampions)
-              }
-            >
-              <StarIcon
-                className="h-5 w-5 text-white"
-                stroke="black"
-                strokeWidth={2}
-              />
-              <span className="ml-2">
-                Remove from{" "}
-                {position.charAt(0).toUpperCase() + position.slice(1)} Favorites
-              </span>
-            </li>
-          ) : (
-            <li
-              key={position}
-              className="flex cursor-pointer items-center p-2 hover:bg-gray-100"
-              onClick={() =>
-                handleAddToFavorites(position as keyof FavoriteChampions)
-              }
-            >
-              <StarIcon
-                className="h-5 w-5 text-yellow-500"
-                stroke="black"
-                strokeWidth={2}
-              />
-              <span className="ml-2">
-                Add to {position.charAt(0).toUpperCase() + position.slice(1)}{" "}
-                Favorites
-              </span>
-            </li>
-          )
-        )}
-      </ul>
-    </div>
-  );
-};
-
 interface ChampionGridProps {
   champions: Champion[];
   addChampion: (champion: Champion) => void;
@@ -180,11 +91,7 @@ const ChampionGrid = ({
   favorites,
   setFavorites,
 }: ChampionGridProps) => {
-  const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
-  const [selectedChampion, setSelectedChampion] = useState<null | Champion>(
-    null
-  );
-  const [open, setOpen] = useState(false);
+  const [, setSelectedChampion] = useState<null | Champion>(null);
   const [searchTerm, setSearchTerm] = useState("");
   const [filteredChampions, setFilteredChampions] = useState(champions);
 
@@ -237,50 +144,36 @@ const ChampionGrid = ({
     //TODO: seperate into 1 that takes even and other that doesn't because touch can't be prevented
     event.preventDefault();
     setSelectedChampion(champion);
-    setAnchorEl(event.currentTarget);
-    setOpen(true);
   };
 
-  const handleClose = () => {
-    setOpen(false);
-    setAnchorEl(null);
+  const handleAddToFavorites = (
+    champion: Champion,
+    position: keyof FavoriteChampions
+  ) => {
+    const updatedFavorites = {
+      ...favorites,
+      [position]: [...favorites[position], champion.id],
+    };
+
+    setFavorites(updatedFavorites);
+    Cookies.set("favorites", JSON.stringify(updatedFavorites), {
+      expires: 365,
+    });
   };
 
-  const handleAddToFavorites = (position: keyof FavoriteChampions) => {
-    if (selectedChampion) {
-      const updatedFavorites = {
-        ...favorites,
-        [position]:
-          selectedChampion.id in favorites[position]
-            ? favorites[position]
-            : [...favorites[position], selectedChampion.id],
-      };
+  const handleRemoveFromFavorites = (
+    champion: Champion,
+    position: keyof FavoriteChampions
+  ) => {
+    const updatedFavorites = {
+      ...favorites,
+      [position]: favorites[position].filter((id) => id !== champion.id),
+    };
 
-      setFavorites(updatedFavorites);
-      Cookies.set("favorites", JSON.stringify(updatedFavorites), {
-        expires: 365,
-      }); // Set cookie with 1 year expiry
-    }
-
-    handleClose();
-  };
-
-  const handleRemoveFromFavorites = (position: keyof FavoriteChampions) => {
-    if (selectedChampion) {
-      const updatedFavorites = {
-        ...favorites,
-        [position]: favorites[position].filter(
-          (champion) => champion !== selectedChampion.id
-        ),
-      };
-
-      setFavorites(updatedFavorites);
-      Cookies.set("favorites", JSON.stringify(updatedFavorites), {
-        expires: 365,
-      }); // Set cookie with 1 year expiry
-    }
-
-    handleClose();
+    setFavorites(updatedFavorites);
+    Cookies.set("favorites", JSON.stringify(updatedFavorites), {
+      expires: 365,
+    });
   };
 
   const handleChampionSelection = (champion: Champion) => {
@@ -309,37 +202,66 @@ const ChampionGrid = ({
       <div className="h-[505px] overflow-y-auto p-1">
         <div className="grid grid-cols-1 justify-items-center gap-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6">
           {champions.map((champion) => (
-            <div
-              key={champion.id}
-              onContextMenu={(e) => handleContextMenu(e, champion)}
-              onClick={() => handleChampionSelection(champion)}
-              onTouchStart={(e) => handleTouchStart(e, champion)}
-              onTouchEnd={handleTouchEnd}
-              onTouchMove={handleTouchMove}
-              onDragStart={preventDefaultActions}
-              onDrop={preventDefaultActions}
-              /* Using hidden to keep image in memory when doing search */
-              className={`cursor-pointer ${
-                filteredChampions.map((c) => c.id).includes(champion.id)
-                  ? "block"
-                  : "hidden"
-              }`}
-            >
-              <ChampionCard champion={champion} favorites={favorites} />
-            </div>
+            <ContextMenu key={champion.id}>
+              <ContextMenuTrigger>
+                <div
+                  onClick={() => handleChampionSelection(champion)}
+                  onTouchStart={(e) => handleTouchStart(e, champion)}
+                  onTouchEnd={handleTouchEnd}
+                  onTouchMove={handleTouchMove}
+                  onDragStart={preventDefaultActions}
+                  onDrop={preventDefaultActions}
+                  className={`cursor-pointer ${
+                    filteredChampions.map((c) => c.id).includes(champion.id)
+                      ? "block"
+                      : "hidden"
+                  }`}
+                >
+                  <ChampionCard champion={champion} favorites={favorites} />
+                </div>
+              </ContextMenuTrigger>
+              <ContextMenuContent>
+                {["top", "jungle", "mid", "bot", "support"].map((position) => {
+                  const isFavorite = favorites[
+                    position as keyof FavoriteChampions
+                  ].includes(champion.id);
+                  return (
+                    <ContextMenuItem
+                      key={position}
+                      onClick={() =>
+                        isFavorite
+                          ? handleRemoveFromFavorites(
+                              champion,
+                              position as keyof FavoriteChampions
+                            )
+                          : handleAddToFavorites(
+                              champion,
+                              position as keyof FavoriteChampions
+                            )
+                      }
+                    >
+                      <StarIcon
+                        className={`mr-2 h-5 w-5 ${
+                          isFavorite ? "text-yellow-500" : "text-white"
+                        }`}
+                        stroke="black"
+                        strokeWidth={2}
+                      />
+                      {isFavorite
+                        ? `Remove from ${
+                            position.charAt(0).toUpperCase() + position.slice(1)
+                          } Favorites`
+                        : `Add to ${
+                            position.charAt(0).toUpperCase() + position.slice(1)
+                          } Favorites`}
+                    </ContextMenuItem>
+                  );
+                })}
+              </ContextMenuContent>
+            </ContextMenu>
           ))}
         </div>
       </div>
-      {open && (
-        <ChampionMenu
-          anchorEl={anchorEl}
-          handleClose={handleClose}
-          selectedChampion={selectedChampion}
-          favorites={favorites}
-          handleAddToFavorites={handleAddToFavorites}
-          handleRemoveFromFavorites={handleRemoveFromFavorites}
-        />
-      )}
     </div>
   );
 };
