@@ -10,6 +10,7 @@ import type {
 import { championIndexToFavoritesPosition } from "@/app/types";
 import { getChampionById } from "@/app/champions";
 import { WinrateBar } from "./WinrateBar";
+import { Loader2 } from "lucide-react";
 
 interface BestChampionSuggestionProps {
   team1: Team;
@@ -130,9 +131,10 @@ export const BestChampionSuggestion = ({
         </h6>
         <div>
           {loading ? (
-            <>
+            <div className="flex items-center gap-2">
+              <Loader2 className="h-4 w-4 animate-spin" />
               <p>Loading best champion suggestion...</p>
-            </>
+            </div>
           ) : error ? ( // Conditionally render error message
             <p className="text-red-500">{error}</p>
           ) : (

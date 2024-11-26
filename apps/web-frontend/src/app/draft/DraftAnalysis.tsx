@@ -2,6 +2,7 @@ import React, { useEffect, useState } from "react";
 import type { Elo, Team } from "@/app/types";
 import { predictGame } from "./api";
 import { DraftAnalysisShowcase } from "./DraftAnalysisShowcase";
+import { Loader2 } from "lucide-react";
 
 interface DraftAnalysisProps {
   team1: Team;
@@ -41,9 +42,10 @@ export const DraftAnalysis = ({ team1, team2, elo }: DraftAnalysisProps) => {
       <div className="mb-2.5 mt-2 grid grid-cols-1 gap-2">
         <div>
           {loading ? (
-            <>
+            <div className="flex items-center gap-2">
+              <Loader2 className="h-4 w-4 animate-spin" />
               <p>Loading...</p>
-            </>
+            </div>
           ) : error ? (
             <p className="text-red-500">{error}</p>
           ) : teamWinrate ? (
