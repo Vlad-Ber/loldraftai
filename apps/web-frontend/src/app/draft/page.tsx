@@ -17,6 +17,13 @@ import type {
 } from "@/app/types";
 import { champions, championToRolesMap, roleToIndexMap } from "@/app/champions";
 import Cookies from "js-cookie";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 const emptyTeam: Team = {
   0: undefined,
@@ -25,6 +32,14 @@ const emptyTeam: Team = {
   3: undefined,
   4: undefined,
 };
+
+const DRAFT_ORDERS = {
+  "Draft Order": [0, 1, 1, 0, 0, 1, 1, 0, 0, 1],
+  "Blue then Red": [0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+  "Red then Blue": [1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
+} as const;
+
+type DraftOrderKey = keyof typeof DRAFT_ORDERS;
 
 export default function Draft() {
   const [remainingChampions, setRemainingChampions] =
@@ -43,6 +58,8 @@ export default function Draft() {
   });
 
   const [showHelpModal, setShowHelpModal] = useState(false);
+  const [selectedDraftOrder, setSelectedDraftOrder] =
+    useState<DraftOrderKey>("Draft Order");
 
   const openHelpModal = () => setShowHelpModal(true);
   const closeHelpModal = () => setShowHelpModal(false);
@@ -131,7 +148,6 @@ export default function Draft() {
   const addChampion = (champion: Champion) => {
     if (selectedSpot !== null) {
       const team = teams[selectedSpot.teamIndex - 1];
-      if (!team) return; // or handle the error as appropriate
 
       let updatedRemainingChampions = handleDeleteChampion(
         selectedSpot.championIndex,
@@ -155,7 +171,7 @@ export default function Draft() {
       setSelectedSpot(null);
       return;
     }
-    const pickOrder = [0, 1, 1, 0, 0, 1, 1, 0, 0, 1];
+    const pickOrder = DRAFT_ORDERS[selectedDraftOrder];
 
     const teamOneLength = Object.values(teamOne).filter(
       (c) => c !== undefined
@@ -253,13 +269,32 @@ export default function Draft() {
 
   return (
     <main className="flex min-h-screen w-full flex-col items-center">
-      <div className="mx-auto ">
-        <Button variant="outline" onClick={resetDraft}>
-          Reset Draft
-        </Button>
-        <Button variant="outline" onClick={openHelpModal}>
-          Help
-        </Button>
+      <div className="mx-auto">
+        <div className="flex gap-2 mb-4">
+          <Button variant="outline" onClick={resetDraft}>
+            Reset Draft
+          </Button>
+          <Select
+            value={selectedDraftOrder}
+            onValueChange={(value: DraftOrderKey) =>
+              setSelectedDraftOrder(value)
+            }
+          >
+            <SelectTrigger className="w-[180px]">
+              <SelectValue placeholder="Select draft order" />
+            </SelectTrigger>
+            <SelectContent>
+              {Object.keys(DRAFT_ORDERS).map((order) => (
+                <SelectItem key={order} value={order}>
+                  {order}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Button variant="outline" onClick={openHelpModal}>
+            Help
+          </Button>
+        </div>
         <HelpModal isOpen={showHelpModal} closeHandler={closeHelpModal} />
 
         <div className="flex flex-wrap items-stretch justify-evenly">
