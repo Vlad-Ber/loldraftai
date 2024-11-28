@@ -1,5 +1,5 @@
 "use client";
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import Image from "next/image";
 import { StarIcon } from "@heroicons/react/24/solid";
 import Cookies from "js-cookie";
@@ -107,14 +107,23 @@ const ChampionGrid = ({
   const [searchTerm, setSearchTerm] = useState("");
   const [filteredChampions, setFilteredChampions] = useState(champions);
 
-  // Update the filtered champions whenever the search term or the list of champions changes
-  // TODO: can probably optmize all the id lookups in filteredChampions(and when hiding cards)
+  const debouncedFilter = useCallback(
+    (term: string) => {
+      const results = champions.filter((champion) =>
+        champion.searchName.includes(term.toLowerCase())
+      );
+      setFilteredChampions(results);
+    },
+    [champions]
+  );
+
   useEffect(() => {
-    const results = champions.filter((champion) =>
-      champion.searchName.includes(searchTerm.toLowerCase())
-    );
-    setFilteredChampions(results);
-  }, [searchTerm, champions]);
+    const timeoutId = setTimeout(() => {
+      debouncedFilter(searchTerm);
+    }, 300); // 300ms delay
+
+    return () => clearTimeout(timeoutId);
+  }, [searchTerm, debouncedFilter]);
 
   let touchTimeout: number | null = null;
 
