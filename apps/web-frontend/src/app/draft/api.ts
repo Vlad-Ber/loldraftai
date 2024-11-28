@@ -50,3 +50,39 @@ export const predictGame = async (
     throw error; // Rethrow to handle it in the calling function
   }
 };
+
+interface DetailedPrediction {
+  win_probability: number;
+  gold_diff_15min: number[];
+  champion_impact: number[];
+}
+
+export const predictGameInDepth = async (
+  team1: Team,
+  team2: Team,
+  elo: Elo
+): Promise<DetailedPrediction> => {
+  const requestBody = {
+    champion_ids: [...formatTeamData(team1), ...formatTeamData(team2)],
+    numerical_elo: eloToNumerical(elo),
+  };
+
+  const endpoint = "predict-in-depth";
+  const url = new URL(endpoint, backendUrl).toString();
+
+  const response = await fetch(url, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(requestBody),
+  });
+
+  if (!response.ok) {
+    throw new Error(`HTTP error! status: ${response.status}`);
+  }
+
+  const data = (await response.json()) as DetailedPrediction;
+  return {
+    ...data,
+    win_probability: data.win_probability * 100,
+  };
+};

@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import type { Elo, Team } from "@/app/types";
-import { predictGame } from "./api";
+import { predictGameInDepth } from "./api";
 import { DraftAnalysisShowcase } from "./DraftAnalysisShowcase";
 import { Loader2 } from "lucide-react";
 
@@ -11,27 +11,31 @@ interface DraftAnalysisProps {
 }
 
 export const DraftAnalysis = ({ team1, team2, elo }: DraftAnalysisProps) => {
-  const [teamWinrate, setTeamWinrate] = useState<number | null>(null);
+  const [prediction, setPrediction] = useState<{
+    win_probability: number;
+    gold_diff_15min: number[];
+    champion_impact: number[];
+  } | null>(null);
 
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    const fetchWinrate = async () => {
+    const fetchPrediction = async () => {
       setLoading(true);
       setError(null);
       try {
-        const result = await predictGame(team1, team2, elo);
-        setTeamWinrate(result.win_probability);
+        const result = await predictGameInDepth(team1, team2, elo);
+        setPrediction(result);
       } catch (err) {
-        console.error("Error fetching winrate:", err);
-        setError("Failed to load winrate. Please try again.");
+        console.error("Error fetching prediction:", err);
+        setError("Failed to load prediction. Please try again.");
       } finally {
         setLoading(false);
       }
     };
 
-    void fetchWinrate();
+    void fetchPrediction();
   }, [team1, team2, elo]);
 
   return (
@@ -48,8 +52,12 @@ export const DraftAnalysis = ({ team1, team2, elo }: DraftAnalysisProps) => {
             </div>
           ) : error ? (
             <p className="text-red-500">{error}</p>
-          ) : teamWinrate ? (
-            <DraftAnalysisShowcase winrate={teamWinrate} />
+          ) : prediction ? (
+            <DraftAnalysisShowcase
+              prediction={prediction}
+              team1={team1}
+              team2={team2}
+            />
           ) : (
             <p>No data available</p>
           )}

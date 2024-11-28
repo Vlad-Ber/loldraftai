@@ -186,31 +186,6 @@ def preprocess_input(input_data: ModelInput) -> Dict[str, torch.Tensor]:
     return processed_input
 
 
-def create_masked_inputs(model_input: ModelInput) -> List[ModelInput]:
-    """Creates 10 variations of the input, each with one champion masked"""
-    masked_inputs = []
-    champion_ids = model_input.champion_ids
-
-    # Get the unknown champion ID from the label encoders
-    unknown_champion_id = label_encoders["champion_ids"].transform(["UNKNOWN"])[0]
-
-    # Create a masked version for each champion
-    for i in range(10):
-        masked_champion_ids = champion_ids.copy()
-        masked_champion_ids[i] = unknown_champion_id
-
-        # Create a new ModelInput with the masked champion
-        masked_input = ModelInput(
-            **{
-                k: v for k, v in model_input.model_dump().items() if k != "champion_ids"
-            },
-            champion_ids=masked_champion_ids,
-        )
-        masked_inputs.append(masked_input)
-
-    return masked_inputs
-
-
 @app.post("/predict")
 async def predict(api_input: APIInput):
     raw_patch = api_input.numerical_patch
@@ -237,13 +212,31 @@ async def predict_in_depth(api_input: APIInput):
         float(raw_patch), 0
     )  # Use 0 as fallback for unknown patches
     api_input.numerical_patch = mapped_patch
-    # Convert API input to model input
     base_input = api_input_to_model_input(api_input)
 
-    # Create masked versions
-    masked_inputs = create_masked_inputs(base_input)
+    # Get the unknown champion ID
+    unknown_champion_id = label_encoders["champion_ids"].transform(["UNKNOWN"])[0]
 
-    # Create futures for all predictions (base + masked)
+    # Create masked versions only for known champions
+    masked_inputs = []
+    known_champion_indices = []
+    for i, champ_id in enumerate(base_input.champion_ids):
+        if champ_id != unknown_champion_id:
+            masked_champion_ids = base_input.champion_ids.copy()
+            masked_champion_ids[i] = unknown_champion_id
+            masked_inputs.append(
+                ModelInput(
+                    **{
+                        k: v
+                        for k, v in base_input.model_dump().items()
+                        if k != "champion_ids"
+                    },
+                    champion_ids=masked_champion_ids,
+                )
+            )
+            known_champion_indices.append(i)
+
+    # Create futures for predictions
     loop = asyncio.get_event_loop()
     futures = []
 
@@ -252,7 +245,7 @@ async def predict_in_depth(api_input: APIInput):
     await request_queue.put({"input": base_input, "future": base_future})
     futures.append(base_future)
 
-    # Queue masked predictions
+    # Queue masked predictions only for known champions
     for masked_input in masked_inputs:
         masked_future = loop.create_future()
         await request_queue.put({"input": masked_input, "future": masked_future})
@@ -265,17 +258,16 @@ async def predict_in_depth(api_input: APIInput):
     base_result = results[0]
     masked_results = results[1:]
 
-    # Calculate champion impact (difference from base win probability)
+    # Initialize champion impact array with zeros
+    champion_impact = [0.0] * 10
+
+    # Calculate champion impact only for known champions
     base_winrate = base_result["win_probability"]
-    champion_impact = []
-    for i, masked_result in enumerate(masked_results):
-        # If when the champion is removed, the winrate is higher, the champion has negative impact
-        # so if masked_result["win_probability"] > base_winrate, the impact is negative
+    for idx, masked_result in zip(known_champion_indices, masked_results):
         impact = base_winrate - masked_result["win_probability"]
-        # Reverse impact for red side champions (indices 5-9)
-        if i >= 5:  # Red side champions
+        if idx >= 5:  # Red side champions
             impact = -impact
-        champion_impact.append(impact)
+        champion_impact[idx] = impact
 
     return InDepthPrediction(
         win_probability=base_winrate,
