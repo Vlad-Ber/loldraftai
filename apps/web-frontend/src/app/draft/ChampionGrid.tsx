@@ -33,7 +33,8 @@ const SearchBar = ({
   filteredChampions,
 }: SearchBarProps) => {
   return (
-    <div className="w-full">
+    // Relative z-10 to make sure it stays above icons when scrolling(search bar grows when selected, which could cause overlap)
+    <div className="w-full relative z-10">
       <TooltipProvider>
         <Tooltip open={filteredChampions.length === 1}>
           <TooltipTrigger asChild>
