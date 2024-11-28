@@ -211,7 +211,7 @@ const ChampionGrid = ({
         filteredChampions={filteredChampions}
       />
       <div className="h-[505px] overflow-y-auto p-1">
-        <div className="grid grid-cols-1 justify-items-center gap-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6">
+        <div className="grid grid-cols-[repeat(auto-fill,80px)] justify-center gap-2">
           {champions.map((champion) => (
             // Using ContextMenu from shadcn/ui which provides individual exports rather than dot notation
             <ContextMenu key={champion.id}>
