@@ -28,9 +28,18 @@ from utils.match_prediction import (
 class APIInput(BaseModel):
     champion_ids: List[int | Literal["UNKNOWN"]]
     numerical_elo: int
-    numerical_patch: int | None = (
-        14 * 50 + 22
-    )  # TODO: don't hard code, have a way to get the latest patch
+    patch: str | None = None  # Changed from numerical_patch to patch with string format
+
+    @property
+    def numerical_patch(self) -> int:
+        """Convert patch string (e.g., '14.22') to numerical format"""
+        if not self.patch:
+            # Find the latest patch from patch_mapping
+            latest_patch = max(patch_mapping.keys())
+            return int(latest_patch)
+        
+        major, minor = self.patch.split('.')
+        return int(major) * 50 + int(minor)
 
     # TODO: could try adding validator
 
