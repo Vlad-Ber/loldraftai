@@ -163,6 +163,9 @@ def prepare_data(
         for file_path in glob.glob(os.path.join(output_dir, folder, "*.parquet")):
             os.remove(file_path)
 
+    train_count = 0
+    test_count = 0
+
     for file_index, file_path in enumerate(tqdm(input_files, desc="Preparing data")):
         df = load_data(file_path)
 
@@ -197,6 +200,9 @@ def prepare_data(
         # Split into train and test
         df_train, df_test = train_test_split(df, test_size=0.1, random_state=42)
 
+        train_count += len(df_train)
+        test_count += len(df_test)
+
         # Save prepared data
         save_data(
             df_train, os.path.join(output_dir, "train", f"train_{file_index}.parquet")
@@ -207,6 +213,10 @@ def prepare_data(
 
         # Clear memory
         del df, df_train, df_test
+
+    # Save sample counts
+    with open(os.path.join(output_dir, "sample_counts.pkl"), "wb") as f:
+        pickle.dump({"train": train_count, "test": test_count}, f)
 
 
 def add_computed_columns(input_files: List[str], output_dir: str) -> List[str]:

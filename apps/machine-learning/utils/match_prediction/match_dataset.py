@@ -37,12 +37,12 @@ class MatchDataset(IterableDataset):
         )
         self.transform = transform
         self.small_dataset = small_dataset
-        
+
         # If small_dataset is True, only use 5% of the files
         if small_dataset:
             num_files = max(1, int(len(self.data_files) * 0.05))
             self.data_files = self.data_files[:num_files]
-        
+
         self.total_samples = self._count_total_samples()
         self.masking_function = masking_function
         self.unknown_champion_id = unknown_champion_id
@@ -56,6 +56,17 @@ class MatchDataset(IterableDataset):
             self.champion_features = pickle.load(f)
 
     def _count_total_samples(self):
+        # Try to load the cached count first
+        count_path = os.path.join(PREPARED_DATA_DIR, "sample_counts.pkl")
+        if os.path.exists(count_path):
+            with open(count_path, "rb") as f:
+                counts = pickle.load(f)
+                count = counts[self.train_or_test]  # Use the appropriate count
+                if self.small_dataset:
+                    count = int(count * 0.05)
+                return count
+
+        # Fall back to counting if file doesn't exist
         total = 0
         for file_path in self.data_files:
             parquet_file = pq.ParquetFile(file_path)
@@ -98,7 +109,10 @@ class MatchDataset(IterableDataset):
                 df_chunk[col] = df_chunk[col].apply(
                     lambda x: [int(ch_id) for ch_id in x]
                 )
-                if self.masking_function is not None and self.unknown_champion_id is not None:
+                if (
+                    self.masking_function is not None
+                    and self.unknown_champion_id is not None
+                ):
                     df_chunk[col] = df_chunk[col].apply(
                         lambda x: self._mask_champions(x, self.masking_function())
                     )
@@ -135,9 +149,7 @@ class MatchDataset(IterableDataset):
     def _mask_champions(self, champion_list: List[int], num_to_mask: int) -> List[int]:
         """Masks a specific number of champions in the list"""
         mask_indices = np.random.choice(
-            len(champion_list), 
-            size=num_to_mask, 
-            replace=False
+            len(champion_list), size=num_to_mask, replace=False
         )
         return [
             self.unknown_champion_id if i in mask_indices else ch_id
