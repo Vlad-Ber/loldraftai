@@ -327,19 +327,22 @@ def train_model(
     num_champions, unknown_champion_id = get_num_champions()
 
     # Initialize the datasets with masking parameters
-    train_dataset, test_dataset, test_masked_dataset = (
-        MatchDataset(
-            masking_function=(
-                config.get_masking_function()
-                if split in ["train", "test_masked"]
-                else None
-            ),
+    datasets = []
+    for split in ["train", "test", "test_masked"]:
+        masking_function = (
+            config.get_masking_function() if split in ["train", "test_masked"] else None
+        )
+        train_or_test = "test" if split.startswith("test") else "train"
+
+        dataset = MatchDataset(
+            masking_function=masking_function,
             unknown_champion_id=unknown_champion_id,
-            train_or_test="test" if split.startswith("test") else "train",
+            train_or_test=train_or_test,
             small_dataset=small_dataset,
         )
-        for split in ["train", "test", "test_masked"]
-    )
+        datasets.append(dataset)
+
+    train_dataset, test_dataset, test_masked_dataset = datasets
 
     # Initialize wandb
     if config.log_wandb:

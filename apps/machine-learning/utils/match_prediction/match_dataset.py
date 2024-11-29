@@ -57,21 +57,40 @@ class MatchDataset(IterableDataset):
             self.champion_features = pickle.load(f)
 
     def _count_total_samples(self):
-        # Try to load the cached count first
         count_path = os.path.join(PREPARED_DATA_DIR, "sample_counts.pkl")
-        if os.path.exists(count_path):
-            with open(count_path, "rb") as f:
-                counts = pickle.load(f)
-                count = counts[self.train_or_test]  # Use the appropriate count
-                if self.small_dataset:
-                    count = int(count * 0.05)
-                return count
+        try:
+            if os.path.exists(count_path):
+                with open(count_path, "rb") as f:
+                    counts = pickle.load(f)
+                    count = counts.get(self.train_or_test)
+                    if count is not None:
+                        if self.small_dataset:
+                            count = int(count * 0.05)
+                        return count
+        except Exception as e:
+            print(f"Warning: Error reading sample counts file: {e}")
 
-        # Fall back to counting if file doesn't exist
+        # Fall back to counting if file doesn't exist or is invalid
+        print(f"Counting samples in {self.train_or_test} dataset...")
         total = 0
         for file_path in self.data_files:
             parquet_file = pq.ParquetFile(file_path)
             total += parquet_file.metadata.num_rows
+
+        # Try to save the count for future use
+        try:
+            counts = {}
+            if os.path.exists(count_path):
+                with open(count_path, "rb") as f:
+                    counts = pickle.load(f)
+            counts[self.train_or_test] = total
+            with open(count_path, "wb") as f:
+                pickle.dump(counts, f)
+        except Exception as e:
+            print(f"Warning: Could not save sample counts: {e}")
+
+        if self.small_dataset:
+            total = int(total * 0.05)
         return total
 
     def __len__(self):
@@ -82,12 +101,11 @@ class MatchDataset(IterableDataset):
         if worker_info is None:
             iter_start, iter_end = 0, len(self.data_files)
         else:
-            per_worker = int(len(self.data_files) / worker_info.num_workers)
+            per_worker = int(np.ceil(len(self.data_files) / worker_info.num_workers))
             worker_id = worker_info.id
             iter_start = worker_id * per_worker
-            iter_end = iter_start + per_worker
+            iter_end = min(iter_start + per_worker, len(self.data_files))
 
-        buffer = []
         for file_path in self.data_files[iter_start:iter_end]:
             parquet_file = pq.ParquetFile(file_path)
             for batch in parquet_file.iter_batches(
@@ -96,22 +114,10 @@ class MatchDataset(IterableDataset):
                 df_chunk = batch.to_pandas()
                 df_chunk = df_chunk.sample(frac=1).reset_index(drop=True)
 
-                # Process the chunk and add to buffer
+                # Process the chunk and yield individual samples
                 samples = self._get_samples(df_chunk)
-                buffer.extend(samples)
-
-                # Yield full batches
-                while len(buffer) >= PARQUET_READER_BATCH_SIZE:
-                    yield buffer[:PARQUET_READER_BATCH_SIZE]
-                    buffer = buffer[PARQUET_READER_BATCH_SIZE:]
-
-        # Handle remaining samples at the end
-        if buffer:
-            # Pad the last batch with samples from the beginning if needed
-            if len(buffer) < PARQUET_READER_BATCH_SIZE:
-                needed = PARQUET_READER_BATCH_SIZE - len(buffer)
-                buffer.extend(buffer[:needed])  # Reuse samples from the start of buffer
-            yield buffer[:PARQUET_READER_BATCH_SIZE]
+                for sample in samples:  # Changed this line to yield individual samples
+                    yield sample
 
     def _get_samples(self, df_chunk):
         for col, col_def in COLUMNS.items():
