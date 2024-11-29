@@ -37,6 +37,7 @@ class MatchDataset(IterableDataset):
         )
         self.transform = transform
         self.small_dataset = small_dataset
+        self.train_or_test = train_or_test
 
         # If small_dataset is True, only use 5% of the files
         if small_dataset:
