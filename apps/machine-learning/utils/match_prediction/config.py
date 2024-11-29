@@ -19,7 +19,7 @@ class TrainingConfig:
         self.accumulation_steps = 1
         self.masking_strategy = {
             "name": "linear_decay",
-            "params": {"max_value": 9, "decay_factor": 3.0},
+            "params": {"max_value": 9, "decay_factor": 5.0},
         }
 
         self.calculate_val_loss = True
