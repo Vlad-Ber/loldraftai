@@ -16,6 +16,8 @@ const inter = Inter({
   variable: "--font-sans",
 });
 
+const backendUrl = process.env.BACKEND_URL ?? "http://127.0.0.1:8000";
+
 export const metadata: Metadata = {
   title: "Draftking - The Best League of Legends Draft Analysis Tool",
   description:
@@ -23,11 +25,37 @@ export const metadata: Metadata = {
   icons: [{ rel: "icon", url: "/favicon.ico" }],
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  let lastModified = "Unknown";
+  let latestPatch = "Unknown";
+
+  try {
+    // TODO: this is a server component so we call the backend directly, could refactor commong code with metadata/route.ts
+    const response = await fetch(`${backendUrl}/metadata`, {
+      next: { revalidate: 900 }, // Cache for 15 minutes
+    });
+
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+
+    const metadata = await response.json();
+    lastModified = new Date(metadata.last_modified).toLocaleDateString(
+      "en-US",
+      {
+        day: "numeric",
+        month: "long",
+      }
+    );
+    latestPatch = metadata.patches[metadata.patches.length - 1];
+  } catch (error) {
+    console.error("Failed to fetch model metadata:", error);
+  }
+
   return (
     <html lang="en" className="dark" suppressHydrationWarning>
       <body
@@ -63,8 +91,8 @@ export default function RootLayout({
 
           <footer className="border-t border-border/40 bg-card">
             <div className="container p-4 text-center text-sm text-muted-foreground mx-auto">
-              Last model update: 14 March on patch 14.5. Contact looyyd on
-              Discord for bug reports or feature requests.
+              Last model update: {lastModified} on patch {latestPatch}. Contact
+              looyyd on Discord for bug reports or feature requests.
             </div>
           </footer>
         </ThemeProvider>
