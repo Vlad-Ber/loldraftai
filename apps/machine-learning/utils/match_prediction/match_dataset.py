@@ -86,8 +86,8 @@ class MatchDataset(IterableDataset):
             iter_start = worker_id * per_worker
             iter_end = iter_start + per_worker
 
+        buffer = []
         for file_path in self.data_files[iter_start:iter_end]:
-            # Use memory mapping to read the Parquet file
             parquet_file = pq.ParquetFile(file_path)
             for batch in parquet_file.iter_batches(
                 batch_size=PARQUET_READER_BATCH_SIZE
@@ -95,9 +95,22 @@ class MatchDataset(IterableDataset):
                 df_chunk = batch.to_pandas()
                 df_chunk = df_chunk.sample(frac=1).reset_index(drop=True)
 
-                # Process the entire chunk at once
+                # Process the chunk and add to buffer
                 samples = self._get_samples(df_chunk)
-                yield from samples
+                buffer.extend(samples)
+
+                # Yield full batches
+                while len(buffer) >= PARQUET_READER_BATCH_SIZE:
+                    yield buffer[:PARQUET_READER_BATCH_SIZE]
+                    buffer = buffer[PARQUET_READER_BATCH_SIZE:]
+
+        # Handle remaining samples at the end
+        if buffer:
+            # Pad the last batch with samples from the beginning if needed
+            if len(buffer) < PARQUET_READER_BATCH_SIZE:
+                needed = PARQUET_READER_BATCH_SIZE - len(buffer)
+                buffer.extend(buffer[:needed])  # Reuse samples from the start of buffer
+            yield buffer[:PARQUET_READER_BATCH_SIZE]
 
     def _get_samples(self, df_chunk):
         for col, col_def in COLUMNS.items():
