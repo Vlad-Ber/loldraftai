@@ -28,18 +28,25 @@ from utils.match_prediction import (
 class APIInput(BaseModel):
     champion_ids: List[int | Literal["UNKNOWN"]]
     numerical_elo: int
-    patch: str | None = None  # Changed from numerical_patch to patch with string format
+    patch: str | None = None
+    _mapped_patch: int | None = None
 
     @property
     def numerical_patch(self) -> int:
         """Convert patch string (e.g., '14.22') to numerical format"""
+        if self._mapped_patch is not None:
+            return self._mapped_patch
+
         if not self.patch:
             # Find the latest patch from patch_mapping
             latest_patch = max(patch_mapping.keys())
             return int(latest_patch)
-        
-        major, minor = self.patch.split('.')
-        return int(major) * 50 + int(minor)
+
+        major, minor = self.patch.split(".")
+        raw_patch = int(major) * 50 + int(minor)
+        # Store the mapped patch value
+        self._mapped_patch = patch_mapping.get(float(raw_patch), 0)
+        return self._mapped_patch
 
     # TODO: could try adding validator
 
@@ -204,11 +211,6 @@ def preprocess_input(input_data: ModelInput) -> Dict[str, torch.Tensor]:
 
 @app.post("/predict")
 async def predict(api_input: APIInput):
-    raw_patch = api_input.numerical_patch
-    mapped_patch = patch_mapping.get(
-        float(raw_patch), 0
-    )  # Use 0 as fallback for unknown patches
-    api_input.numerical_patch = mapped_patch
     model_input = api_input_to_model_input(api_input)
 
     # Create a future to hold the response
@@ -223,11 +225,6 @@ async def predict(api_input: APIInput):
 
 @app.post("/predict-in-depth")
 async def predict_in_depth(api_input: APIInput):
-    raw_patch = api_input.numerical_patch
-    mapped_patch = patch_mapping.get(
-        float(raw_patch), 0
-    )  # Use 0 as fallback for unknown patches
-    api_input.numerical_patch = mapped_patch
     base_input = api_input_to_model_input(api_input)
 
     # Get the unknown champion ID
