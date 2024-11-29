@@ -1,5 +1,5 @@
 import asyncio
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Response
 from pydantic import BaseModel
 from typing import List, Dict, Literal
 import torch
@@ -7,6 +7,8 @@ import uvicorn
 import pickle
 from pathlib import Path
 from fastapi.middleware.cors import CORSMiddleware
+from datetime import datetime
+import os
 
 from utils.match_prediction.model import SimpleMatchModel
 from utils.match_prediction.column_definitions import COLUMNS, ColumnType
@@ -46,6 +48,11 @@ class InDepthPrediction(BaseModel):
 
 class WinratePrediction(BaseModel):
     win_probability: float
+
+
+class ModelMetadata(BaseModel):
+    patches: List[str]  # List of patches (e.g., ["14.21", "14.22", ...])
+    last_modified: str  # ISO format timestamp
 
 
 def api_input_to_model_input(api_input: APIInput) -> ModelInput:
@@ -274,6 +281,25 @@ async def predict_in_depth(api_input: APIInput):
         gold_diff_15min=calculate_gold_differences(base_result["raw_predictions"]),
         champion_impact=champion_impact,
     )
+
+
+@app.get("/metadata")
+async def get_metadata(response: Response):
+    # Set Cache-Control header for 15 minutes (900 seconds)
+    response.headers["Cache-Control"] = "public, max-age=900"
+
+    # Get model file timestamp
+    model_timestamp = datetime.fromtimestamp(os.path.getmtime(MODEL_PATH))
+
+    # Load patch information
+    patch_info = pickle.load(open(Path(PREPARED_DATA_DIR) / "patch_mapping.pkl", "rb"))
+
+    # Convert raw patch numbers to version strings and sort them
+    patches = sorted(
+        f"{patch // 50}.{patch % 50:02d}" for patch in patch_info["mapping"].keys()
+    )
+
+    return ModelMetadata(patches=patches, last_modified=model_timestamp.isoformat())
 
 
 # Define the background task
