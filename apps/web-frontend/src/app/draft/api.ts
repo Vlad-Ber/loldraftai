@@ -14,14 +14,29 @@ interface Prediction {
   win_probability: number;
 }
 
+interface ModelMetadata {
+  patches: string[];
+  last_modified: string;
+}
+
+export const getModelMetadata = async (): Promise<ModelMetadata> => {
+  const response = await fetch("/api/metadata");
+  if (!response.ok) {
+    throw new Error(`HTTP error! status: ${response.status}`);
+  }
+  return response.json();
+};
+
 export const predictGame = async (
   team1: Team,
   team2: Team,
-  elo: Elo
+  elo: Elo,
+  patch?: string
 ): Promise<Prediction> => {
   const requestBody = {
     champion_ids: [...formatTeamData(team1), ...formatTeamData(team2)],
     numerical_elo: eloToNumerical(elo),
+    patch,
   };
 
   try {
@@ -52,11 +67,13 @@ interface DetailedPrediction {
 export const predictGameInDepth = async (
   team1: Team,
   team2: Team,
-  elo: Elo
+  elo: Elo,
+  patch?: string
 ): Promise<DetailedPrediction> => {
   const requestBody = {
     champion_ids: [...formatTeamData(team1), ...formatTeamData(team2)],
     numerical_elo: eloToNumerical(elo),
+    patch,
   };
 
   const response = await fetch("/api/predict-in-depth", {

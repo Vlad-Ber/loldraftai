@@ -19,6 +19,7 @@ interface BestChampionSuggestionProps {
   favorites: FavoriteChampions;
   remainingChampions: Champion[];
   elo: Elo;
+  patch: string;
 }
 
 interface ChampionWinrate {
@@ -33,6 +34,7 @@ export const BestChampionSuggestion = ({
   favorites,
   remainingChampions,
   elo,
+  patch,
 }: BestChampionSuggestionProps) => {
   const [championData, setChampionData] = useState<ChampionWinrate[]>([]);
   const [loading, setLoading] = useState(false);
@@ -78,7 +80,8 @@ export const BestChampionSuggestion = ({
             const result = await predictGame(
               selectedSpot.teamIndex === 1 ? newTeam : team1,
               selectedSpot.teamIndex === 2 ? newTeam : team2,
-              elo
+              elo,
+              patch
             );
 
             const winrate =
@@ -111,7 +114,7 @@ export const BestChampionSuggestion = ({
     if (selectedSpot) {
       void findBestChampion();
     }
-  }, [selectedSpot, team1, team2, championsIdsToConsider, elo]);
+  }, [selectedSpot, team1, team2, championsIdsToConsider, elo, patch]);
 
   useEffect(() => {
     // Scroll to bottom when analysis is shown

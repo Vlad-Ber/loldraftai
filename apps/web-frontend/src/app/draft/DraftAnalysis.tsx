@@ -8,9 +8,10 @@ interface DraftAnalysisProps {
   team1: Team;
   team2: Team;
   elo: Elo;
+  patch: string;
 }
 
-export const DraftAnalysis = ({ team1, team2, elo }: DraftAnalysisProps) => {
+export const DraftAnalysis = ({ team1, team2, elo, patch }: DraftAnalysisProps) => {
   const [prediction, setPrediction] = useState<{
     win_probability: number;
     gold_diff_15min: number[];
@@ -25,7 +26,7 @@ export const DraftAnalysis = ({ team1, team2, elo }: DraftAnalysisProps) => {
       setLoading(true);
       setError(null);
       try {
-        const result = await predictGameInDepth(team1, team2, elo);
+        const result = await predictGameInDepth(team1, team2, elo, patch);
         setPrediction(result);
       } catch (err) {
         console.error("Error fetching prediction:", err);
@@ -36,7 +37,7 @@ export const DraftAnalysis = ({ team1, team2, elo }: DraftAnalysisProps) => {
     };
 
     void fetchPrediction();
-  }, [team1, team2, elo]);
+  }, [team1, team2, elo, patch]);
 
   return (
     <div className="mt-5 rounded border border-gray-200 p-4">

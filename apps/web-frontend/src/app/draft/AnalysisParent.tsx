@@ -24,6 +24,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import { getModelMetadata } from "./api";
 
 interface AnalysisParentProps {
   team1: Team;
@@ -49,6 +50,29 @@ const EloSelect = ({ elo, setElo }: EloSelectProps) => (
         {elos.map((eloOption) => (
           <SelectItem key={eloOption} value={eloOption}>
             {eloOption.toUpperCase()}
+          </SelectItem>
+        ))}
+      </SelectGroup>
+    </SelectContent>
+  </Select>
+);
+
+interface PatchSelectProps {
+  patch: string;
+  setPatch: (patch: string) => void;
+  patches: string[];
+}
+
+const PatchSelect = ({ patch, setPatch, patches }: PatchSelectProps) => (
+  <Select value={patch} onValueChange={setPatch}>
+    <SelectTrigger>
+      <SelectValue placeholder="Select Patch" />
+    </SelectTrigger>
+    <SelectContent>
+      <SelectGroup>
+        {patches.map((patchOption) => (
+          <SelectItem key={patchOption} value={patchOption}>
+            {patchOption}
           </SelectItem>
         ))}
       </SelectGroup>
@@ -122,6 +146,8 @@ const AnalysisParent = ({
   const [showChampionSuggestion, setShowChampionSuggestion] = useState(false);
   const [showAnalysis, setShowAnalysis] = useState(false);
   const [elo, setElo] = useState<Elo>("emerald");
+  const [patch, setPatch] = useState<string>("");
+  const [patches, setPatches] = useState<string[]>([]);
 
   useEffect(() => {
     // reset when team changes
@@ -148,6 +174,20 @@ const AnalysisParent = ({
     }
   }, [showAnalysis]);
 
+  useEffect(() => {
+    const fetchMetadata = async () => {
+      try {
+        const metadata = await getModelMetadata();
+        setPatches(metadata.patches);
+        // Set to latest patch by default
+        setPatch(metadata.patches[metadata.patches.length - 1]);
+      } catch (error) {
+        console.error("Failed to fetch patches:", error);
+      }
+    };
+    void fetchMetadata();
+  }, []);
+
   const toggleChampionSuggestion = () => {
     setShowChampionSuggestion(!showChampionSuggestion);
   };
@@ -167,6 +207,11 @@ const AnalysisParent = ({
         <div className="flex w-full p-1 sm:w-auto">
           <div className="flex-1">
             <EloSelect elo={elo} setElo={setElo} />
+          </div>
+        </div>
+        <div className="flex w-full p-1 sm:w-auto">
+          <div className="flex-1">
+            <PatchSelect patch={patch} setPatch={setPatch} patches={patches} />
           </div>
         </div>
         <div className="flex w-full p-1 sm:w-auto">
@@ -191,7 +236,9 @@ const AnalysisParent = ({
         </div>
       </div>
 
-      {showAnalysis && <DraftAnalysis team1={team1} team2={team2} elo={elo} />}
+      {showAnalysis && (
+        <DraftAnalysis team1={team1} team2={team2} elo={elo} patch={patch} />
+      )}
 
       {showChampionSuggestion && selectedSpot && (
         <BestChampionSuggestion
@@ -201,6 +248,7 @@ const AnalysisParent = ({
           favorites={favorites}
           remainingChampions={remainingChampions}
           elo={elo}
+          patch={patch}
         />
       )}
     </div>
