@@ -69,10 +69,9 @@ def api_input_to_model_input(api_input: APIInput) -> ModelInput:
 app = FastAPI()
 
 # Add CORS middleware configuration right after creating the FastAPI app
-# TODO: configure with env variables for prod
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000"],  # Add your frontend URL here
+    allow_origins=["*"],  # Allow all origins
     allow_credentials=True,
     allow_methods=["*"],  # Allows all methods
     allow_headers=["*"],  # Allows all headers
@@ -95,6 +94,7 @@ with open(MODEL_CONFIG_PATH, "rb") as f:
 
 # Load the model
 device = get_best_device()
+device = "cpu"
 print(f"Using device: {device}")
 
 model = SimpleMatchModel(
