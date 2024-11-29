@@ -100,7 +100,8 @@ def compute_stats(data_files):
 def compute_patch_mapping(input_files: List[str]) -> Dict[float, int]:
     """
     Analyze all files to create a mapping for patch numbers.
-    Returns a dictionary mapping original patch numbers to normalized ones.
+    Takes the 5 most recent patches, mapping any patch with <200k games to the previous patch.
+    Returns a dictionary mapping original patch numbers to normalized ones (1-5).
     """
     patch_counts = defaultdict(int)
 
@@ -113,42 +114,35 @@ def compute_patch_mapping(input_files: List[str]) -> Dict[float, int]:
 
     all_patches = sorted(patch_counts.keys())  # All patches in chronological order
 
-    # Find significant patches (>200k games)
-    significant_patches = [
-        patch for patch in all_patches if patch_counts[patch] > 200000
-    ]
+    # Get the last 5 patches
+    recent_patches = all_patches[-5:]
+    if len(recent_patches) < 5:
+        raise ValueError("Not enough patches in the dataset!")
 
-    if not significant_patches:
-        raise ValueError("No patches have more than 200k games!")
-
-    # Create the normalized mapping (1 to N) for significant patches
-    normalized_values = {patch: i + 1 for i, patch in enumerate(significant_patches)}
-
-    # Create mapping for ALL patches to their nearest significant patch value
+    # Create mapping, handling low-data patches
     patch_mapping = {}
-    for patch in all_patches:
-        if patch in normalized_values:
-            # If it's a significant patch, use its normalized value
-            patch_mapping[patch] = normalized_values[patch]
+    normalized_value = 1
+    previous_significant_patch = None
+
+    # Process patches from oldest to newest of the last 5
+    for patch in recent_patches:
+        if patch_counts[patch] > 200000:
+            # This is a significant patch
+            patch_mapping[patch] = normalized_value
+            previous_significant_patch = patch
+            normalized_value += 1
+        elif previous_significant_patch is not None:
+            # Map to previous significant patch
+            patch_mapping[patch] = patch_mapping[previous_significant_patch]
         else:
-            # Find the nearest significant patch
-            # Calculate distances to all significant patches
-            distances = [
-                (abs(patch - sig_patch), sig_patch) for sig_patch in significant_patches
-            ]
-            # Get the nearest significant patch
-            _, nearest_sig_patch = min(distances)
-            # Map to the normalized value of the nearest significant patch
-            patch_mapping[patch] = normalized_values[nearest_sig_patch]
+            # First patch has low data, shouldn't happen with 5 patches
+            raise ValueError(f"First patch {patch} has insufficient data!")
 
     # Log the mapping for transparency
-    print("\nPatch mapping:")
+    print("\nPatch mapping (last 5 patches):")
     for patch in sorted(patch_mapping.keys()):
-        mapped_to = patch_mapping[patch]
-        original_patch = significant_patches[mapped_to - 1]
-        print(
-            f"Patch {patch:.2f} -> {mapped_to} (mapped to {original_patch:.2f}, {patch_counts[patch]} games)"
-        )
+        mapped_value = patch_mapping[patch]
+        print(f"Patch {patch:.2f} -> {mapped_value} ({patch_counts[patch]} games)")
 
     return patch_mapping, patch_counts
 
@@ -218,6 +212,7 @@ def prepare_data(
 def add_computed_columns(input_files: List[str], output_dir: str) -> List[str]:
     """
     Add computed columns to parquet files and save them to a new directory.
+    Only includes games from the last 5 patches.
     Returns the list of new file paths.
     """
     os.makedirs(output_dir, exist_ok=True)
@@ -235,7 +230,14 @@ def add_computed_columns(input_files: List[str], output_dir: str) -> List[str]:
 
         # Calculate raw patch numbers
         raw_patches = df["gameVersionMajorPatch"] * 50 + df["gameVersionMinorPatch"]
+
+        # Filter for games only in the patch mapping (last 5 patches)
         df["numerical_patch"] = raw_patches.map(lambda x: patch_mapping.get(x, 0))
+        df = df[df["numerical_patch"] > 0]  # Remove games from old patches
+
+        # Skip empty dataframes
+        if len(df) == 0:
+            continue
 
         # Apply all getters to create new columns
         for col, col_def in COLUMNS.items():

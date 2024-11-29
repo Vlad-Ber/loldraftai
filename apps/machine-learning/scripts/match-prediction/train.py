@@ -52,7 +52,7 @@ torch.set_float32_matmul_precision("high")
 
 device = get_best_device()
 
-if device.type == "mps":
+if device.type == "mps" or device.type == "cpu":
     DATALOADER_WORKERS = (
         1  # Fastest with 1 or 2 might be because of mps performance cores
     )
@@ -128,7 +128,7 @@ def init_model(
         pickle.dump(model_params, f)
 
     model.to(device)
-    if device != torch.device("mps"):
+    if device == torch.device("cuda"):
         print("Compiling model")
         model = torch.compile(model)
         print("Model compiled")
