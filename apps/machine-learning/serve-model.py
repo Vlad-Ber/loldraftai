@@ -331,7 +331,7 @@ async def model_inference_worker():
             for key in processed_inputs[0].keys()
         }
 
-        with torch.no_grad():
+        with torch.inference_mode():
             output = model(batched_input)
 
         win_probabilities = (
