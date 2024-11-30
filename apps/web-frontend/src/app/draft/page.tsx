@@ -42,6 +42,28 @@ const DRAFT_ORDERS = {
 
 type DraftOrderKey = keyof typeof DRAFT_ORDERS;
 
+function getNextPickingTeam(
+  teamOne: Team,
+  teamTwo: Team,
+  pickOrder: readonly number[]
+): "BLUE" | "RED" | null {
+  const teamOneLength = Object.values(teamOne).filter(
+    (c) => c !== undefined
+  ).length;
+  const teamTwoLength = Object.values(teamTwo).filter(
+    (c) => c !== undefined
+  ).length;
+  const championsPicked = teamOneLength + teamTwoLength;
+
+  if (championsPicked >= 10) return null;
+
+  if (pickOrder[championsPicked] === 0) {
+    return teamOneLength >= 5 ? "RED" : "BLUE";
+  } else {
+    return teamTwoLength >= 5 ? "BLUE" : "RED";
+  }
+}
+
 export default function Draft() {
   const [remainingChampions, setRemainingChampions] =
     useState<Champion[]>(champions);
@@ -173,39 +195,15 @@ export default function Draft() {
       setSelectedSpot(null);
       return;
     }
-    const pickOrder = DRAFT_ORDERS[selectedDraftOrder];
 
-    const teamOneLength = Object.values(teamOne).filter(
-      (c) => c !== undefined
-    ).length;
-    const teamTwoLength = Object.values(teamTwo).filter(
-      (c) => c !== undefined
-    ).length;
-    const championsPicked = teamOneLength + teamTwoLength;
-    if (championsPicked >= 10) {
-      return;
-    }
+    const pickOrder = DRAFT_ORDERS[selectedDraftOrder];
+    const nextTeam = getNextPickingTeam(teamOne, teamTwo, pickOrder);
+    if (!nextTeam) return;
 
     const champions = remainingChampions.filter((c) => c.id !== champion.id);
     setRemainingChampions(champions);
 
-    //add according to pick order, unless the team is full
-    let teamToAddToIndex: number;
-    if (pickOrder[championsPicked] === 0) {
-      //team one's turn
-      if (teamOneLength >= 5) {
-        teamToAddToIndex = 1;
-      } else {
-        teamToAddToIndex = 0;
-      }
-    } else {
-      //team two's turn
-      if (teamTwoLength >= 5) {
-        teamToAddToIndex = 0;
-      } else {
-        teamToAddToIndex = 1;
-      }
-    }
+    const teamToAddToIndex = nextTeam === "BLUE" ? 0 : 1;
     const potentialRoles = getChampionRoles(champion.id, currentPatch);
 
     const potentialRolesIndexes = potentialRoles.map(
@@ -267,6 +265,32 @@ export default function Draft() {
     return champions;
   };
 
+  const getStatusMessage = () => {
+    if (selectedSpot) {
+      const team = selectedSpot.teamIndex === 1 ? "BLUE" : "RED";
+      const teamClass =
+        selectedSpot.teamIndex === 1 ? "text-blue-500" : "text-red-500";
+      return (
+        <span>
+          Next Pick: <span className={teamClass}>{team}</span> SELECTED SPOT
+        </span>
+      );
+    }
+    const nextTeam = getNextPickingTeam(
+      teamOne,
+      teamTwo,
+      DRAFT_ORDERS[selectedDraftOrder]
+    );
+    if (!nextTeam) return "Draft Complete";
+
+    const teamClass = nextTeam === "BLUE" ? "text-blue-500" : "text-red-500";
+    return (
+      <span>
+        Next Pick: <span className={teamClass}>{nextTeam}</span> TEAM
+      </span>
+    );
+  };
+
   return (
     <main className="flex min-h-screen w-full flex-col items-center">
       <div className="mx-auto">
@@ -297,6 +321,10 @@ export default function Draft() {
           </Button>
         </div>
         <HelpModal isOpen={showHelpModal} closeHandler={closeHelpModal} />
+
+        <div className="text-center text-lg font-semibold mb-4">
+          {getStatusMessage()}
+        </div>
 
         <div className="flex flex-wrap items-stretch justify-evenly">
           <div className="flex w-full justify-between">
