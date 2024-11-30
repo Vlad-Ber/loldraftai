@@ -15,12 +15,7 @@ import type {
   SelectedSpot,
   FavoriteChampions,
 } from "@/app/types";
-import {
-  champions,
-  roleToIndexMap,
-  getChampionRoles,
-  sortedPatches,
-} from "@/app/champions";
+import { champions, roleToIndexMap, getChampionRoles } from "@/app/champions";
 import Cookies from "js-cookie";
 import {
   Select,
