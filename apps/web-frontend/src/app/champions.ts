@@ -1,4 +1,4 @@
-import playRatesData from "./config/champion_play_rates.json";
+import championPlayRates from "./config/champion_play_rates.json";
 import type { Champion } from "./types";
 
 export const roleToIndexMap: { [key: string]: number } = {
@@ -206,26 +206,58 @@ export const getChampionById = (id: number): Champion | undefined => {
 };
 
 interface PlayRates {
-  [role: string]: number;
+  TOP: number;
+  JUNGLE: number;
+  MIDDLE: number;
+  BOTTOM: number;
+  UTILITY: number;
+}
+
+interface PatchPlayRates {
+  [championId: string]: PlayRates;
 }
 
 interface ChampionPlayRates {
-  [champion: string]: PlayRates;
+  [patch: string]: PatchPlayRates;
 }
 
-// Process the data to build the championToRolesMap
-const championToRolesMap: { [key: string]: string[] } = {};
+const playRatesData = championPlayRates as ChampionPlayRates;
 
-export const championPlayRates = playRatesData as ChampionPlayRates;
+// Get sorted patches for easy access to latest data
+export const sortedPatches = Object.keys(playRatesData).sort((a, b) => {
+  const [aMajor, aMinor] = a.split(".").map(Number);
+  const [bMajor, bMinor] = b.split(".").map(Number);
+  return bMajor === aMajor ? bMinor - aMinor : bMajor - aMajor;
+});
 
-for (const champion in championPlayRates) {
-  const playRates = championPlayRates[champion];
-  if (!playRates) continue; // Skip if playRates is undefined
+// Helper function to get champion play rates for a specific patch
+function getChampionPlayRates(
+  championId: number,
+  patch: string
+): PlayRates | undefined {
+  // Try to get rates for specified patch
+  const patchRates = playRatesData[patch]?.[championId.toString()];
+  if (patchRates) return patchRates;
 
-  const roles = Object.entries(playRates)
-    .sort((a, b) => b[1] - a[1]) // Sort roles by play rate in descending order
-    .map(([role]) => role); // Extract the role names
-  championToRolesMap[champion] = roles;
+  // If not found, try latest patch
+  for (const availablePatch of sortedPatches) {
+    const rates = playRatesData[availablePatch]?.[championId.toString()];
+    if (rates) return rates;
+  }
+
+  // If still not found, return undefined
+  return undefined;
 }
 
-export { championToRolesMap };
+// Process the data to build the championToRolesMap for a specific patch
+export function getChampionRoles(championId: number, patch: string): string[] {
+  const playRates = getChampionPlayRates(championId, patch);
+
+  if (!playRates) {
+    return ["TOP"]; // Default to TOP if no play rate data available
+  }
+
+  return Object.entries(playRates)
+    .sort((a, b) => b[1] - a[1])
+    .map(([role]) => role);
+}

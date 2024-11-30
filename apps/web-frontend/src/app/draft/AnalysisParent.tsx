@@ -25,6 +25,7 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { getModelMetadata } from "./api";
+import { useDraftStore } from "@/app/stores/draftStore";
 
 interface AnalysisParentProps {
   team1: Team;
@@ -57,28 +58,26 @@ const EloSelect = ({ elo, setElo }: EloSelectProps) => (
   </Select>
 );
 
-interface PatchSelectProps {
-  patch: string;
-  setPatch: (patch: string) => void;
-  patches: string[];
-}
+const PatchSelect = () => {
+  const { currentPatch, patches, setCurrentPatch } = useDraftStore();
 
-const PatchSelect = ({ patch, setPatch, patches }: PatchSelectProps) => (
-  <Select value={patch} onValueChange={setPatch}>
-    <SelectTrigger>
-      <SelectValue placeholder="Select Patch" />
-    </SelectTrigger>
-    <SelectContent>
-      <SelectGroup>
-        {patches.map((patchOption) => (
-          <SelectItem key={patchOption} value={patchOption}>
-            {patchOption}
-          </SelectItem>
-        ))}
-      </SelectGroup>
-    </SelectContent>
-  </Select>
-);
+  return (
+    <Select value={currentPatch} onValueChange={setCurrentPatch}>
+      <SelectTrigger>
+        <SelectValue placeholder="Select Patch" />
+      </SelectTrigger>
+      <SelectContent>
+        <SelectGroup>
+          {patches.map((patchOption) => (
+            <SelectItem key={patchOption} value={patchOption}>
+              {patchOption}
+            </SelectItem>
+          ))}
+        </SelectGroup>
+      </SelectContent>
+    </Select>
+  );
+};
 
 interface AnalyzeDraftButtonProps {
   toggleAnalyzeDraft: () => void;
@@ -146,8 +145,7 @@ const AnalysisParent = ({
   const [showChampionSuggestion, setShowChampionSuggestion] = useState(false);
   const [showAnalysis, setShowAnalysis] = useState(false);
   const [elo, setElo] = useState<Elo>("emerald");
-  const [patch, setPatch] = useState<string>("");
-  const [patches, setPatches] = useState<string[]>([]);
+  const { currentPatch, setPatchList } = useDraftStore();
 
   useEffect(() => {
     // reset when team changes
@@ -178,15 +176,13 @@ const AnalysisParent = ({
     const fetchMetadata = async () => {
       try {
         const metadata = await getModelMetadata();
-        setPatches(metadata.patches);
-        // Set to latest patch by default
-        setPatch(metadata.patches[metadata.patches.length - 1]);
+        setPatchList(metadata.patches);
       } catch (error) {
         console.error("Failed to fetch patches:", error);
       }
     };
     void fetchMetadata();
-  }, []);
+  }, [setPatchList]);
 
   const toggleChampionSuggestion = () => {
     setShowChampionSuggestion(!showChampionSuggestion);
@@ -211,7 +207,7 @@ const AnalysisParent = ({
         </div>
         <div className="flex w-full p-1 sm:w-auto">
           <div className="flex-1">
-            <PatchSelect patch={patch} setPatch={setPatch} patches={patches} />
+            <PatchSelect />
           </div>
         </div>
         <div className="flex w-full p-1 sm:w-auto">
@@ -237,7 +233,12 @@ const AnalysisParent = ({
       </div>
 
       {showAnalysis && (
-        <DraftAnalysis team1={team1} team2={team2} elo={elo} patch={patch} />
+        <DraftAnalysis
+          team1={team1}
+          team2={team2}
+          elo={elo}
+          patch={currentPatch}
+        />
       )}
 
       {showChampionSuggestion && selectedSpot && (
@@ -248,7 +249,7 @@ const AnalysisParent = ({
           favorites={favorites}
           remainingChampions={remainingChampions}
           elo={elo}
-          patch={patch}
+          patch={currentPatch}
         />
       )}
     </div>

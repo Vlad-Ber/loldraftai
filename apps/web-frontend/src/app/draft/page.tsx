@@ -15,7 +15,12 @@ import type {
   SelectedSpot,
   FavoriteChampions,
 } from "@/app/types";
-import { champions, championToRolesMap, roleToIndexMap } from "@/app/champions";
+import {
+  champions,
+  roleToIndexMap,
+  getChampionRoles,
+  sortedPatches,
+} from "@/app/champions";
 import Cookies from "js-cookie";
 import {
   Select,
@@ -24,6 +29,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { useDraftStore } from "@/app/stores/draftStore";
 
 const emptyTeam: Team = {
   0: undefined,
@@ -60,6 +66,7 @@ export default function Draft() {
   const [showHelpModal, setShowHelpModal] = useState(false);
   const [selectedDraftOrder, setSelectedDraftOrder] =
     useState<DraftOrderKey>("Draft Order");
+  const { currentPatch } = useDraftStore();
 
   const openHelpModal = () => setShowHelpModal(true);
   const closeHelpModal = () => setShowHelpModal(false);
@@ -204,10 +211,8 @@ export default function Draft() {
         teamToAddToIndex = 1;
       }
     }
-    let potentialRoles = championToRolesMap[champion.searchName];
-    if (!potentialRoles) {
-      potentialRoles = [];
-    }
+    const potentialRoles = getChampionRoles(champion.id, currentPatch);
+
     const potentialRolesIndexes = potentialRoles.map(
       (role) => roleToIndexMap[role]
     );
@@ -291,6 +296,7 @@ export default function Draft() {
               ))}
             </SelectContent>
           </Select>
+
           <Button variant="outline" onClick={openHelpModal}>
             Help
           </Button>
