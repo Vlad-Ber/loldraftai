@@ -120,7 +120,7 @@ const ChampionGrid = ({
   useEffect(() => {
     const timeoutId = setTimeout(() => {
       debouncedFilter(searchTerm);
-    }, 300); // 300ms delay
+    }, 100);
 
     return () => clearTimeout(timeoutId);
   }, [searchTerm, debouncedFilter]);
