@@ -64,6 +64,14 @@ function getNextPickingTeam(
   }
 }
 
+declare global {
+  interface Window {
+    electron: {
+      getChampSelect: () => Promise<any>;
+    };
+  }
+}
+
 export default function Draft() {
   const [remainingChampions, setRemainingChampions] =
     useState<Champion[]>(champions);
@@ -84,6 +92,7 @@ export default function Draft() {
   const [selectedDraftOrder, setSelectedDraftOrder] =
     useState<DraftOrderKey>("Draft Order");
   const { currentPatch } = useDraftStore();
+  const [isLiveTracking, setIsLiveTracking] = useState(false);
 
   const openHelpModal = () => setShowHelpModal(true);
   const closeHelpModal = () => setShowHelpModal(false);
@@ -291,12 +300,113 @@ export default function Draft() {
     );
   };
 
+  useEffect(() => {
+    let intervalId: NodeJS.Timeout;
+
+    const addChampionToTeam = (
+      champion: Champion,
+      targetTeam: Team,
+      setTeamFn: (team: Team) => void
+    ) => {
+      const potentialRoles = getChampionRoles(champion.id, currentPatch);
+      const potentialRolesIndexes = potentialRoles.map(
+        (role) => roleToIndexMap[role]
+      );
+
+      // Add remaining indexes
+      for (let i = 0; i < 5; i++) {
+        if (!potentialRolesIndexes.includes(i)) {
+          potentialRolesIndexes.push(i);
+        }
+      }
+
+      // Add to first available spot
+      for (const roleIndex of potentialRolesIndexes) {
+        if (!targetTeam[roleIndex as ChampionIndex]) {
+          setTeamFn({
+            ...targetTeam,
+            [roleIndex]: champion,
+          });
+          setRemainingChampions((prev) =>
+            prev.filter((c) => c.id !== champion.id)
+          );
+          break;
+        }
+      }
+    };
+
+    async function updateFromLiveGame() {
+      try {
+        const champSelect = await window.electron.getChampSelect();
+        if (!champSelect) {
+          setIsLiveTracking(false);
+          return;
+        }
+
+        // Process all players
+        const allPlayers = [...champSelect.myTeam, ...champSelect.theirTeam];
+
+        for (const player of allPlayers) {
+          if (player.championId === 0) continue;
+
+          const champion = champions.find((c) => c.id === player.championId);
+          if (!champion) continue;
+
+          const targetTeam = player.team === 1 ? teamOne : teamTwo;
+          const setTeamFn = player.team === 1 ? setTeamOne : setTeamTwo;
+
+          // Skip if champion is already in team
+          const isAlreadyInTeam = Object.values(targetTeam).some(
+            (c) => c && c.id === champion.id
+          );
+          if (isAlreadyInTeam) continue;
+
+          addChampionToTeam(champion, targetTeam, setTeamFn);
+        }
+
+        // Check if draft is complete
+        if (champSelect.timer.phase === "GAME_STARTING") {
+          setIsLiveTracking(false);
+        }
+      } catch (error) {
+        console.error("Error updating from live game:", error);
+        setIsLiveTracking(false);
+      }
+    }
+
+    if (isLiveTracking) {
+      // Initial update
+      updateFromLiveGame();
+      // Set up interval
+      intervalId = setInterval(updateFromLiveGame, 1000);
+    }
+
+    return () => {
+      if (intervalId) {
+        clearInterval(intervalId);
+      }
+    };
+  }, [isLiveTracking, currentPatch, champions]);
+
+  const toggleLiveTracking = () => {
+    if (!isLiveTracking) {
+      resetDraft();
+    }
+    setIsLiveTracking(!isLiveTracking);
+  };
+
   return (
     <main className="flex w-full flex-col items-center">
       <div className="mx-auto">
         <div className="flex gap-2 mb-4">
           <Button variant="outline" onClick={resetDraft}>
             Reset Draft
+          </Button>
+          <Button
+            variant={isLiveTracking ? "destructive" : "outline"}
+            onClick={toggleLiveTracking}
+          >
+            {isLiveTracking ? "Stop Live Tracking" : "Start Live Tracking"}
           </Button>
           <Select
             value={selectedDraftOrder}
