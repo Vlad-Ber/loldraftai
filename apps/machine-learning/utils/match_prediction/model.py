@@ -68,7 +68,7 @@ class SimpleMatchModel(nn.Module):
                 [
                     nn.Linear(prev_dim, hidden_dim, bias=False),
                     nn.BatchNorm1d(hidden_dim),
-                    nn.ReLU(),
+                    nn.GELU(),
                     nn.Dropout(dropout),
                 ]
             )

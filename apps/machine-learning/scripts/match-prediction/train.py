@@ -21,6 +21,7 @@ import wandb
 from torch.utils.data import DataLoader
 import argparse
 
+from torch.optim.lr_scheduler import OneCycleLR
 
 from utils.match_prediction.match_dataset import MatchDataset
 from utils.match_prediction.model import SimpleMatchModel
@@ -139,10 +140,16 @@ def init_model(
     return model
 
 
+def apply_label_smoothing(labels: torch.Tensor, smoothing: float = 0.2) -> torch.Tensor:
+    # Apply label smoothing
+    return labels * (1 - smoothing) + 0.5 * smoothing
+
+
 def train_epoch(
     model: SimpleMatchModel,
     train_loader: DataLoader,
     optimizer: optim.Optimizer,
+    scheduler: Optional[OneCycleLR],
     criterion: Dict[str, nn.Module],
     config: TrainingConfig,
     device: torch.device,
@@ -160,6 +167,11 @@ def train_epoch(
         features = {k: v.to(device, non_blocking=True) for k, v in features.items()}
         labels = {k: v.to(device, non_blocking=True) for k, v in labels.items()}
 
+        # Apply label smoothing to binary classification labels
+        for task_name, task_def in TASKS.items():
+            if task_def.task_type == TaskType.BINARY_CLASSIFICATION:
+                labels[task_name] = apply_label_smoothing(labels[task_name])
+
         optimizer.zero_grad()
         with torch.autocast(device_type="cuda", dtype=torch.bfloat16):
             outputs = model(features)
@@ -176,13 +188,20 @@ def train_epoch(
         if (batch_idx + 1) % config.accumulation_steps == 0:
             grad_norm = clip_grad_norm_(model.parameters(), config.max_grad_norm)
             optimizer.step()
+            if scheduler is not None:
+                scheduler.step()
             optimizer.zero_grad()
 
             if (
                 (batch_idx + 1) // config.accumulation_steps
             ) % 20 == 0 and config.log_wandb:
+                current_lr = (
+                    scheduler.get_last_lr()[0]
+                    if scheduler
+                    else optimizer.param_groups[0]["lr"]
+                )
                 log_training_step(
-                    epoch, batch_idx, grad_norm, losses, task_names, config
+                    epoch, batch_idx, grad_norm, losses, task_names, config, current_lr
                 )
 
         epoch_loss += total_loss.item()
@@ -247,12 +266,14 @@ def log_training_step(
     losses: torch.Tensor,
     task_names: List[str],
     config: TrainingConfig,
+    current_lr: float,
 ) -> None:
     if config.log_wandb:
         log_data = {
             "epoch": epoch + 1,
             "batch": (batch_idx + 1) // config.accumulation_steps,
             "grad_norm": grad_norm,
+            "learning_rate": current_lr,
         }
         log_data.update(
             {f"train_loss_{k}": v.item() for k, v in zip(task_names, losses)}
@@ -370,7 +391,7 @@ def train_model(
     criterion = {}
     for task_name, task_def in TASKS.items():
         if task_def.task_type == TaskType.BINARY_CLASSIFICATION:
-            criterion[task_name] = nn.BCEWithLogitsLoss()
+            criterion[task_name] = nn.BCEWithLogitsLoss()  # Remove label_smoothing here
         elif task_def.task_type == TaskType.REGRESSION:
             criterion[task_name] = nn.MSELoss()
         elif task_def.task_type == TaskType.MULTICLASS_CLASSIFICATION:
@@ -383,11 +404,31 @@ def train_model(
         fused=fused,
     )
 
+    # Initialize scheduler
+    if config.use_one_cycle_lr:
+        scheduler = OneCycleLR(
+            optimizer,
+            max_lr=config.max_lr,
+            epochs=config.num_epochs,
+            steps_per_epoch=len(train_loader),
+            pct_start=config.pct_start,
+            div_factor=config.div_factor,
+            final_div_factor=config.final_div_factor,
+            anneal_strategy="cos",  # cosine annealing
+        )
+
     for epoch in range(config.num_epochs):
         epoch_start_time = time.time()
 
         epoch_loss, epoch_steps = train_epoch(
-            model, train_loader, optimizer, criterion, config, device, epoch
+            model,
+            train_loader,
+            optimizer,
+            scheduler if config.use_one_cycle_lr else None,  # Pass scheduler
+            criterion,
+            config,
+            device,
+            epoch,
         )
         avg_loss = epoch_loss / epoch_steps * config.accumulation_steps
 

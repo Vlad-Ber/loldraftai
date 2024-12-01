@@ -14,7 +14,7 @@ class TrainingConfig:
         self.dropout = 0.1
         # weight decay didn't change much when training for a short time at 0.001, but for longer trianing runs, 0.01 might be better
         self.weight_decay = 0.01
-        self.learning_rate = 1e-3
+        self.learning_rate = 5e-2
         self.max_grad_norm = 1.0
         self.accumulation_steps = 1
         self.masking_strategy = {
@@ -25,6 +25,13 @@ class TrainingConfig:
         self.calculate_val_loss = True
         self.calculate_val_win_prediction_only = True
         self.log_wandb = True
+
+        # Add OneCycleLR parameters
+        self.use_one_cycle_lr = False
+        self.max_lr = 2e-3
+        self.pct_start = 0.3  # 30% of training for warmup
+        self.div_factor = 25.0  # initial_lr = max_lr/div_factor
+        self.final_div_factor = 1e4  # final_lr = max_lr/(div_factor * final_div_factor)
 
     def update_from_json(self, json_file: str):
         with open(json_file, "r") as f:
