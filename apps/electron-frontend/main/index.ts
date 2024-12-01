@@ -1,29 +1,88 @@
 import { app, BrowserWindow, ipcMain } from "electron";
+import { exec } from "child_process";
 import * as path from "path";
-import * as url from "url";
 import fetch from "node-fetch";
 import https from "https";
+import * as fs from "fs";
+import * as os from "os";
+import * as url from "url";
 
 let mainWindow: BrowserWindow | null = null;
+
+interface LeagueCredentials {
+  port: string;
+  password: string;
+}
+
+async function getLeagueCredentials(): Promise<LeagueCredentials | null> {
+  const platform = os.platform();
+
+  if (platform === "darwin") {
+    // macOS: Read lockfile from default installation path
+    try {
+      const lockfilePath = path.join(
+        "/Applications",
+        "League of Legends.app",
+        "Contents",
+        "LoL",
+        "lockfile"
+      );
+      const lockfile = fs.readFileSync(lockfilePath, "utf8");
+      const [, , port, password] = lockfile.split(":");
+      return { port, password };
+    } catch (error) {
+      console.error("Error reading lockfile:", error);
+      return null;
+    }
+  } else if (platform === "win32") {
+    // Windows: Use wmic to get credentials from command line
+    return new Promise((resolve) => {
+      exec(
+        "wmic PROCESS WHERE name='LeagueClientUx.exe' GET commandline",
+        (error, stdout) => {
+          if (error) {
+            console.error("Error getting League process:", error);
+            resolve(null);
+            return;
+          }
+
+          const port = stdout.match(/--app-port=([0-9]+)/)?.[1];
+          const password = stdout.match(/--remoting-auth-token=([\w-]+)/)?.[1];
+
+          if (port && password) {
+            resolve({ port, password });
+          } else {
+            resolve(null);
+          }
+        }
+      );
+    });
+  }
+
+  console.error("Unsupported platform:", platform);
+  return null;
+}
 
 // Create an HTTPS agent that ignores self-signed certificates
 const httpsAgent = new https.Agent({
   rejectUnauthorized: false,
 });
 
-// Add this function to handle League client requests
 async function getChampSelect() {
   try {
-    // League client uses basic auth with 'riot' as username
-    const credentials = Buffer.from(
-      "riot:" + process.env.LEAGUE_CLIENT_PASSWORD
-    ).toString("base64");
+    const credentials = await getLeagueCredentials();
+    if (!credentials) {
+      throw new Error("League client not running or credentials not found");
+    }
+
+    const { port, password } = credentials;
+    const auth = Buffer.from(`riot:${password}`).toString("base64");
 
     const response = await fetch(
-      "https://127.0.0.1:2999/lol-champ-select/v1/session",
+      `https://127.0.0.1:${port}/lol-champ-select/v1/session`,
       {
         headers: {
-          Authorization: `Basic ${credentials}`,
+          Authorization: `Basic ${auth}`,
         },
         agent: httpsAgent,
       }
