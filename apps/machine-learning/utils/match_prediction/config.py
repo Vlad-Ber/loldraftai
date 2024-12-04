@@ -27,7 +27,7 @@ class TrainingConfig:
         self.log_wandb = True
 
         # Add OneCycleLR parameters
-        self.use_one_cycle_lr = False
+        self.use_one_cycle_lr = True
         self.max_lr = 2e-3
         self.pct_start = 0.3  # 30% of training for warmup
         self.div_factor = 25.0  # initial_lr = max_lr/div_factor
