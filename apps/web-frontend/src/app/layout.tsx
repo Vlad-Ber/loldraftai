@@ -16,14 +16,16 @@ const inter = Inter({
   variable: "--font-sans",
 });
 
-const backendUrl = process.env.INFERENCE_BACKEND_URL ?? "http://127.0.0.1:8000";
-
 export const metadata: Metadata = {
   title: "Draftking - The Best League of Legends Draft Analysis Tool",
   description:
     "Draftking is a tool for analyzing League of Legends drafts. Use it to select the best champion and win your draft!",
   icons: [{ rel: "icon", url: "/favicon.ico" }],
 };
+
+// Set segment config for the route
+export const dynamic = "force-dynamic";
+export const revalidate = 900; // 15 minutes
 
 export default async function RootLayout({
   children,
@@ -34,10 +36,11 @@ export default async function RootLayout({
   let latestPatch = "Unknown";
 
   try {
-    // TODO: this is a server component so we call the backend directly, could refactor commong code with metadata/route.ts
-    const response = await fetch(`${backendUrl}/metadata`, {
-      next: { revalidate: 900 }, // Cache for 15 minutes
-    });
+    // Call our internal API, server components need absolute URLs
+    const baseUrl = process.env.VERCEL_URL
+      ? `https://${process.env.VERCEL_URL}`
+      : "http://localhost:3000";
+    const response = await fetch(`${baseUrl}/api/metadata`);
 
     if (!response.ok) {
       throw new Error(`HTTP error! status: ${response.status}`);
