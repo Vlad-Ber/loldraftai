@@ -16,7 +16,7 @@ const inter = Inter({
   variable: "--font-sans",
 });
 
-const backendUrl = process.env.BACKEND_URL ?? "http://127.0.0.1:8000";
+const backendUrl = process.env.INFERENCE_BACKEND_URL ?? "http://127.0.0.1:8000";
 
 export const metadata: Metadata = {
   title: "Draftking - The Best League of Legends Draft Analysis Tool",
