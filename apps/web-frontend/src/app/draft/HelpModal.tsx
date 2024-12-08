@@ -4,7 +4,7 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
-} from "@/components/ui/dialog";
+} from "@draftking/ui/components/ui/dialog";
 import {
   CursorArrowRaysIcon,
   StarIcon,

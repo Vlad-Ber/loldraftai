@@ -9,7 +9,7 @@ import {
   NavigationMenuItem,
   NavigationMenuLink,
   navigationMenuTriggerStyle,
-} from "@/components/ui/navigation-menu";
+} from "@draftking/ui/components/ui/navigation-menu";
 
 const inter = Inter({
   subsets: ["latin"],

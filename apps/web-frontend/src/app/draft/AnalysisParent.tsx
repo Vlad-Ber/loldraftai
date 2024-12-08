@@ -1,5 +1,19 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { Button } from "@/components/ui/button";
+import {
+  Select,
+  SelectContent,
+  SelectGroup,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@draftking/ui/components/ui/select";
+import { Button } from "@draftking/ui/components/ui/button";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@draftking/ui/components/ui/tooltip";
 import type {
   Champion,
   Team,
@@ -10,20 +24,6 @@ import type {
 import { championIndexToFavoritesPosition, elos } from "@/app/types";
 import { DraftAnalysis } from "./DraftAnalysis";
 import { BestChampionSuggestion } from "./BestChampionSuggestion";
-import {
-  Select,
-  SelectContent,
-  SelectGroup,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
 import { getModelMetadata } from "./api";
 import { useDraftStore } from "@/app/stores/draftStore";
 

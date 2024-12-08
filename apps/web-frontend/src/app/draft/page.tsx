@@ -2,7 +2,6 @@
 
 import React, { useEffect, useState } from "react";
 
-import { Button } from "@/components/ui/button";
 import ChampionGrid from "./ChampionGrid";
 import TeamPanel from "./TeamPanel";
 import HelpModal from "./HelpModal";
@@ -16,15 +15,16 @@ import type {
   FavoriteChampions,
 } from "@/app/types";
 import { champions, roleToIndexMap, getChampionRoles } from "@/app/champions";
-import Cookies from "js-cookie";
+import { Button } from "@draftking/ui/components/ui/button";
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "@/components/ui/select";
+} from "@draftking/ui/components/ui/select";
 import { useDraftStore } from "@/app/stores/draftStore";
+import Cookies from "js-cookie";
 
 const emptyTeam: Team = {
   0: undefined,

@@ -6,7 +6,7 @@ import {
   TooltipContent,
   TooltipTrigger,
   TooltipProvider,
-} from "@/components/ui/tooltip";
+} from "@draftking/ui/components/ui/tooltip";
 
 interface DraftAnalysisShowcaseProps {
   prediction: {

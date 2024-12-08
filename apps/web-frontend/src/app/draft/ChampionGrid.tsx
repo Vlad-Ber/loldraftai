@@ -4,20 +4,20 @@ import Image from "next/image";
 import { StarIcon } from "@heroicons/react/24/solid";
 import Cookies from "js-cookie";
 import type { Champion, FavoriteChampions } from "@/app/types";
-import { Input } from "@/components/ui/input";
+import { Input } from "@draftking/ui/components/ui/input";
 import {
   ContextMenu,
   ContextMenuTrigger,
   ContextMenuContent,
   ContextMenuItem,
   ContextMenuPortal,
-} from "@/components/ui/context-menu";
+} from "@draftking/ui/components/ui/context-menu";
 import {
   Tooltip,
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
-} from "@/components/ui/tooltip";
+} from "@draftking/ui/components/ui/tooltip";
 
 interface SearchBarProps {
   searchTerm: string;
