@@ -169,6 +169,10 @@ def prepare_data(
     for file_index, file_path in enumerate(tqdm(input_files, desc="Preparing data")):
         df = load_data(file_path)
 
+        if len(df) <= 1:
+            print(f"Skipping file {file_path} - insufficient samples ({len(df)} rows)")
+            continue
+
         # Encode categorical columns
         for col in CATEGORICAL_COLUMNS:
             df[col] = encoders[col].transform(df[col])
@@ -197,8 +201,13 @@ def prepare_data(
                         df[task] - task_means[task]
                     )  # Center the data if std is zero
 
-        # Split into train and test
-        df_train, df_test = train_test_split(df, test_size=0.1, random_state=42)
+        # Modified split with minimum size check
+        if len(df) < 10:  # Arbitrary minimum size, adjust as needed
+            # For very small datasets, use a fixed split
+            df_train = df.iloc[:-1]  # All but last row
+            df_test = df.iloc[-1:]   # Last row
+        else:
+            df_train, df_test = train_test_split(df, test_size=0.1, random_state=42)
 
         train_count += len(df_train)
         test_count += len(df_test)
