@@ -103,17 +103,18 @@ class MatchDataset(IterableDataset):
             iter_end = min(iter_start + per_worker, len(self.data_files))
 
         for file_path in self.data_files[iter_start:iter_end]:
-            parquet_file = pq.ParquetFile(file_path)
-            for batch in parquet_file.iter_batches(
-                batch_size=PARQUET_READER_BATCH_SIZE
-            ):
-                df_chunk = batch.to_pandas()
-                df_chunk = df_chunk.sample(frac=1).reset_index(drop=True)
+            # Use context manager to ensure file is closed
+            with pq.ParquetFile(file_path) as parquet_file:
+                for batch in parquet_file.iter_batches(
+                    batch_size=PARQUET_READER_BATCH_SIZE
+                ):
+                    df_chunk = batch.to_pandas()
+                    df_chunk = df_chunk.sample(frac=1).reset_index(drop=True)
 
-                # Process the chunk and yield individual samples
-                samples = self._get_samples(df_chunk)
-                for sample in samples:  # Changed this line to yield individual samples
-                    yield sample
+                    # Process the chunk and yield individual samples
+                    samples = self._get_samples(df_chunk)
+                    for sample in samples:
+                        yield sample
 
     def _get_samples(self, df_chunk):
         for col, col_def in COLUMNS.items():
