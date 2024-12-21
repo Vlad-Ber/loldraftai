@@ -52,10 +52,6 @@ class MatchDataset(IterableDataset):
         random.seed(42)  # For reproducibility
         random.shuffle(self.data_files)
 
-        # Load champion features
-        with open(CHAMPION_FEATURES_PATH, "rb") as f:
-            self.champion_features = pickle.load(f)
-
     def _count_total_samples(self):
         count_path = os.path.join(PREPARED_DATA_DIR, "sample_counts.pkl")
         try:
@@ -137,18 +133,6 @@ class MatchDataset(IterableDataset):
                         lambda x: self._mask_champions(x, self.masking_function())
                     )
                 # Add champion role percentages
-                df_chunk["champion_role_percentages"] = df_chunk[col].apply(
-                    lambda x: [
-                        [
-                            self.champion_features.get(ch_id, {}).get(role, 0)
-                            for role in POSITIONS
-                        ]
-                        for ch_id in x
-                    ]
-                )
-                df_chunk["champion_role_percentages"] = df_chunk[
-                    "champion_role_percentages"
-                ].apply(lambda x: torch.tensor(x, dtype=torch.float))
                 df_chunk[col] = df_chunk[col].apply(
                     lambda x: torch.tensor(x, dtype=torch.long)
                 )
