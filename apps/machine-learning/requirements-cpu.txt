@@ -1,0 +1,29 @@
+# Data Processing and Analysis
+pandas
+pyarrow
+scikit-learn
+sqlalchemy
+psycopg2-binary
+
+# Deep Learning and ML Frameworks (CPU versions)
+--extra-index-url https://download.pytorch.org/whl/cpu
+torch==2.1.0+cpu
+torchvision==0.16.0+cpu
+torchaudio==2.1.0+cpu
+torchinfo
+
+# ML Experiment Tracking
+wandb
+tensorboard
+
+# API Development
+fastapi
+uvicorn
+
+# Progress and Display Utilities
+tqdm
+rich
+
+# Cloud Storage and Configuration
+python-dotenv
+azure-storage-blob
