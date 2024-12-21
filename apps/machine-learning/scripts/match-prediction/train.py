@@ -44,6 +44,7 @@ from utils.match_prediction.train import (
     get_num_champions,
     collate_fn,
 )
+import psutil
 
 # Enable cuDNN auto-tuner, source https://x.com/karpathy/status/1299921324333170689/photo/1
 torch.backends.cudnn.benchmark = True
@@ -53,17 +54,41 @@ torch.set_float32_matmul_precision("high")
 
 device = get_best_device()
 
-if device.type == "mps" or device.type == "cpu":
-    DATALOADER_WORKERS = (
-        1  # Fastest with 1 or 2 might be because of mps performance cores
-    )
-    PREFETCH_FACTOR = 1
-else:
-    # cuda/runpod config
-    # programmaticaly determined optimal value
-    num_cpus = multiprocessing.cpu_count()
-    DATALOADER_WORKERS = max(1, min(num_cpus - 1, 8))  # Use at most 8 workers
-    PREFETCH_FACTOR = 2
+
+def get_dataloader_config():
+    if device.type == "cuda":
+        # Original CUDA config
+        num_cpus = multiprocessing.cpu_count()
+        return {
+            "num_workers": max(1, min(num_cpus - 1, 8)),
+            "prefetch_factor": 2,
+            "pin_memory": True,
+        }
+    elif device.type == "mps":
+        # M1/M2 Mac config
+        return {
+            "num_workers": 1,
+            "prefetch_factor": 1,
+            "pin_memory": True,
+        }
+    else:  # CPU
+        # For 4 CPU machine, reserve 1 CPU for main process
+        total_cpus = multiprocessing.cpu_count()
+        available_memory_gb = psutil.virtual_memory().available / (1024**3)
+
+        # Use 2 workers for 4 CPU machine, leaving 2 CPUs for main process and OS
+        # Adjust prefetch_factor based on available memory
+        return {
+            "num_workers": min(total_cpus - 2, 2),  # Use 2 workers on 4 CPU machine
+            "prefetch_factor": (
+                2 if available_memory_gb > 8 else 1
+            ),  # Lower if memory constrained
+            "pin_memory": False,  # False for CPU training
+        }
+
+
+# Use in DataLoader initialization
+dataloader_config = get_dataloader_config()
 
 
 def save_model(model: SimpleMatchModel, timestamp: Optional[str] = None) -> str:
@@ -377,10 +402,8 @@ def train_model(
         DataLoader(
             dataset,
             batch_size=TRAIN_BATCH_SIZE,
-            num_workers=DATALOADER_WORKERS,
+            **dataloader_config,
             collate_fn=collate_fn,
-            prefetch_factor=PREFETCH_FACTOR,
-            pin_memory=True,
         )
         for dataset in [train_dataset, test_dataset, test_masked_dataset]
     )
