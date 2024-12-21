@@ -1,7 +1,7 @@
 # Data Processing and Analysis
 pandas
 pyarrow
-scikit-learn
+scikit-learn==1.5.2  # For label encoders  # Pin to match training environment
 sqlalchemy
 psycopg2-binary
 

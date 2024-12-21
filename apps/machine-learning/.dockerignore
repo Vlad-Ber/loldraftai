@@ -1,0 +1,22 @@
+# Ignore everything
+*
+
+# Allow specific files
+!requirements-inference.txt
+!serve-model.py
+!utils/
+!data/models/match_outcome_model.pth
+!data/label_encoders.pkl
+!data/model_config.pkl
+!data/numerical_feature_stats.pkl
+!data/task_stats.pkl
+!data/champion_features.pkl
+!data/prepared_data/patch_mapping.pkl
+
+# Ignore unnecessary files
+**/__pycache__
+**/*.pyc
+**/*.pyo
+**/*.pyd
+**/.Python
+**/*.so

@@ -3,7 +3,7 @@ numpy<2.0.0  # Add this first to ensure other packages use numpy 1.x
 # The pytorch version is not compatible with numpy 2.0.0
 pandas
 pyarrow
-scikit-learn
+scikit-learn==1.5.2  # For label encoders  # Pin to match training environment
 sqlalchemy
 psycopg2-binary
 

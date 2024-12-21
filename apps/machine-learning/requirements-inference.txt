@@ -1,0 +1,21 @@
+# Core Dependencies with Version Pins
+numpy<2.0.0
+pandas
+
+# Deep Learning (CPU only)
+--extra-index-url https://download.pytorch.org/whl/cpu
+torch --extra-index-url https://download.pytorch.org/whl/cpu
+torchvision --extra-index-url https://download.pytorch.org/whl/cpu
+
+# API and Server
+fastapi
+uvicorn
+pydantic  # For FastAPI models
+
+# Data Processing
+scikit-learn==1.5.2  # For label encoders  # Pin to match training environment
+pyarrow  # For pandas data handling
+
+# Utilities
+python-dotenv
+tqdm  # For progress bars
