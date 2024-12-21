@@ -7,9 +7,9 @@ psycopg2-binary
 
 # Deep Learning and ML Frameworks (CPU versions)
 --extra-index-url https://download.pytorch.org/whl/cpu
-torch==2.1.0+cpu
-torchvision==0.16.0+cpu
-torchaudio==2.1.0+cpu
+torch==2.2.1+cpu
+torchvision==0.17.1+cpu
+torchaudio==2.2.1+cpu
 torchinfo
 
 # ML Experiment Tracking
