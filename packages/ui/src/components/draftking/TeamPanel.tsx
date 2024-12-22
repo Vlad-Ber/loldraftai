@@ -58,7 +58,7 @@ export const TeamPanel: React.FC<TeamPanelProps> = ({
   ImageComponent,
 }) => {
   const pannelTeamIndex = is_first_team ? 1 : 2;
-  const [hoveredChampion, setHoveredChampion] = useState<number | null>(null);
+  const [, setHoveredChampion] = useState<number | null>(null);
 
   const handleSpotClick = (index: ChampionIndex) => {
     onSpotSelected(index, pannelTeamIndex as TeamIndex);

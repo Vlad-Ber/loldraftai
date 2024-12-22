@@ -6,7 +6,6 @@ import type {
   SelectedSpot,
 } from "./types";
 import { getChampionRoles, roleToIndexMap } from "./champions";
-import { ReactNode } from "react";
 
 export const emptyTeam: Team = {
   0: undefined,
@@ -215,8 +214,10 @@ export function handleDeleteChampion(
   delete newTeam[index];
   if (team === teamOne) {
     setTeamOne(newTeam);
-  } else {
+  } else if (team === teamTwo) {
     setTeamTwo(newTeam);
+  } else {
+    console.error("Team not found in handleDeleteChampion");
   }
   return champions;
 }
