@@ -9,6 +9,9 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
+    # Skip release creation for pull requests
+    permissions:
+      contents: write  # Needed for creating releases
     
     steps:
       - uses: actions/checkout@v4
@@ -33,7 +36,6 @@ jobs:
       - name: Check for changes
         id: check-changes
         run: |
-          # Use turbo-ignore to check if we need to build
           if npx turbo-ignore @draftking/desktop; then
             echo "should_build=false" >> $GITHUB_OUTPUT
             echo "No changes detected"
@@ -42,14 +44,6 @@ jobs:
             echo "Changes detected"
           fi
 
-      - name: Cache Turborepo Local Cache Directory
-        if: steps.check-changes.outputs.should_build == 'true'
-        uses: actions/cache@v4
-        with:
-          path: .turbo
-          key: ${{ runner.os }}-turbo-${{ github.sha }}
-          restore-keys: |
-            ${{ runner.os }}-turbo-
 
       - name: Install Wine
         if: steps.check-changes.outputs.should_build == 'true'
@@ -65,12 +59,18 @@ jobs:
           TURBO_TOKEN: ${{ secrets.TURBO_TOKEN }}
           TURBO_TEAM: ${{ secrets.TURBO_TEAM }}
 
-      - name: Upload Windows artifact
-        if: steps.check-changes.outputs.should_build == 'true'
-        uses: actions/upload-artifact@v4
+      # Create/update the "latest" release
+      - name: Update Release
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main' && steps.check-changes.outputs.should_build == 'true'
+        uses: softprops/action-gh-release@v1
         with:
-          name: windows-app
-          path: |
+          files: |
             apps/desktop/dist/*.exe
             apps/desktop/dist/*.blockmap
-          compression-level: 9
+          tag_name: latest
+          name: Latest Build
+          body: |
+            This is an automatic release from the latest main branch commit.
+            Commit: ${{ github.sha }}
+          draft: false
+          prerelease: false
