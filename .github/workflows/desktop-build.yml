@@ -66,14 +66,14 @@ jobs:
         working-directory: apps/desktop
         run: |
           # Upload the .exe file
-          aws s3 cp "dist/DraftKing Setup 0.0.0.exe" \
+          aws s3 cp dist/*.exe \
             s3://${{ secrets.R2_BUCKET_NAME }}/latest/DraftKing.Setup.exe \
             --endpoint-url https://${{ secrets.CLOUDFLARE_ACCOUNT_ID }}.r2.cloudflarestorage.com \
             --no-verify-ssl \
             --content-type application/octet-stream
 
           # Upload the blockmap file
-          aws s3 cp "dist/DraftKing Setup 0.0.0.exe.blockmap" \
+          aws s3 cp dist/*.exe.blockmap \
             s3://${{ secrets.R2_BUCKET_NAME }}/latest/DraftKing.Setup.exe.blockmap \
             --endpoint-url https://${{ secrets.CLOUDFLARE_ACCOUNT_ID }}.r2.cloudflarestorage.com \
             --no-verify-ssl \
