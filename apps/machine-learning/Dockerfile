@@ -21,7 +21,6 @@ COPY data/label_encoders.pkl \
      data/model_config.pkl \
      data/numerical_feature_stats.pkl \
      data/task_stats.pkl \
-     data/champion_features.pkl \
      ./data/
 COPY data/prepared_data/patch_mapping.pkl ./data/prepared_data/
 

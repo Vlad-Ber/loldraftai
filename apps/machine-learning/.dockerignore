@@ -10,7 +10,6 @@
 !data/model_config.pkl
 !data/numerical_feature_stats.pkl
 !data/task_stats.pkl
-!data/champion_features.pkl
 !data/prepared_data/patch_mapping.pkl
 
 # Ignore unnecessary files

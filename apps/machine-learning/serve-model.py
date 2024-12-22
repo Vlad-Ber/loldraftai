@@ -18,7 +18,6 @@ from utils.match_prediction import (
     NUMERICAL_STATS_PATH,
     TASK_STATS_PATH,
     MODEL_CONFIG_PATH,
-    CHAMPION_FEATURES_PATH,
     POSITIONS,
     PREPARED_DATA_DIR,
     get_best_device,
@@ -130,8 +129,6 @@ model.load_state_dict(torch.load(MODEL_PATH, map_location=device, weights_only=T
 model.to(device)
 model.eval()
 
-with open(CHAMPION_FEATURES_PATH, "rb") as f:
-    champion_features = pickle.load(f)
 
 with open(Path(PREPARED_DATA_DIR) / "patch_mapping.pkl", "rb") as f:
     patch_mapping = pickle.load(f)["mapping"]
