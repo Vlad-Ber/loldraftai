@@ -99,7 +99,7 @@ def main():
     # Save to JSON
     current_dir = os.path.dirname(os.path.abspath(__file__))
     output_path = os.path.join(
-        current_dir, "../../../web-frontend/src/app/config/champion_play_rates.json"
+        current_dir, "../../../../packages/ui/src/lib/config/champion_play_rates.json"
     )
     os.makedirs(os.path.dirname(output_path), exist_ok=True)
 
