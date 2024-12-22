@@ -7,6 +7,10 @@
     },
     "web-frontend#build": {
       "dependsOn": ["^build"],
+      "outputs": ["dist/**", "dist-electron/**", "release/**"]
+    },
+    "desktop#build": {
+      "dependsOn": ["^build"],
       "env": ["INFERENCE_BACKEND_URL"]
     },
     "check-types": {
