@@ -10,8 +10,6 @@ jobs:
   build:
     runs-on: ubuntu-latest
     # Skip release creation for pull requests
-    permissions:
-      contents: write  # Needed for creating releases
     
     steps:
       - uses: actions/checkout@v4
@@ -59,31 +57,23 @@ jobs:
           TURBO_TOKEN: ${{ secrets.TURBO_TOKEN }}
           TURBO_TEAM: ${{ secrets.TURBO_TEAM }}
 
-      - name: Install AWS CLI
-        if: github.event_name == 'push' && github.ref == 'refs/heads/main' && steps.check-changes.outputs.should_build == 'true'
-        run: |
-          curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
-          unzip awscliv2.zip
-          sudo ./aws/install
-
-      - name: Configure AWS CLI
-        if: github.event_name == 'push' && github.ref == 'refs/heads/main' && steps.check-changes.outputs.should_build == 'true'
-        run: |
-          aws configure set aws_access_key_id ${{ secrets.R2_ACCESS_KEY_ID }}
-          aws configure set aws_secret_access_key ${{ secrets.R2_SECRET_ACCESS_KEY }}
-          aws configure set region us-east-1
 
       - name: Upload to R2
         if: github.event_name == 'push' && github.ref == 'refs/heads/main' && steps.check-changes.outputs.should_build == 'true'
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
         run: |
           # Upload the .exe file
           aws s3 cp apps/desktop/dist/DraftKing.Setup.0.0.0.exe \
             s3://${{ secrets.R2_BUCKET_NAME }}/latest/DraftKing.Setup.exe \
             --endpoint-url https://${{ secrets.CLOUDFLARE_ACCOUNT_ID }}.r2.cloudflarestorage.com \
+            --no-verify-ssl \
             --content-type application/octet-stream
 
           # Upload the blockmap file
           aws s3 cp apps/desktop/dist/DraftKing.Setup.0.0.0.exe.blockmap \
             s3://${{ secrets.R2_BUCKET_NAME }}/latest/DraftKing.Setup.exe.blockmap \
             --endpoint-url https://${{ secrets.CLOUDFLARE_ACCOUNT_ID }}.r2.cloudflarestorage.com \
+            --no-verify-ssl \
             --content-type application/octet-stream
