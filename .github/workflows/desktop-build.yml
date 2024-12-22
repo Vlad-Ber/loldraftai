@@ -37,8 +37,9 @@ jobs:
       - name: Install Wine and other dependencies
         if: steps.cache-wine.outputs.cache-hit != 'true'
         run: |
+          sudo dpkg --add-architecture i386
           sudo apt-get update
-          sudo apt-get install -y wine64 wine32
+          sudo apt-get install -y wine64 wine32:i386
 
       - name: Cache Turborepo
         uses: actions/cache@v4
