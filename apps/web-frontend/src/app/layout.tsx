@@ -18,7 +18,8 @@ const inter = Inter({
 
 // Default to the production backend, otherwise vercel builds will fail
 const backendUrl =
-  process.env.INFERENCE_BACKEND_URL ?? "http://40.67.128.19:8000";
+  process.env.INFERENCE_BACKEND_URL ??
+  "https://leaguedraftv2inference.whiteground-3c896ca8.eastus2.azurecontainerapps.io/";
 
 export const metadata: Metadata = {
   title: "Draftking - The Best League of Legends Draft Analysis Tool",
