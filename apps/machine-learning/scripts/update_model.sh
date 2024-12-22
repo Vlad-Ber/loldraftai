@@ -27,9 +27,10 @@ git pull
 log "Activating virtual environment"
 source $VENV_PATH/bin/activate
 
+
 # Update dependencies
 log "Installing/updating dependencies"
-pip install -r requirement-cpu.txt
+pip install -r requirements-cpu.txt
 
 # Run data pipeline
 log "Downloading new data"
