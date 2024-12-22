@@ -2,14 +2,12 @@ import { AnalysisParent as SharedAnalysisParent } from "@draftking/ui/components
 import type {
   Champion,
   Team,
-  FavoriteChampions,
   SelectedSpot,
+  FavoriteChampions,
   Elo,
-} from "@/app/types";
+} from "@draftking/ui/lib/types";
 import { DraftAnalysis } from "./DraftAnalysis";
 import { BestChampionSuggestion } from "./BestChampionSuggestion";
-import { useDraftStore } from "@/app/stores/draftStore";
-import { useState } from "react";
 
 interface AnalysisParentProps {
   team1: Team;
@@ -18,26 +16,21 @@ interface AnalysisParentProps {
   favorites: FavoriteChampions;
   remainingChampions: Champion[];
   analysisTrigger: number;
+  elo: Elo;
+  setElo: (elo: Elo) => void;
+  currentPatch: string;
+  patches: string[];
+  setCurrentPatch: (patch: string) => void;
+  setPatchList: (patches: string[]) => void;
 }
 
-const AnalysisParent = (props: AnalysisParentProps) => {
-  const { currentPatch, patches, setCurrentPatch, setPatchList } = useDraftStore();
-  const [elo, setElo] = useState<Elo>("emerald");
-
+export const AnalysisParent = (props: AnalysisParentProps) => {
   return (
     <SharedAnalysisParent
       {...props}
-      currentPatch={currentPatch}
-      patches={patches}
-      setCurrentPatch={setCurrentPatch}
-      setPatchList={setPatchList}
+      baseApiUrl="http://localhost:3000"
       DraftAnalysis={DraftAnalysis}
       BestChampionSuggestion={BestChampionSuggestion}
-      elo={elo}
-      setElo={setElo}
-      baseApiUrl=""
     />
   );
 };
-
-export default AnalysisParent;

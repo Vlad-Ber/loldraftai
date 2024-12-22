@@ -1,5 +1,5 @@
 import { DraftAnalysis as SharedDraftAnalysis } from "@draftking/ui/components/draftking/DraftAnalysis";
-import type { Team, Elo } from "@/app/types";
+import type { Team, Elo } from "@draftking/ui/lib/types";
 import { DraftAnalysisShowcase } from "./DraftAnalysisShowcase";
 
 interface DraftAnalysisProps {
@@ -13,8 +13,8 @@ export const DraftAnalysis = (props: DraftAnalysisProps) => {
   return (
     <SharedDraftAnalysis
       {...props}
-      baseApiUrl=""
+      baseApiUrl="http://localhost:3000"
       DraftAnalysisShowcase={DraftAnalysisShowcase}
     />
   );
-};
+}; 

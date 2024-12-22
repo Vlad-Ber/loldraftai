@@ -1,5 +1,5 @@
 import { BestChampionSuggestion as SharedBestChampionSuggestion } from "@draftking/ui/components/draftking/BestChampionSuggestion";
-import type { Champion, Team, SelectedSpot, FavoriteChampions, Elo } from "@/app/types";
+import type { Champion, Team, SelectedSpot, FavoriteChampions, Elo } from "@draftking/ui/lib/types";
 import { WinrateBar } from "./WinrateBar";
 
 interface BestChampionSuggestionProps {
@@ -16,8 +16,8 @@ export const BestChampionSuggestion = (props: BestChampionSuggestionProps) => {
   return (
     <SharedBestChampionSuggestion
       {...props}
-      baseApiUrl=""
+      baseApiUrl="http://localhost:3000"
       WinrateBar={WinrateBar}
     />
   );
-};
+}; 
