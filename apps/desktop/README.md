@@ -1,7 +1,10 @@
 # Desktop
 
-This is the desktop app code for DraftKing. It uses Electron and React.
+This is the desktop app code for DraftKing. It uses Electron and React, and is built with Vite.
 It uses some components from a local package of this monorepo, the `@draftking/ui` package.
+
+The desktop app is is different from the web frontend because for now it only has a single page, the equivelent of draft/page.tsx in the web frontend. The desktop app is able to communicate with local ports, it has a feature that allows to track a local game of League of Legends.
+
 
 # React + TypeScript + Vite
 
