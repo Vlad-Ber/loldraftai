@@ -66,5 +66,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: windows-app
-          path: apps/desktop/release/**/*.exe
+          path: |
+            apps/desktop/dist/*.exe
+            apps/desktop/dist/*.blockmap
           compression-level: 9
