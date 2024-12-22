@@ -7,11 +7,11 @@
     },
     "web-frontend#build": {
       "dependsOn": ["^build"],
-      "outputs": ["dist/**", "dist-electron/**", "release/**"]
+      "env": ["INFERENCE_BACKEND_URL"]
     },
     "desktop#build": {
       "dependsOn": ["^build"],
-      "env": ["INFERENCE_BACKEND_URL"]
+      "outputs": ["dist/**", "dist-electron/**", "release/**"]
     },
     "check-types": {
       "dependsOn": ["^check-types", "^db:generate"]

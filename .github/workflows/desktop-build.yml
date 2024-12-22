@@ -19,9 +19,34 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '20'
+          cache: 'yarn'
 
       - name: Enable Corepack
         run: corepack enable
+
+      - name: Cache Wine
+        id: cache-wine
+        uses: actions/cache@v4
+        with:
+          path: |
+            /usr/bin/wine
+            /usr/bin/wine64
+            /usr/lib/wine
+          key: ${{ runner.os }}-wine-${{ hashFiles('/etc/wine/version') }}
+
+      - name: Install Wine and other dependencies
+        if: steps.cache-wine.outputs.cache-hit != 'true'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y wine64 wine32
+
+      - name: Cache Turborepo
+        uses: actions/cache@v4
+        with:
+          path: .turbo
+          key: ${{ runner.os }}-turbo-${{ github.sha }}
+          restore-keys: |
+            ${{ runner.os }}-turbo-
 
       - name: Install dependencies
         run: yarn install
@@ -29,12 +54,6 @@ jobs:
         env:
           TURBO_TOKEN: ${{ secrets.TURBO_TOKEN }}
           TURBO_TEAM: ${{ secrets.TURBO_TEAM }}
-
-      # Install required dependencies for building Windows apps on Linux
-      - name: Install Wine and other dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y wine64 wine32
 
       - name: Build Desktop App
         run: yarn turbo run build --filter=@draftking/desktop...
@@ -46,4 +65,5 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: windows-app
-          path: apps/desktop/release/**/*.exe 
+          path: apps/desktop/release/**/*.exe
+          compression-level: 9
