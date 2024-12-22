@@ -43,6 +43,7 @@ python ./scripts/match-prediction/generate_playrates.py
 
 # Commit and push playrates
 log "Committing and pushing playrates"
+git pull
 git add $PLAYRATES_PATH
 git commit -m "chore: update champion play rates [skip ci]" || log "No changes to playrates"
 git push origin main || log "Failed to push playrates, continuing anyway"
