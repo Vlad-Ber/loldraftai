@@ -7433,6 +7433,13 @@ turbo-darwin-arm64@2.3.1:
   resolved "https://registry.yarnpkg.com/turbo-darwin-arm64/-/turbo-darwin-arm64-2.3.1.tgz#123b11225e3a3462f8e0a4dc292f30ed773e266f"
   integrity sha512-At1WStnxCfrBQ4M2g6ynre8WsusGwA11okhVolBxyFUemYozDTtbZwelr+IqNggjT251vviokxOkcFzzogbiFw==
 
+turbo-ignore@^2.3.3:
+  version "2.3.3"
+  resolved "https://registry.yarnpkg.com/turbo-ignore/-/turbo-ignore-2.3.3.tgz#ef824b32479f9d5ecd79d50fb2dc1f7af2b8f101"
+  integrity sha512-ypwpW0gauPjoUgrMkq/zQggxxJR7hmdge9eRWeBUP5+41mcSPNZDUgHEqSholoXlf20AIunLd/FwDzeBJW7Zaw==
+  dependencies:
+    json5 "^2.2.3"
+
 turbo-linux-64@2.3.1:
   version "2.3.1"
   resolved "https://registry.yarnpkg.com/turbo-linux-64/-/turbo-linux-64-2.3.1.tgz#22966ffe8fd1aa4ebfd678059125a9b9fbebdd94"
