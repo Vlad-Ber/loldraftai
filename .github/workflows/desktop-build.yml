@@ -34,9 +34,13 @@ jobs:
         id: check-changes
         run: |
           # Use turbo-ignore to check if we need to build
-          SHOULD_BUILD=$(npx turbo-ignore @draftking/desktop || echo "true")
-          echo "should_build=$SHOULD_BUILD" >> $GITHUB_OUTPUT
-          echo "Should build: $SHOULD_BUILD"
+          if npx turbo-ignore @draftking/desktop; then
+            echo "should_build=false" >> $GITHUB_OUTPUT
+            echo "No changes detected"
+          else
+            echo "should_build=true" >> $GITHUB_OUTPUT
+            echo "Changes detected"
+          fi
 
       - name: Cache Turborepo Local Cache Directory
         if: steps.check-changes.outputs.should_build == 'true'
