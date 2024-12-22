@@ -65,8 +65,7 @@ jobs:
         with:
           aws-access-key-id: ${{ secrets.R2_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.R2_SECRET_ACCESS_KEY }}
-          aws-region: auto
-          endpoint-url: https://${{ secrets.CLOUDFLARE_ACCOUNT_ID }}.r2.cloudflarestorage.com
+          aws-region: us-east-1  # Any valid AWS region will work
 
       - name: Upload to R2
         if: github.event_name == 'push' && github.ref == 'refs/heads/main' && steps.check-changes.outputs.should_build == 'true'
@@ -74,9 +73,11 @@ jobs:
           # Upload the .exe file
           aws s3 cp apps/desktop/dist/DraftKing.Setup.0.0.0.exe \
             s3://${{ secrets.R2_BUCKET_NAME }}/latest/DraftKing.Setup.exe \
+            --endpoint-url https://${{ secrets.CLOUDFLARE_ACCOUNT_ID }}.r2.cloudflarestorage.com \
             --content-type application/octet-stream
 
           # Upload the blockmap file
           aws s3 cp apps/desktop/dist/DraftKing.Setup.0.0.0.exe.blockmap \
             s3://${{ secrets.R2_BUCKET_NAME }}/latest/DraftKing.Setup.exe.blockmap \
+            --endpoint-url https://${{ secrets.CLOUDFLARE_ACCOUNT_ID }}.r2.cloudflarestorage.com \
             --content-type application/octet-stream
