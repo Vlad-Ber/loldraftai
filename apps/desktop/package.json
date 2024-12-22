@@ -38,5 +38,15 @@
   "author": {
     "name": "DraftKing"
   },
-  "description": "DraftKing Desktop App"
+  "description": "DraftKing Desktop App",
+  "build": {
+    "appId": "com.draftking.desktop",
+    "productName": "DraftKing",
+    "mac": {
+      "target": "dmg"
+    },
+    "win": {
+      "target": "nsis"
+    }
+  }
 }
