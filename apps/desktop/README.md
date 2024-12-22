@@ -1,3 +1,8 @@
+# Desktop
+
+This is the desktop app code for DraftKing. It uses Electron and React.
+It uses some components from a local package of this monorepo, the `@draftking/ui` package.
+
 # React + TypeScript + Vite
 
 This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
