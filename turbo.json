@@ -7,8 +7,7 @@
     },
     "web-frontend#build": {
       "dependsOn": ["^build"],
-      "env": ["INFERENCE_BACKEND_URL"],
-      "outputs": [".next/**", "!.next/cache/**"]
+      "env": ["INFERENCE_BACKEND_URL"]
     },
     "check-types": {
       "dependsOn": ["^check-types", "^db:generate"]
