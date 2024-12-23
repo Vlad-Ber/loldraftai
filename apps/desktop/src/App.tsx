@@ -40,7 +40,17 @@ const PlainImage: React.FC<{
   width: number;
   height: number;
   className?: string;
-}> = (props) => <img {...props} />;
+}> = ({ src, ...props }) => {
+  // In production, the paths need to be relative to the dist directory
+  const imagePath = window.location.protocol === 'file:'
+    ? src.replace('/icons/', './icons/') // Convert absolute path to relative
+    : src;
+
+  console.log('Original src:', src);
+  console.log('Resolved path:', imagePath);
+  
+  return <img src={imagePath} {...props} />;
+};
 
 function App() {
   // Draft state

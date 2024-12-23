@@ -47,8 +47,8 @@
     "productName": "DraftKing",
     "artifactName": "DraftKing-${version}-Setup.${ext}",
     "files": [
-      "dist",
-      "dist-electron"
+      "dist/**/*",
+      "dist-electron/**/*"
     ],
     "publish": [
       {
