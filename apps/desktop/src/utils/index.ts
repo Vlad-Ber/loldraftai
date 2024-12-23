@@ -1,0 +1,1 @@
+export const VERCEL_URL = "https://draftking-monorepo-web-frontend.vercel.app"

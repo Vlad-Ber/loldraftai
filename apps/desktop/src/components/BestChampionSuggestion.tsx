@@ -1,6 +1,7 @@
 import { BestChampionSuggestion as SharedBestChampionSuggestion } from "@draftking/ui/components/draftking/BestChampionSuggestion";
 import type { Champion, Team, SelectedSpot, FavoriteChampions, Elo } from "@draftking/ui/lib/types";
 import { WinrateBar } from "./WinrateBar";
+import { VERCEL_URL } from "../utils";
 
 interface BestChampionSuggestionProps {
   team1: Team;
@@ -16,7 +17,7 @@ export const BestChampionSuggestion = (props: BestChampionSuggestionProps) => {
   return (
     <SharedBestChampionSuggestion
       {...props}
-      baseApiUrl="http://localhost:3000"
+      baseApiUrl={VERCEL_URL}
       WinrateBar={WinrateBar}
     />
   );

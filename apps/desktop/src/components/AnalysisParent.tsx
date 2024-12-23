@@ -6,6 +6,7 @@ import type {
   FavoriteChampions,
   Elo,
 } from "@draftking/ui/lib/types";
+import { VERCEL_URL } from "../utils";
 import { DraftAnalysis } from "./DraftAnalysis";
 import { BestChampionSuggestion } from "./BestChampionSuggestion";
 
@@ -28,7 +29,7 @@ export const AnalysisParent = (props: AnalysisParentProps) => {
   return (
     <SharedAnalysisParent
       {...props}
-      baseApiUrl="http://localhost:3000"
+      baseApiUrl={VERCEL_URL}
       DraftAnalysis={DraftAnalysis}
       BestChampionSuggestion={BestChampionSuggestion}
     />
