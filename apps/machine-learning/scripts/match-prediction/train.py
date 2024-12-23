@@ -213,7 +213,8 @@ def train_epoch(
         if (batch_idx + 1) % config.accumulation_steps == 0:
             grad_norm = clip_grad_norm_(model.parameters(), config.max_grad_norm)
             optimizer.step()
-            if scheduler is not None:
+            # TODO: not sure why but had an error on remote machine where it tried to do an extra step.
+            if scheduler is not None and batch_idx < len(train_loader) - 1:
                 scheduler.step()
             optimizer.zero_grad()
 
