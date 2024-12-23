@@ -86,6 +86,15 @@ export default async function RootLayout({
                     </NavigationMenuLink>
                   </Link>
                 </NavigationMenuItem>
+                <NavigationMenuItem>
+                  <Link href="/download" legacyBehavior passHref>
+                    <NavigationMenuLink
+                      className={navigationMenuTriggerStyle()}
+                    >
+                      Download
+                    </NavigationMenuLink>
+                  </Link>
+                </NavigationMenuItem>
               </NavigationMenuList>
             </NavigationMenu>
           </nav>
