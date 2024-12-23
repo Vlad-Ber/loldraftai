@@ -70,6 +70,7 @@ jobs:
             s3://${{ secrets.R2_BUCKET_NAME }}/latest/DraftKing.Setup.exe \
             --endpoint-url https://${{ secrets.CLOUDFLARE_ACCOUNT_ID }}.r2.cloudflarestorage.com \
             --no-verify-ssl \
+            --region auto \
             --content-type application/octet-stream
 
           # Upload the blockmap file
@@ -77,4 +78,5 @@ jobs:
             s3://${{ secrets.R2_BUCKET_NAME }}/latest/DraftKing.Setup.exe.blockmap \
             --endpoint-url https://${{ secrets.CLOUDFLARE_ACCOUNT_ID }}.r2.cloudflarestorage.com \
             --no-verify-ssl \
+            --region auto \
             --content-type application/octet-stream
