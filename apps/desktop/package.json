@@ -43,11 +43,13 @@
   "build": {
     "appId": "com.draftking.desktop",
     "productName": "DraftKing",
+    "artifactName": "DraftKing-${version}-Setup.${ext}",
     "mac": {
       "target": "dmg"
     },
     "win": {
-      "target": "nsis"
+      "target": "nsis",
+      "artifactName": "DraftKing-${version}-Setup.${ext}"
     }
   }
 }
