@@ -1,10 +1,15 @@
 import { app, BrowserWindow } from "electron";
-// import { createRequire } from "node:module";
+import { autoUpdater } from "electron-updater";
 import { fileURLToPath } from "node:url";
 import path from "node:path";
 
 // const require = createRequire(import.meta.url)
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
+
+// Configure auto updater
+autoUpdater.logger = console;
+autoUpdater.autoDownload = true;
+autoUpdater.autoInstallOnAppQuit = true;
 
 // The built directory structure
 //
@@ -28,13 +33,45 @@ process.env.VITE_PUBLIC = VITE_DEV_SERVER_URL
 
 let win: BrowserWindow | null;
 
+function setupAutoUpdater(win: BrowserWindow) {
+  // Check for updates immediately
+  autoUpdater.checkForUpdates();
+
+  // Set up periodic checks (every hour)
+  setInterval(() => {
+    autoUpdater.checkForUpdates();
+  }, 60 * 60 * 1000);
+
+  // Update events
+  autoUpdater.on('checking-for-update', () => {
+    win.webContents.send('update-status', 'Checking for updates...');
+  });
+
+  autoUpdater.on('update-available', (info) => {
+    win.webContents.send('update-status', 'Update available. Downloading...');
+  });
+
+  autoUpdater.on('update-downloaded', (info) => {
+    win.webContents.send('update-status', 'Update downloaded. Will install on restart.');
+  });
+
+  autoUpdater.on('error', (err) => {
+    win.webContents.send('update-error', err.message);
+  });
+}
+
 function createWindow() {
   win = new BrowserWindow({
     icon: path.join(process.env.VITE_PUBLIC, "electron-vite.svg"),
     webPreferences: {
       preload: path.join(__dirname, "preload.mjs"),
+      contextIsolation: true,
+      nodeIntegration: false,
     },
   });
+
+  // Set up auto updater after window creation
+  setupAutoUpdater(win);
 
   // Test active push message to Renderer-process.
   win.webContents.on("did-finish-load", () => {

@@ -1,5 +1,6 @@
 import { useDraftStore } from "../stores/draftStore";
 import App from "../App";
+import { Toaster } from "@draftking/ui/components/ui/toaster";
 
 export function Layout() {
   const { currentPatch } = useDraftStore();
@@ -20,6 +21,7 @@ export function Layout() {
           looyyd on Discord for bug reports or feature requests.
         </div>
       </footer>
+      <Toaster />
     </div>
   );
 }

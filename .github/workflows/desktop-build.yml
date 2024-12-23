@@ -65,16 +65,55 @@ jobs:
           AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
         working-directory: apps/desktop
         run: |
-          # Upload the .exe file
-          aws s3 cp dist/DraftKing-*-Setup.exe \
+          # Get version from package.json
+          VERSION=$(node -p "require('./package.json').version")
+          
+          # Upload the .exe file with version
+          aws s3 cp dist/DraftKing-${VERSION}-Setup.exe \
+            s3://${{ secrets.R2_BUCKET_NAME }}/latest/DraftKing-${VERSION}-Setup.exe \
+            --endpoint-url https://${{ secrets.CLOUDFLARE_ACCOUNT_ID }}.r2.cloudflarestorage.com \
+            --no-verify-ssl \
+            --region auto \
+            --content-type application/octet-stream
+
+          # Upload the .blockmap file with version
+          aws s3 cp dist/DraftKing-${VERSION}-Setup.exe.blockmap \
+            s3://${{ secrets.R2_BUCKET_NAME }}/latest/DraftKing-${VERSION}-Setup.exe.blockmap \
+            --endpoint-url https://${{ secrets.CLOUDFLARE_ACCOUNT_ID }}.r2.cloudflarestorage.com \
+            --no-verify-ssl \
+            --region auto \
+            --content-type application/octet-stream
+
+          # Create and upload latest.yml
+          echo "version: ${VERSION}
+          files:
+            - url: DraftKing-${VERSION}-Setup.exe
+              sha512: $(sha512sum dist/DraftKing-${VERSION}-Setup.exe | awk '{print $1}')
+              size: $(stat -f%z dist/DraftKing-${VERSION}-Setup.exe)
+            - url: DraftKing-${VERSION}-Setup.exe.blockmap
+              sha512: $(sha512sum dist/DraftKing-${VERSION}-Setup.exe.blockmap | awk '{print $1}')
+              size: $(stat -f%z dist/DraftKing-${VERSION}-Setup.exe.blockmap)
+          path: DraftKing-${VERSION}-Setup.exe
+          sha512: $(sha512sum dist/DraftKing-${VERSION}-Setup.exe | awk '{print $1}')
+          releaseDate: $(date -u +"%Y-%m-%dT%H:%M:%S.000Z")" > dist/latest.yml
+
+          # Upload latest.yml
+          aws s3 cp dist/latest.yml \
+            s3://${{ secrets.R2_BUCKET_NAME }}/latest/latest.yml \
+            --endpoint-url https://${{ secrets.CLOUDFLARE_ACCOUNT_ID }}.r2.cloudflarestorage.com \
+            --no-verify-ssl \
+            --region auto \
+            --content-type application/yaml
+
+          # Keep the "latest" copies for direct downloads
+          aws s3 cp dist/DraftKing-${VERSION}-Setup.exe \
             s3://${{ secrets.R2_BUCKET_NAME }}/latest/DraftKing.Setup.exe \
             --endpoint-url https://${{ secrets.CLOUDFLARE_ACCOUNT_ID }}.r2.cloudflarestorage.com \
             --no-verify-ssl \
             --region auto \
             --content-type application/octet-stream
 
-          # Upload the blockmap file
-          aws s3 cp dist/DraftKing-*-Setup.exe.blockmap \
+          aws s3 cp dist/DraftKing-${VERSION}-Setup.exe.blockmap \
             s3://${{ secrets.R2_BUCKET_NAME }}/latest/DraftKing.Setup.exe.blockmap \
             --endpoint-url https://${{ secrets.CLOUDFLARE_ACCOUNT_ID }}.r2.cloudflarestorage.com \
             --no-verify-ssl \

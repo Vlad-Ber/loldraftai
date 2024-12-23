@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@draftking/ui/components/ui/button";
 import { TeamPanel } from "@draftking/ui/components/draftking/TeamPanel";
 import { ChampionGrid } from "@draftking/ui/components/draftking/ChampionGrid";
@@ -31,6 +31,7 @@ import {
   type DraftOrderKey,
 } from "@draftking/ui/lib/draftLogic";
 import { StatusMessage } from "@draftking/ui/components/draftking/StatusMessage";
+import { useToast } from "@draftking/ui/hooks/use-toast";
 
 // Plain image component for Electron
 const PlainImage: React.FC<{
@@ -63,6 +64,8 @@ function App() {
   // Store
   const { currentPatch, patches, setCurrentPatch, setPatchList } =
     useDraftStore();
+
+  const { toast } = useToast();
 
   // Handlers
   const handleDeleteChampion = (index: ChampionIndex, team: Team) => {
@@ -114,6 +117,30 @@ function App() {
     setSelectedSpot(null);
     setRemainingChampions(champions);
   };
+
+  useEffect(() => {
+    // Listen for update status changes
+    window.electronAPI.onUpdateStatus((status: string) => {
+      toast({
+        title: "Update Status",
+        description: status,
+      });
+    });
+
+    // Listen for update errors
+    window.electronAPI.onUpdateError((error: string) => {
+      toast({
+        variant: "destructive",
+        title: "Update Error",
+        description: error,
+      });
+    });
+
+    // Clean up listeners on unmount
+    return () => {
+      // Your cleanup code here if needed
+    };
+  }, [toast]);
 
   return (
     <div className="container mx-auto mt-12">
