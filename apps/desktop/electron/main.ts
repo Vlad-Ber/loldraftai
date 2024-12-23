@@ -47,11 +47,11 @@ function setupAutoUpdater(win: BrowserWindow) {
     win.webContents.send('update-status', 'Checking for updates...');
   });
 
-  autoUpdater.on('update-available', (info) => {
+  autoUpdater.on('update-available', () => {
     win.webContents.send('update-status', 'Update available. Downloading...');
   });
 
-  autoUpdater.on('update-downloaded', (info) => {
+  autoUpdater.on('update-downloaded', () => {
     win.webContents.send('update-status', 'Update downloaded. Will install on restart.');
   });
 
