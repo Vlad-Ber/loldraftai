@@ -57,10 +57,12 @@
       }
     ],
     "mac": {
-      "target": "dmg"
+      "target": "dmg",
+      "icon": "assets/icon.ico"
     },
     "win": {
       "target": "nsis",
+      "icon": "assets/icon.ico",
       "artifactName": "DraftKing-${version}-Setup.${ext}"
     }
   }
