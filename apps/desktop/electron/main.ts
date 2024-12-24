@@ -43,20 +43,23 @@ function setupAutoUpdater(win: BrowserWindow) {
   }, 60 * 60 * 1000);
 
   // Update events
-  autoUpdater.on('checking-for-update', () => {
-    win.webContents.send('update-status', 'Checking for updates...');
+  autoUpdater.on("checking-for-update", () => {
+    win.webContents.send("update-status", "Checking for updates...");
   });
 
-  autoUpdater.on('update-available', () => {
-    win.webContents.send('update-status', 'Update available. Downloading...');
+  autoUpdater.on("update-available", () => {
+    win.webContents.send("update-status", "Update available. Downloading...");
   });
 
-  autoUpdater.on('update-downloaded', () => {
-    win.webContents.send('update-status', 'Update downloaded. Will install on restart.');
+  autoUpdater.on("update-downloaded", () => {
+    win.webContents.send(
+      "update-status",
+      "Update downloaded. Will install on restart."
+    );
   });
 
-  autoUpdater.on('error', (err) => {
-    win.webContents.send('update-error', err.message);
+  autoUpdater.on("error", (err) => {
+    win.webContents.send("update-error", err.message);
   });
 }
 
