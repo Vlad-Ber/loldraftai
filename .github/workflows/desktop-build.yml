@@ -89,10 +89,10 @@ jobs:
           files:
             - url: DraftKing-${VERSION}-Setup.exe
               sha512: $(sha512sum dist/DraftKing-${VERSION}-Setup.exe | awk '{print $1}')
-              size: $(stat -f%z dist/DraftKing-${VERSION}-Setup.exe)
+              size: $(stat -c%s dist/DraftKing-${VERSION}-Setup.exe)
             - url: DraftKing-${VERSION}-Setup.exe.blockmap
               sha512: $(sha512sum dist/DraftKing-${VERSION}-Setup.exe.blockmap | awk '{print $1}')
-              size: $(stat -f%z dist/DraftKing-${VERSION}-Setup.exe.blockmap)
+              size: $(stat -c%s dist/DraftKing-${VERSION}-Setup.exe.blockmap)
           path: DraftKing-${VERSION}-Setup.exe
           sha512: $(sha512sum dist/DraftKing-${VERSION}-Setup.exe | awk '{print $1}')
           releaseDate: $(date -u +"%Y-%m-%dT%H:%M:%S.000Z")" > dist/latest.yml
