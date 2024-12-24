@@ -53,7 +53,7 @@
     "publish": [
       {
         "provider": "generic",
-        "url": "https://pub-4984363368204f3bafa83fbe79e22c38.r2.dev/latest"
+        "url": "https://releases.draftking.lol/latest/"
       }
     ],
     "mac": {
