@@ -2,6 +2,12 @@ import { app, BrowserWindow } from "electron";
 import { autoUpdater } from "electron-updater";
 import { fileURLToPath } from "node:url";
 import path from "node:path";
+import { ipcMain } from "electron";
+import { exec } from "child_process";
+import * as os from "os";
+import fetch from "node-fetch";
+import https from "https";
+import * as fs from "fs";
 
 // const require = createRequire(import.meta.url)
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -32,6 +38,97 @@ process.env.VITE_PUBLIC = VITE_DEV_SERVER_URL
   : RENDERER_DIST;
 
 let win: BrowserWindow | null;
+
+interface LeagueCredentials {
+  port: string;
+  password: string;
+}
+
+async function getLeagueCredentials(): Promise<LeagueCredentials | null> {
+  const platform = os.platform();
+
+  if (platform === "darwin") {
+    // macOS: Read lockfile from default installation path
+    try {
+      const lockfilePath = path.join(
+        "/Applications",
+        "League of Legends.app",
+        "Contents",
+        "LoL",
+        "lockfile"
+      );
+      const lockfile = fs.readFileSync(lockfilePath, "utf8");
+      const [, , port, password] = lockfile.split(":");
+      return { port, password };
+    } catch (error) {
+      console.error("Error reading lockfile:", error);
+      return null;
+    }
+  } else if (platform === "win32") {
+    return new Promise((resolve) => {
+      exec(
+        "wmic PROCESS WHERE name='LeagueClientUx.exe' GET commandline",
+        (error, stdout) => {
+          if (error) {
+            console.error("Error getting League process:", error);
+            resolve(null);
+            return;
+          }
+
+          const port = stdout.match(/--app-port=([0-9]+)/)?.[1];
+          const password = stdout.match(/--remoting-auth-token=([\w-]+)/)?.[1];
+
+          if (port && password) {
+            resolve({ port, password });
+          } else {
+            resolve(null);
+          }
+        }
+      );
+    });
+  }
+
+  console.error("Unsupported platform:", platform);
+  return null;
+}
+
+const httpsAgent = new https.Agent({
+  rejectUnauthorized: false,
+});
+
+async function getChampSelect() {
+  try {
+    const credentials = await getLeagueCredentials();
+    if (!credentials) {
+      throw new Error("League client not running or credentials not found");
+    }
+
+    const { port, password } = credentials;
+    const auth = Buffer.from(`riot:${password}`).toString("base64");
+
+    const response = await fetch(
+      `https://127.0.0.1:${port}/lol-champ-select/v1/session`,
+      {
+        headers: {
+          Authorization: `Basic ${auth}`,
+        },
+        agent: httpsAgent,
+      }
+    );
+
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+
+    return await response.json();
+  } catch (error) {
+    console.error("Error fetching champ select:", error);
+    return null;
+  }
+}
+
+// Register IPC handler
+ipcMain.handle("get-champ-select", getChampSelect);
 
 function createWindow() {
   win = new BrowserWindow({

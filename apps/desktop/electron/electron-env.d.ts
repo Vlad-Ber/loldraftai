@@ -31,6 +31,7 @@ interface ElectronAPI {
   onUpdateNotification: (
     callback: (info: { title: string; body: string }) => void
   ) => void;
+  getChampSelect: () => Promise<any>;
 }
 
 declare interface Window {

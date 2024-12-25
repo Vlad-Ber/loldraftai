@@ -22,5 +22,6 @@ contextBridge.exposeInMainWorld('electronAPI', {
   // Simplified update-related methods
   onUpdateNotification: (callback: (info: { title: string, body: string }) => void) => {
     ipcRenderer.on('update-notification', (_event, info) => callback(info));
-  }
+  },
+  getChampSelect: () => ipcRenderer.invoke("get-champ-select"),
 })

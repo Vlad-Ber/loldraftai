@@ -42,13 +42,11 @@ const PlainImage: React.FC<{
   className?: string;
 }> = ({ src, ...props }) => {
   // In production, the paths need to be relative to the dist directory
-  const imagePath = window.location.protocol === 'file:'
-    ? src.replace('/icons/', './icons/') // Convert absolute path to relative
-    : src;
+  const imagePath =
+    window.location.protocol === "file:"
+      ? src.replace("/icons/", "./icons/") // Convert absolute path to relative
+      : src;
 
-  console.log('Original src:', src);
-  console.log('Resolved path:', imagePath);
-  
   return <img src={imagePath} {...props} />;
 };
 
@@ -70,6 +68,7 @@ function App() {
     useState<DraftOrderKey>("Draft Order");
   const [remainingChampions, setRemainingChampions] =
     useState<Champion[]>(champions);
+  const [isLiveTracking, setIsLiveTracking] = useState(false);
 
   // Store
   const { currentPatch, patches, setCurrentPatch, setPatchList } =
@@ -138,6 +137,100 @@ function App() {
     });
   }, [toast]);
 
+  useEffect(() => {
+    let intervalId: NodeJS.Timeout;
+
+    const addChampionToTeam = (
+      champion: Champion,
+      targetTeam: Team,
+      setTeamFn: (team: Team) => void
+    ) => {
+      // Find first empty spot
+      for (let i = 0; i < 5; i++) {
+        if (!targetTeam[i as keyof Team]) {
+          setTeamFn({
+            ...targetTeam,
+            [i]: champion,
+          });
+          setRemainingChampions((prev) =>
+            prev.filter((c) => c.id !== champion.id)
+          );
+          break;
+        }
+      }
+    };
+
+    async function updateFromLiveGame() {
+      try {
+        const champSelect = await window.electronAPI.getChampSelect();
+        if (!champSelect) {
+          setIsLiveTracking(false);
+          return;
+        }
+
+        console.log("champSelect", champSelect);
+
+        // Get all completed pick actions
+        const completedPickActions = champSelect.actions.flat().filter(
+          (action: any) => action.type === "pick" && action.completed === true
+        );
+
+        // Process all players
+        const allPlayers = [...champSelect.myTeam, ...champSelect.theirTeam];
+
+        for (const player of allPlayers) {
+          // Find if this player has a completed pick action
+          const completedPickAction = completedPickActions.find(
+            (action: any) => action.actorCellId === player.cellId
+          );
+
+          // Skip if no completed action found or no champion selected
+          if (!completedPickAction || completedPickAction.championId === 0) continue;
+
+          const champion = champions.find((c) => c.id === completedPickAction.championId);
+          if (!champion) continue;
+
+          const targetTeam = player.team === 1 ? teamOne : teamTwo;
+          const setTeamFn = player.team === 1 ? setTeamOne : setTeamTwo;
+
+          // Skip if champion is already in team
+          const isAlreadyInTeam = Object.values(targetTeam).some(
+            (c) => c && c.id === champion.id
+          );
+          if (isAlreadyInTeam) continue;
+
+          addChampionToTeam(champion, targetTeam, setTeamFn);
+        }
+
+        // Check if draft is complete
+        if (champSelect.timer.phase === "GAME_STARTING") {
+          setIsLiveTracking(false);
+        }
+      } catch (error) {
+        console.error("Error updating from live game:", error);
+        setIsLiveTracking(false);
+      }
+    }
+
+    if (isLiveTracking) {
+      updateFromLiveGame(); // Initial update
+      intervalId = setInterval(updateFromLiveGame, 1000);
+    }
+
+    return () => {
+      if (intervalId) {
+        clearInterval(intervalId);
+      }
+    };
+  }, [isLiveTracking, champions, teamOne, teamTwo]);
+
+  const toggleLiveTracking = () => {
+    if (!isLiveTracking) {
+      resetDraft();
+    }
+    setIsLiveTracking(!isLiveTracking);
+  };
+
   return (
     <div className="container mx-auto mt-12">
       <div className="mx-auto">
@@ -174,6 +267,16 @@ function App() {
             <div className="flex-1">
               <Button variant="outline" onClick={() => setShowHelpModal(true)}>
                 Help
+              </Button>
+            </div>
+          </div>
+          <div className="flex w-full p-1 sm:w-auto">
+            <div className="flex-1">
+              <Button
+                variant={isLiveTracking ? "destructive" : "outline"}
+                onClick={toggleLiveTracking}
+              >
+                {isLiveTracking ? "Stop Live Tracking" : "Start Live Tracking"}
               </Button>
             </div>
           </div>
