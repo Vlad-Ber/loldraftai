@@ -1,7 +1,7 @@
 {
   "name": "@draftking/desktop",
   "private": true,
-  "version": "0.1.6",
+  "version": "0.1.7",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -58,11 +58,11 @@
     ],
     "mac": {
       "target": "dmg",
-      "icon": "assets/icon.ico"
+      "icon": "src/assets/logo512.ico"
     },
     "win": {
       "target": "nsis",
-      "icon": "assets/icon.ico",
+      "icon": "src/assets/logo512.ico",
       "artifactName": "DraftKing-${version}-Setup.${ext}"
     }
   }
