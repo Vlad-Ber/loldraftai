@@ -141,6 +141,8 @@ function createWindow() {
     },
   });
 
+  win.maximize();
+
   // Simplified auto-update setup
   autoUpdater.checkForUpdatesAndNotify();
 
