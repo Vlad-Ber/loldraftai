@@ -4,7 +4,7 @@ import { TeamPanel } from "@draftking/ui/components/draftking/TeamPanel";
 import { ChampionGrid } from "@draftking/ui/components/draftking/ChampionGrid";
 import { AnalysisParent } from "./components/AnalysisParent";
 import { HelpModal } from "@draftking/ui/components/draftking/HelpModal";
-import { champions } from "@draftking/ui/lib/champions";
+import { champions, roleToIndexMap } from "@draftking/ui/lib/champions";
 import { useDraftStore } from "./stores/draftStore";
 import type {
   Team,
@@ -30,6 +30,7 @@ import {
   handleDeleteChampion as handleDeleteChampionLogic,
   type DraftOrderKey,
 } from "@draftking/ui/lib/draftLogic";
+import { getChampionRoles } from "@draftking/ui/lib/champions";
 import { StatusMessage } from "@draftking/ui/components/draftking/StatusMessage";
 import { useToast } from "@draftking/ui/hooks/use-toast";
 
@@ -140,26 +141,6 @@ function App() {
   useEffect(() => {
     let intervalId: NodeJS.Timeout;
 
-    const addChampionToTeam = (
-      champion: Champion,
-      targetTeam: Team,
-      setTeamFn: (team: Team) => void
-    ) => {
-      // Find first empty spot
-      for (let i = 0; i < 5; i++) {
-        if (!targetTeam[i as keyof Team]) {
-          setTeamFn({
-            ...targetTeam,
-            [i]: champion,
-          });
-          setRemainingChampions((prev) =>
-            prev.filter((c) => c.id !== champion.id)
-          );
-          break;
-        }
-      }
-    };
-
     async function updateFromLiveGame() {
       try {
         const champSelect = await window.electronAPI.getChampSelect();
@@ -171,23 +152,27 @@ function App() {
         console.log("champSelect", champSelect);
 
         // Get all completed pick actions
-        const completedPickActions = champSelect.actions.flat().filter(
-          (action: any) => action.type === "pick" && action.completed === true
-        );
+        const completedActions = champSelect.actions
+          .flat()
+          .filter(
+            (action: any) => action.type === "pick" && action.completed === true
+          );
 
         // Process all players
         const allPlayers = [...champSelect.myTeam, ...champSelect.theirTeam];
 
         for (const player of allPlayers) {
           // Find if this player has a completed pick action
-          const completedPickAction = completedPickActions.find(
+          const completedAction = completedActions.find(
             (action: any) => action.actorCellId === player.cellId
           );
 
           // Skip if no completed action found or no champion selected
-          if (!completedPickAction || completedPickAction.championId === 0) continue;
+          if (!completedAction || completedAction.championId === 0) continue;
 
-          const champion = champions.find((c) => c.id === completedPickAction.championId);
+          const champion = champions.find(
+            (c) => c.id === completedAction.championId
+          );
           if (!champion) continue;
 
           const targetTeam = player.team === 1 ? teamOne : teamTwo;
@@ -199,7 +184,29 @@ function App() {
           );
           if (isAlreadyInTeam) continue;
 
-          addChampionToTeam(champion, targetTeam, setTeamFn);
+          // Get potential roles based on play rates
+          const potentialRoles = getChampionRoles(champion.id, currentPatch);
+          const potentialRolesIndexes = potentialRoles.map(
+            (role) => roleToIndexMap[role]
+          );
+
+          // Add any remaining roles at the end
+          for (let i = 0; i < 5; i++) {
+            if (!potentialRolesIndexes.includes(i)) {
+              potentialRolesIndexes.push(i);
+            }
+          }
+
+          // Try to place champion in their most played role first
+          for (const roleIndex of potentialRolesIndexes) {
+            if (!targetTeam[roleIndex as keyof Team]) {
+              setTeamFn({
+                ...targetTeam,
+                [roleIndex]: champion,
+              });
+              break;
+            }
+          }
         }
 
         // Check if draft is complete
