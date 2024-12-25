@@ -25,7 +25,7 @@ export const metadata: Metadata = {
   title: "Draftking - The Best League of Legends Draft Analysis Tool",
   description:
     "Draftking is a tool for analyzing League of Legends drafts. Use it to select the best champion and win your draft!",
-  icons: [{ rel: "icon", url: "/favicon.ico" }],
+  icons: [{ rel: "icon", url: "/public/favicon.ico" }],
 };
 
 export default async function RootLayout({
