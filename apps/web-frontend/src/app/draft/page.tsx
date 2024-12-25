@@ -118,7 +118,7 @@ export default function Draft() {
 
   return (
     <main className="flex w-full flex-col items-center">
-      <div className="mx-auto">
+      <div className="container mx-auto">
         <div className="flex flex-wrap items-stretch justify-start mb-4">
           <div className="flex w-full p-1 sm:w-auto">
             <div className="flex-1">
