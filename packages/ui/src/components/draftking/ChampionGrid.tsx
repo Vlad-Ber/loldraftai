@@ -107,12 +107,17 @@ export const ChampionGrid: React.FC<ChampionGridProps> = ({
   );
 
   useEffect(() => {
+    debouncedFilter(searchTerm);
+  }, [searchTerm, debouncedFilter]);
+  /*
+  useEffect(() => {
     const timeoutId = setTimeout(() => {
       debouncedFilter(searchTerm);
-    }, 100);
+    }, 10);
 
     return () => clearTimeout(timeoutId);
   }, [searchTerm, debouncedFilter]);
+  */
 
   const handleAddToFavorites = (
     champion: Champion,
@@ -196,42 +201,46 @@ export const ChampionGrid: React.FC<ChampionGridProps> = ({
               </ContextMenuTrigger>
               <ContextMenuPortal>
                 <ContextMenuContent>
-                  {["top", "jungle", "mid", "bot", "support"].map((position) => {
-                    const isFavorite = favorites[
-                      position as keyof FavoriteChampions
-                    ].includes(champion.id);
-                    return (
-                      <ContextMenuItem
-                        key={position}
-                        onClick={() =>
-                          isFavorite
-                            ? handleRemoveFromFavorites(
-                                champion,
-                                position as keyof FavoriteChampions
-                              )
-                            : handleAddToFavorites(
-                                champion,
-                                position as keyof FavoriteChampions
-                              )
-                        }
-                      >
-                        <StarIcon
-                          className={`mr-2 h-5 w-5 ${
-                            isFavorite ? "text-yellow-500" : "text-white"
-                          }`}
-                          stroke="black"
-                          strokeWidth={2}
-                        />
-                        {isFavorite
-                          ? `Remove from ${
-                              position.charAt(0).toUpperCase() + position.slice(1)
-                            } Favorites`
-                          : `Add to ${
-                              position.charAt(0).toUpperCase() + position.slice(1)
-                            } Favorites`}
-                      </ContextMenuItem>
-                    );
-                  })}
+                  {["top", "jungle", "mid", "bot", "support"].map(
+                    (position) => {
+                      const isFavorite = favorites[
+                        position as keyof FavoriteChampions
+                      ].includes(champion.id);
+                      return (
+                        <ContextMenuItem
+                          key={position}
+                          onClick={() =>
+                            isFavorite
+                              ? handleRemoveFromFavorites(
+                                  champion,
+                                  position as keyof FavoriteChampions
+                                )
+                              : handleAddToFavorites(
+                                  champion,
+                                  position as keyof FavoriteChampions
+                                )
+                          }
+                        >
+                          <StarIcon
+                            className={`mr-2 h-5 w-5 ${
+                              isFavorite ? "text-yellow-500" : "text-white"
+                            }`}
+                            stroke="black"
+                            strokeWidth={2}
+                          />
+                          {isFavorite
+                            ? `Remove from ${
+                                position.charAt(0).toUpperCase() +
+                                position.slice(1)
+                              } Favorites`
+                            : `Add to ${
+                                position.charAt(0).toUpperCase() +
+                                position.slice(1)
+                              } Favorites`}
+                        </ContextMenuItem>
+                      );
+                    }
+                  )}
                 </ContextMenuContent>
               </ContextMenuPortal>
             </ContextMenu>
@@ -240,4 +249,4 @@ export const ChampionGrid: React.FC<ChampionGridProps> = ({
       </div>
     </div>
   );
-}; 
+};
