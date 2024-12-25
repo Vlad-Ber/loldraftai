@@ -33,36 +33,6 @@ process.env.VITE_PUBLIC = VITE_DEV_SERVER_URL
 
 let win: BrowserWindow | null;
 
-function setupAutoUpdater(win: BrowserWindow) {
-  // Check for updates immediately
-  autoUpdater.checkForUpdates();
-
-  // Set up periodic checks (every hour)
-  setInterval(() => {
-    autoUpdater.checkForUpdates();
-  }, 60 * 60 * 1000);
-
-  // Update events
-  autoUpdater.on("checking-for-update", () => {
-    win.webContents.send("update-status", "Checking for updates...");
-  });
-
-  autoUpdater.on("update-available", () => {
-    win.webContents.send("update-status", "Update available. Downloading...");
-  });
-
-  autoUpdater.on("update-downloaded", () => {
-    win.webContents.send(
-      "update-status",
-      "Update downloaded. Will install on restart."
-    );
-  });
-
-  autoUpdater.on("error", (err) => {
-    win.webContents.send("update-error", err.message);
-  });
-}
-
 function createWindow() {
   win = new BrowserWindow({
     icon: path.join(process.env.VITE_PUBLIC, "logo512.png"),
@@ -74,8 +44,13 @@ function createWindow() {
     },
   });
 
-  // Set up auto updater after window creation
-  setupAutoUpdater(win);
+  // Simplified auto-update setup
+  autoUpdater.checkForUpdatesAndNotify();
+
+  // Check for updates every hour
+  setInterval(() => {
+    autoUpdater.checkForUpdatesAndNotify();
+  }, 60 * 60 * 1000);
 
   // Test active push message to Renderer-process.
   win.webContents.on("did-finish-load", () => {

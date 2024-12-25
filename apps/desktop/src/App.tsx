@@ -129,27 +129,13 @@ function App() {
   };
 
   useEffect(() => {
-    // Listen for update status changes
-    window.electronAPI.onUpdateStatus((status: string) => {
+    // Listen for update notifications
+    window.electronAPI.onUpdateNotification((info) => {
       toast({
-        title: "Update Status",
-        description: status,
+        title: info.title,
+        description: info.body,
       });
     });
-
-    // Listen for update errors
-    window.electronAPI.onUpdateError((error: string) => {
-      toast({
-        variant: "destructive",
-        title: "Update Error",
-        description: error,
-      });
-    });
-
-    // Clean up listeners on unmount
-    return () => {
-      // Your cleanup code here if needed
-    };
   }, [toast]);
 
   return (

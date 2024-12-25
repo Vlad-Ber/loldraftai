@@ -18,30 +18,9 @@ contextBridge.exposeInMainWorld('electronAPI', {
     const [channel, ...omit] = args
     return ipcRenderer.invoke(channel, ...omit)
   },
-
-  // You can expose other APTs you need here.
-  // ...
-
-  // Add update-related listeners
-  onUpdateStatus: (callback: (status: string) => void) => {
-    ipcRenderer.on('update-status', (_event, status) => callback(status));
-  },
   
-  onUpdateError: (callback: (error: string) => void) => {
-    ipcRenderer.on('update-error', (_event, error) => callback(error));
-  },
-  
-  // Method to manually check for updates
-  checkForUpdates: () => {
-    ipcRenderer.send('check-for-updates');
-  },
-  
-  // Method to quit and install
-  quitAndInstall: () => {
-    ipcRenderer.send('quit-and-install');
-  },
-
-  onMainProcessMessage: (callback: (message: string) => void) => {
-    ipcRenderer.on('main-process-message', (_event, message) => callback(message));
-  },
+  // Simplified update-related methods
+  onUpdateNotification: (callback: (info: { title: string, body: string }) => void) => {
+    ipcRenderer.on('update-notification', (_event, info) => callback(info));
+  }
 })
