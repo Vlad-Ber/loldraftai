@@ -195,9 +195,12 @@ export const AnalysisParent = ({
     setShowChampionSuggestion(false);
   }, [selectedSpot, team1, team2, elo]);
 
+  /*
+  Trying without reset on team change
   useEffect(() => {
     setShowAnalysis(false);
   }, [team1, team2, elo]);
+  */
 
   useEffect(() => {
     if (analysisTrigger > 0) {
