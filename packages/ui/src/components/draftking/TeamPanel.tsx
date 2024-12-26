@@ -1,12 +1,5 @@
 import React, { useState } from "react";
 import clsx from "clsx";
-import { TrashIcon } from "@heroicons/react/16/solid";
-import {
-  ContextMenu,
-  ContextMenuContent,
-  ContextMenuItem,
-  ContextMenuTrigger,
-} from "../ui/context-menu";
 import type {
   Team,
   ChampionIndex,
@@ -58,19 +51,17 @@ export const TeamPanel: React.FC<TeamPanelProps> = ({
   ImageComponent,
 }) => {
   const pannelTeamIndex = is_first_team ? 1 : 2;
-  const [, setHoveredChampion] = useState<number | null>(null);
 
   const handleSpotClick = (index: ChampionIndex) => {
     onSpotSelected(index, pannelTeamIndex as TeamIndex);
   };
 
-  const handleDeleteChampion = (
-    index: ChampionIndex,
-    event: React.MouseEvent
+  const handleContextMenu = (
+    event: React.MouseEvent,
+    championIndex: ChampionIndex
   ) => {
-    event.stopPropagation();
-    onDeleteChampion(index);
-    setHoveredChampion(null);
+    event.preventDefault(); // Prevent default context menu
+    onDeleteChampion(championIndex);
   };
 
   return (
@@ -100,14 +91,17 @@ export const TeamPanel: React.FC<TeamPanelProps> = ({
                     "bg-opacity-0 rounded-lg",
                     // Selected state using team colors
                     {
-                      "bg-gradient-to-r shadow-[0_0_0_2px,0_0_15px_rgba(0,0,0,0.3)]": isSelected,
+                      "bg-gradient-to-r shadow-[0_0_0_2px,0_0_15px_rgba(0,0,0,0.3)]":
+                        isSelected,
                       // Hover state
                       "hover:bg-white/5 hover:scale-110": !isSelected,
                     },
                     // Team-specific colors when selected
                     {
-                      "from-blue-500/20 to-blue-600/10 shadow-blue-500": isSelected && is_first_team,
-                      "from-red-500/20 to-red-600/10 shadow-red-500": isSelected && !is_first_team,
+                      "from-blue-500/20 to-blue-600/10 shadow-blue-500":
+                        isSelected && is_first_team,
+                      "from-red-500/20 to-red-600/10 shadow-red-500":
+                        isSelected && !is_first_team,
                     }
                   )}
                   onClick={() => handleSpotClick(championIndex)}
@@ -126,35 +120,20 @@ export const TeamPanel: React.FC<TeamPanelProps> = ({
                         height={80}
                       />
                     ) : (
-                      <ContextMenu>
-                        <ContextMenuTrigger>
-                          <div
-                            onMouseEnter={() =>
-                              setHoveredChampion(championIndex)
-                            }
-                            onMouseLeave={() => setHoveredChampion(null)}
-                            className="flex cursor-pointer items-center justify-between"
-                          >
-                            <ImageComponent
-                              src={`/icons/champions/${teamMember.icon}`}
-                              alt={teamMember.name}
-                              className="block"
-                              width={80}
-                              height={80}
-                            />
-                          </div>
-                        </ContextMenuTrigger>
-                        <ContextMenuContent>
-                          <ContextMenuItem
-                            onClick={(event: React.MouseEvent) =>
-                              handleDeleteChampion(championIndex, event)
-                            }
-                          >
-                            <TrashIcon className="mr-2 h-4 w-4" />
-                            Remove Champion
-                          </ContextMenuItem>
-                        </ContextMenuContent>
-                      </ContextMenu>
+                      <div
+                        onContextMenu={(e) =>
+                          handleContextMenu(e, championIndex)
+                        }
+                        className="flex cursor-pointer items-center justify-between"
+                      >
+                        <ImageComponent
+                          src={`/icons/champions/${teamMember.icon}`}
+                          alt={teamMember.name}
+                          className="block"
+                          width={80}
+                          height={80}
+                        />
+                      </div>
                     )}
                   </div>
                 </div>
