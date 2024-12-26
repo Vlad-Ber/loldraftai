@@ -43,10 +43,14 @@ export default function HomePage() {
               </p>
               <p className="text-lg mt-8">
                 Instead, the <span className="brand-text">Draftking</span> AI
-                model learns and makes predictions based on the full complexity
-                of League of Legends game dynamics, such as in context matchups,
-                ally champion synergies and anti-synergies, team damage
-                distributions, late vs early game dynamics, and so on.
+                model learns and{" "}
+                <span className="font-bold">
+                  makes predictions based on the full complexity of League of
+                  Legends game dynamics,
+                </span>{" "}
+                such as in context matchups, ally champion synergies and
+                anti-synergies, team damage distributions, late vs early game
+                dynamics, etc.
               </p>
               <div className="mt-12 w-full flex justify-center">
                 <AnimatedButton href="/draft">
@@ -72,8 +76,11 @@ export default function HomePage() {
               <LightBulbIcon className="inline-block h-7 w-7 mb-2" />
             </h2>
             <p className="text-lg text-center">
-              <span className="brand-text">Draftking </span> can help you pick
-              the best champion for your game!{" "}
+              <span className="brand-text">Draftking </span>{" "}
+              <span className="font-bold">
+                {" "}
+                can help you pick the best champion for your game!{" "}
+              </span>
               <span className="brand-text">Draftking </span>
               enables you to add champions to your{" "}
               <span className="inline-flex font-bold items-center">
@@ -98,9 +105,13 @@ export default function HomePage() {
             <FaWindows className="inline-block h-7 w-7 mb-1 ml-1" />
           </h2>
           <p className="text-lg text-center">
-            <span className="brand-text">Draftking</span> is also available as a
-            Windows desktop application. The desktop application can connect
-            with the League of Legends client to access{" "}
+            <span className="brand-text">Draftking</span>{" "}
+            <span className="font-bold">
+              {" "}
+              is also available as a Windows desktop application.{" "}
+            </span>
+            The desktop application can connect with the League of Legends
+            client to access{" "}
             <span className="inline-flex font-bold items-center">
               live{" "}
               <span className="relative flex h-2 w-2 ml-1">
