@@ -21,6 +21,7 @@ import type {
   SelectedSpot,
   Elo,
 } from "@draftking/ui/lib/types";
+import { elos } from "@draftking/ui/lib/types";
 import { championIndexToFavoritesPosition } from "@draftking/ui/lib/types";
 import { SparklesIcon, LightBulbIcon } from "@heroicons/react/24/solid";
 
@@ -61,8 +62,6 @@ interface EloSelectProps {
 }
 
 const EloSelect = ({ elo, setElo }: EloSelectProps) => {
-  const elos = ["emerald", "low diamond", "high diamond", "master +"] as const;
-  
   return (
     <Select value={elo} onValueChange={setElo}>
       <SelectTrigger>
@@ -87,7 +86,11 @@ interface PatchSelectProps {
   setCurrentPatch: (patch: string) => void;
 }
 
-const PatchSelect = ({ currentPatch, patches, setCurrentPatch }: PatchSelectProps) => (
+const PatchSelect = ({
+  currentPatch,
+  patches,
+  setCurrentPatch,
+}: PatchSelectProps) => (
   <Select value={currentPatch} onValueChange={setCurrentPatch}>
     <SelectTrigger>
       <SelectValue placeholder="Select Patch" />
@@ -142,7 +145,11 @@ const ChampionSuggestionButton = ({
       <Tooltip>
         <TooltipTrigger asChild>
           <div className="inline-block">
-            <Button variant="outline" onClick={toggleChampionSuggestion} disabled>
+            <Button
+              variant="outline"
+              onClick={toggleChampionSuggestion}
+              disabled
+            >
               {showChampionSuggestion ? "Hide Suggestions" : "Suggest Champion"}{" "}
               <LightBulbIcon className="inline-block h-5 w-5 ml-1" />
             </Button>
@@ -292,4 +299,4 @@ export const AnalysisParent = ({
       )}
     </div>
   );
-}; 
+};

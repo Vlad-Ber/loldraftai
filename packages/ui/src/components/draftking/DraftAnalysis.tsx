@@ -32,8 +32,12 @@ const formatTeamData = (team: Team): (number | "UNKNOWN")[] => {
 
 // Helper function to convert elo to numerical value
 const eloToNumerical = (elo: Elo): number => {
-  const elos = ["emerald", "low diamond", "high diamond", "master +"] as const;
-  return elos.indexOf(elo);
+  const eloMap: Record<Elo, number> = {
+    emerald: 3,
+    diamond: 1,
+    "master +": 0,
+  };
+  return eloMap[elo];
 };
 
 export const DraftAnalysis = ({
@@ -115,4 +119,4 @@ export const DraftAnalysis = ({
       </div>
     </div>
   );
-}; 
+};

@@ -40,11 +40,6 @@ export interface SelectedSpot {
   championIndex: ChampionIndex;
 }
 
-export const elos = [
-  "emerald",
-  "low diamond",
-  "high diamond",
-  "master +",
-] as const;
+export const elos = ["emerald", "diamond", "master +"] as const;
 export type Elo = (typeof elos)[number];
 export const eloToNumerical = (elo: Elo) => elos.indexOf(elo);
