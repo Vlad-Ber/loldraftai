@@ -1,63 +1,120 @@
+"use client";
+
 import Link from "next/link";
-import Image from "next/image";
+import { Visualizer } from "../components/LandingPageVisualizer";
+import {
+  StarIcon,
+  SparklesIcon,
+  LightBulbIcon,
+} from "@heroicons/react/24/solid";
+import { FaWindows } from "react-icons/fa";
+import { AnimatedButton } from "../components/AnimatedButton";
 
 export default function HomePage() {
   return (
     <main className="flex min-h-screen w-full flex-col items-center bg-background text-foreground">
-      <div className="container flex flex-col items-center justify-center gap-8 px-4 py-16 ">
-        <h1 className="text-5xl font-extrabold tracking-tight text-primary sm:text-[5rem]">
-          Draftking
-        </h1>
-        <h2 className="text-center text-3xl font-bold">
-          Your <span className="text-primary">League of Legends</span> Draft Analyzer
-        </h2>
-
-        <div className="mt-6">
-          <Link
-            href="/draft"
-            className="inline-block rounded bg-primary px-6 py-3 text-xl font-bold text-primary-foreground hover:bg-primary/90 transition duration-300"
-          >
-            <div className="flex items-center justify-center space-x-2">
-              <span>Analyze a Draft Now</span>
-            </div>
-          </Link>
+      {/* Hero Section */}
+      <div className="w-full bg-gradient-to-b from-primary/10 to-background py-8">
+        <div className="container flex flex-col items-center justify-center gap-6 px-4">
+          <h1 className="brand-text text-5xl font-extrabold tracking-tight leading-tight text-primary text-center sm:text-[5rem]">
+            Draftking
+          </h1>
+          <p className="max-w-2xl text-xl text-center text-muted-foreground">
+            The most accurate League of Legends draft tool, powered by AI{" "}
+            <SparklesIcon className="inline-block h-5 w-5 mb-1" />
+          </p>
         </div>
-        <div className="flex flex-col items-center justify-center gap-8">
-          <h3 className="text-2xl font-bold">
-            Use Draftking to win your drafts
-          </h3>
-          <div className="flex flex-col items-center justify-center gap-4 lg:flex-row lg:items-end">
-            <div className="flex flex-col items-center">
-              <Image
-                src="/draft_steps/1.png"
-                alt="Step 1 Add champions to Favorites"
-                width={450 * 1.2}
-                height={338 * 1.2}
-              />
-              <p className="mt-2 text-center">1. Add champions to Favorites</p>
+      </div>
+
+      {/* Main Content */}
+      <div className="container flex flex-col items-center justify-center px-4 py-12 space-y-24">
+        {/* Why Draftking Section */}
+        <section className="flex flex-col items-center max-w-4xl">
+          <h2 className="text-3xl font-bold mb-8">
+            Why is <span className="brand-text">Draftking</span> the most
+            accurate draft tool?
+          </h2>
+          <div className="grid gap-8 md:grid-cols-2 items-center">
+            <div>
+              <p className="text-lg">
+                <span className="brand-text">Draftking</span> is the best draft
+                tool because it doesn&apos;t rely on champion statistics to
+                predict the game.
+              </p>
+              <p className="text-lg mt-8">
+                Instead, the <span className="brand-text">Draftking</span> AI
+                model learns and makes predictions based on the full complexity
+                of League of Legends game dynamics, such as in context matchups,
+                ally champion synergies and anti-synergies, team damage
+                distributions, late vs early game dynamics, and so on.
+              </p>
+              <div className="mt-12 w-full flex justify-center">
+                <AnimatedButton href="/draft">
+                  Analyse a Draft Now
+                </AnimatedButton>
+              </div>
             </div>
-            <div className="flex flex-col items-center">
-              <Image
-                src="/draft_steps/2.png"
-                alt="Step 2 Follow the draft and ask for suggestions"
-                width={402 * 1.2}
-                height={338 * 1.2}
-              />
-              <p className="mt-2 text-center">
-                2. Follow the draft and ask for suggestions
+            <div className="flex flex-col items-center gap-2">
+              <Visualizer />
+              <p className="text-sm text-muted-foreground italic text-center">
+                Draftking AI understands the full complexity of champions, not
+                just statistics!
               </p>
             </div>
-            <div className="flex flex-col items-center">
-              <Image
-                src="/draft_steps/3.png"
-                alt="Step 3 Pick the best champion"
-                width={380 * 1.2}
-                height={338 * 1.2}
-              />
-              <p className="mt-2 text-center">3. Pick the best champion</p>
-            </div>
           </div>
-        </div>
+        </section>
+
+        {/* Champion Recommendations Section */}
+        <section className="w-full bg-secondary/10 rounded-2xl p-8">
+          <div className="flex flex-col items-center max-w-4xl mx-auto">
+            <h2 className="text-3xl font-bold mb-6">
+              Champion recommendations{" "}
+              <LightBulbIcon className="inline-block h-7 w-7 mb-2" />
+            </h2>
+            <p className="text-lg text-center">
+              <span className="brand-text">Draftking </span> can help you pick
+              the best champion for your game!{" "}
+              <span className="brand-text">Draftking </span>
+              enables you to add champions to your{" "}
+              <span className="inline-flex font-bold items-center">
+                favorites{" "}
+                <StarIcon
+                  className="inline-block h-5 w-5 text-yellow-500"
+                  stroke="black"
+                  strokeWidth={2}
+                />{" "}
+              </span>{" "}
+              for a position. You can then ask{" "}
+              <span className="brand-text">Draftking</span> to recommend you the
+              best champion for your game!
+            </p>
+          </div>
+        </section>
+
+        {/* Desktop Version Section */}
+        <section className="flex flex-col items-center max-w-4xl">
+          <h2 className="text-3xl font-bold mb-6">
+            Desktop version{" "}
+            <FaWindows className="inline-block h-7 w-7 mb-1 ml-1" />
+          </h2>
+          <p className="text-lg text-center">
+            <span className="brand-text">Draftking</span> is also available as a
+            Windows desktop application. The desktop application can connect
+            with the League of Legends client to access{" "}
+            <span className="inline-flex font-bold items-center">
+              live{" "}
+              <span className="relative flex h-2 w-2 ml-1">
+                <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-red-400 opacity-75"></span>
+                <span className="relative inline-flex h-2 w-2 rounded-full bg-red-500"></span>
+              </span>
+            </span>{" "}
+            game data and automatically track the draft for you! See the{" "}
+            <Link href="/download" className="text-primary underline">
+              download page
+            </Link>{" "}
+            for details.
+          </p>
+        </section>
       </div>
     </main>
   );
