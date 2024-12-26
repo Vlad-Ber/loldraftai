@@ -6,6 +6,7 @@ import {
   TooltipTrigger,
   TooltipProvider,
 } from "../ui/tooltip";
+import { WinrateBar } from "./WinrateBar";
 
 interface DraftAnalysisShowcaseProps {
   prediction: {
@@ -15,7 +16,6 @@ interface DraftAnalysisShowcaseProps {
   };
   team1: Team;
   team2: Team;
-  WinrateBar: React.ComponentType<{ team1Winrate: number }>;
 }
 
 const HeaderTooltip = ({
@@ -37,7 +37,6 @@ export const DraftAnalysisShowcase = ({
   prediction,
   team1,
   team2,
-  WinrateBar,
 }: DraftAnalysisShowcaseProps) => {
   const { win_probability, gold_diff_15min, champion_impact } = prediction;
 

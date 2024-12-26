@@ -13,7 +13,7 @@ import type {
   ChampionIndex,
   SelectedSpot,
   FavoriteChampions,
-} from "@/app/types";
+} from "@draftking/ui/lib/types";
 import { champions } from "@/app/champions";
 import { Button } from "@draftking/ui/components/ui/button";
 import {

@@ -1,6 +1,5 @@
 import { DraftAnalysisShowcase as SharedDraftAnalysisShowcase } from "@draftking/ui/components/draftking/DraftAnalysisShowcase";
-import type { Team } from "@/app/types";
-import { WinrateBar } from "./WinrateBar";
+import type { Team } from "@draftking/ui/lib/types";
 
 interface DraftAnalysisShowcaseProps {
   prediction: {
@@ -13,5 +12,5 @@ interface DraftAnalysisShowcaseProps {
 }
 
 export const DraftAnalysisShowcase = (props: DraftAnalysisShowcaseProps) => {
-  return <SharedDraftAnalysisShowcase {...props} WinrateBar={WinrateBar} />;
+  return <SharedDraftAnalysisShowcase {...props} />;
 };

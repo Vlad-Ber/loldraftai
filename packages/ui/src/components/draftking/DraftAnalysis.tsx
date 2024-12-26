@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { Loader2 } from "lucide-react";
 import type { Team, Elo } from "@draftking/ui/lib/types";
+import { eloToNumerical } from "@draftking/ui/lib/draftLogic";
 
 interface PredictionResult {
   win_probability: number;
@@ -28,16 +29,6 @@ const formatTeamData = (team: Team): (number | "UNKNOWN")[] => {
     championsIds.push(team[i as keyof Team]?.id ?? "UNKNOWN");
   }
   return championsIds;
-};
-
-// Helper function to convert elo to numerical value
-const eloToNumerical = (elo: Elo): number => {
-  const eloMap: Record<Elo, number> = {
-    emerald: 3,
-    diamond: 1,
-    "master +": 0,
-  };
-  return eloMap[elo];
 };
 
 export const DraftAnalysis = ({

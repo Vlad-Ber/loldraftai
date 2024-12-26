@@ -5,7 +5,7 @@ import type {
   FavoriteChampions,
   SelectedSpot,
   Elo,
-} from "@/app/types";
+} from "@draftking/ui/lib/types";
 import { DraftAnalysis } from "./DraftAnalysis";
 import { BestChampionSuggestion } from "./BestChampionSuggestion";
 import { useDraftStore } from "@/app/stores/draftStore";
@@ -21,7 +21,8 @@ interface AnalysisParentProps {
 }
 
 const AnalysisParent = (props: AnalysisParentProps) => {
-  const { currentPatch, patches, setCurrentPatch, setPatchList } = useDraftStore();
+  const { currentPatch, patches, setCurrentPatch, setPatchList } =
+    useDraftStore();
   const [elo, setElo] = useState<Elo>("emerald");
 
   return (

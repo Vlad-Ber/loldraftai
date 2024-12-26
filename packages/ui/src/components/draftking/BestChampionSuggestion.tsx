@@ -1,7 +1,15 @@
-import React, { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { Loader2 } from "lucide-react";
-import type { Champion, Team, SelectedSpot, FavoriteChampions, Elo } from "@draftking/ui/lib/types";
+import type {
+  Champion,
+  Team,
+  SelectedSpot,
+  FavoriteChampions,
+  Elo,
+} from "@draftking/ui/lib/types";
 import { championIndexToFavoritesPosition } from "@draftking/ui/lib/types";
+import { eloToNumerical } from "@draftking/ui/lib/draftLogic";
+import { WinrateBar } from "./WinrateBar";
 
 interface ChampionWinrate {
   champion: Champion;
@@ -17,7 +25,6 @@ interface BestChampionSuggestionProps {
   elo: Elo;
   patch: string;
   baseApiUrl: string;
-  WinrateBar: React.ComponentType<{ team1Winrate: number }>;
 }
 
 // Helper functions from DraftAnalysis
@@ -29,11 +36,6 @@ const formatTeamData = (team: Team): (number | "UNKNOWN")[] => {
   return championsIds;
 };
 
-const eloToNumerical = (elo: Elo): number => {
-  const elos = ["emerald", "low diamond", "high diamond", "master +"] as const;
-  return elos.indexOf(elo);
-};
-
 export const BestChampionSuggestion = ({
   team1,
   team2,
@@ -43,7 +45,6 @@ export const BestChampionSuggestion = ({
   elo,
   patch,
   baseApiUrl,
-  WinrateBar,
 }: BestChampionSuggestionProps) => {
   const [championData, setChampionData] = useState<ChampionWinrate[]>([]);
   const [loading, setLoading] = useState(false);
@@ -64,53 +65,54 @@ export const BestChampionSuggestion = ({
     const findBestChampion = async () => {
       setLoading(true);
       try {
-        const predictionPromises = championsIdsToConsider.map(async (champId) => {
-          const newTeam =
-            selectedSpot.teamIndex === 1 ? { ...team1 } : { ...team2 };
-          const champion = remainingChampions.find((c) => c.id === champId);
+        const predictionPromises = championsIdsToConsider.map(
+          async (champId) => {
+            const newTeam =
+              selectedSpot.teamIndex === 1 ? { ...team1 } : { ...team2 };
+            const champion = remainingChampions.find((c) => c.id === champId);
 
-          if (!champion) {
-            console.error(
-              "Champion in favorites not found in champions list:",
-              champId
-            );
-            return null;
+            if (!champion) {
+              console.error(
+                "Champion in favorites not found in champions list:",
+                champId
+              );
+              return null;
+            }
+
+            newTeam[selectedSpot.championIndex] = champion;
+
+            const requestBody = {
+              champion_ids: [
+                ...formatTeamData(
+                  selectedSpot.teamIndex === 1 ? newTeam : team1
+                ),
+                ...formatTeamData(
+                  selectedSpot.teamIndex === 2 ? newTeam : team2
+                ),
+              ],
+              numerical_elo: eloToNumerical(elo),
+              patch,
+            };
+
+            const response = await fetch(`${baseApiUrl}/api/predict`, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify(requestBody),
+            });
+
+            if (!response.ok) {
+              throw new Error(`HTTP error! status: ${response.status}`);
+            }
+
+            const result = await response.json();
+            const winrate = result.win_probability * 100;
+
+            return {
+              champion,
+              winrate: selectedSpot.teamIndex === 1 ? winrate : 100 - winrate,
+            };
           }
-
-          newTeam[selectedSpot.championIndex] = champion;
-
-          const requestBody = {
-            champion_ids: [
-              ...formatTeamData(
-                selectedSpot.teamIndex === 1 ? newTeam : team1
-              ),
-              ...formatTeamData(
-                selectedSpot.teamIndex === 2 ? newTeam : team2
-              ),
-            ],
-            numerical_elo: eloToNumerical(elo),
-            patch,
-          };
-
-          const response = await fetch(`${baseApiUrl}/api/predict`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(requestBody),
-          });
-
-          if (!response.ok) {
-            throw new Error(`HTTP error! status: ${response.status}`);
-          }
-
-          const result = await response.json();
-          const winrate = result.win_probability * 100;
-
-          return {
-            champion,
-            winrate:
-              selectedSpot.teamIndex === 1 ? winrate : 100 - winrate,
-          };
-        });
+        );
 
         const results = await Promise.all(predictionPromises);
         const championsWinrates = results
@@ -181,4 +183,4 @@ export const BestChampionSuggestion = ({
       </div>
     </div>
   );
-}; 
+};

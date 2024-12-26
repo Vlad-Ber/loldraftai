@@ -4,6 +4,7 @@ import type {
   ChampionIndex,
   TeamIndex,
   SelectedSpot,
+  Elo,
 } from "./types";
 import { getChampionRoles, roleToIndexMap } from "./champions";
 
@@ -22,6 +23,15 @@ export const DRAFT_ORDERS = {
 } as const;
 
 export type DraftOrderKey = keyof typeof DRAFT_ORDERS;
+
+export const eloToNumerical = (elo: Elo): number => {
+  const eloMap: Record<Elo, number> = {
+    emerald: 3,
+    diamond: 1,
+    "master +": 0,
+  };
+  return eloMap[elo];
+};
 
 export function getNextPickingTeam(
   teamOne: Team,

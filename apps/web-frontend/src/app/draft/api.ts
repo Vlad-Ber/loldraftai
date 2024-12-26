@@ -1,5 +1,5 @@
-import type { Team, Elo, ChampionIndex } from "@/app/types";
-import { eloToNumerical } from "@/app/types";
+import type { Team, Elo, ChampionIndex } from "@draftking/ui/lib/types";
+import { eloToNumerical } from "@draftking/ui/lib/draftLogic";
 
 export const formatTeamData = (team: Team) => {
   // Transform team data into the required format for the API
@@ -76,7 +76,7 @@ export const predictGameInDepth = async (
     numerical_elo: eloToNumerical(elo),
     patch,
   };
-  
+
   console.log("Request body:", requestBody);
 
   const response = await fetch("/api/predict-in-depth", {
