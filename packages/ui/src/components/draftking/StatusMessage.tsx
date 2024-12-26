@@ -23,7 +23,7 @@ export function StatusMessage({
       selectedSpot.teamIndex === 1 ? "text-blue-500" : "text-red-500";
     return (
       <span>
-        Next Pick: <span className={teamClass}>{team}</span> SELECTED SPOT
+        Next Pick: <span className={teamClass}>{team}</span> SELECTED POSITION
       </span>
     );
   }
