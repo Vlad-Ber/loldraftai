@@ -81,29 +81,39 @@ export const DraftAnalysisShowcase = ({
                   </td>
                   <td
                     className={`p-2 text-right ${
-                      champion_impact[i] ?? 0 > 0 ? "text-green-600" : "text-red-600"
+                      (champion_impact[i] as number) > 0
+                        ? "text-green-600"
+                        : (champion_impact[i] as number) < 0
+                        ? "text-red-600"
+                        : ""
                     }`}
                   >
-                    ({(champion_impact[i] ?? 0 * 100).toFixed(1)}%)
+                    {champion_impact[i] !== 0 &&
+                      `(${((champion_impact[i] as number) * 100).toFixed(1)}%)`}
                   </td>
                   <td className="p-2 text-right">
-                    {gold_diff_15min[i] ?? 0 > 0
+                    {(gold_diff_15min[i] ?? 0) > 0
                       ? Math.abs(gold_diff_15min[i] ?? 0).toFixed(0)
                       : ""}
                   </td>
                   <td className="p-2 text-right">
-                    {gold_diff_15min[i] ?? 0 < 0
+                    {(gold_diff_15min[i] ?? 0) < 0
                       ? Math.abs(gold_diff_15min[i] ?? 0).toFixed(0)
                       : ""}
                   </td>
                   <td
                     className={`p-2 text-right ${
-                      champion_impact[i + 5] ?? 0 > 0
+                      (champion_impact[i + 5] as number) > 0
                         ? "text-green-600"
-                        : "text-red-600"
+                        : (champion_impact[i + 5] as number) < 0
+                        ? "text-red-600"
+                        : ""
                     }`}
                   >
-                    ({(champion_impact[i + 5] ?? 0 * 100).toFixed(1)}%)
+                    {(champion_impact[i + 5] as number) !== 0 &&
+                      `(${((champion_impact[i + 5] as number) * 100).toFixed(
+                        1
+                      )}%)`}
                   </td>
                   <td className="p-2 text-right">
                     {team2[i as 0 | 1 | 2 | 3 | 4]?.name ?? ""}
@@ -116,4 +126,4 @@ export const DraftAnalysisShowcase = ({
       </div>
     </TooltipProvider>
   );
-}; 
+};
