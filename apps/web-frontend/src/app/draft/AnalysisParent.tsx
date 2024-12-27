@@ -4,12 +4,11 @@ import type {
   Team,
   FavoriteChampions,
   SelectedSpot,
-  Elo,
 } from "@draftking/ui/lib/types";
 import { DraftAnalysis } from "./DraftAnalysis";
 import { BestChampionSuggestion } from "./BestChampionSuggestion";
 import { useDraftStore } from "@/app/stores/draftStore";
-import { useState } from "react";
+import { usePersistedElo } from "@draftking/ui/hooks/usePersistedState";
 
 interface AnalysisParentProps {
   team1: Team;
@@ -23,7 +22,7 @@ interface AnalysisParentProps {
 const AnalysisParent = (props: AnalysisParentProps) => {
   const { currentPatch, patches, setCurrentPatch, setPatchList } =
     useDraftStore();
-  const [elo, setElo] = useState<Elo>("emerald");
+  const [elo, setElo] = usePersistedElo();
 
   return (
     <SharedAnalysisParent

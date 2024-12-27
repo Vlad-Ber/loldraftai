@@ -1,13 +1,13 @@
-import { app, BrowserWindow } from "electron";
+import { app, BrowserWindow, ipcMain } from "electron";
 import { autoUpdater } from "electron-updater";
 import { fileURLToPath } from "node:url";
 import path from "node:path";
-import { ipcMain } from "electron";
 import { exec } from "child_process";
 import * as os from "os";
 import fetch from "node-fetch";
 import https from "https";
 import * as fs from "fs";
+import Store from 'electron-store';
 
 // const require = createRequire(import.meta.url)
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -129,6 +129,17 @@ async function getChampSelect() {
 
 // Register IPC handler
 ipcMain.handle("get-champ-select", getChampSelect);
+
+const store = new Store();
+
+// Add IPC handlers for electron-store
+ipcMain.handle('electron-store-get', (_event, key) => {
+  return store.get(key);
+});
+
+ipcMain.handle('electron-store-set', (_event, key, value) => {
+  store.set(key, value);
+});
 
 function createWindow() {
   win = new BrowserWindow({

@@ -24,4 +24,10 @@ contextBridge.exposeInMainWorld('electronAPI', {
     ipcRenderer.on('update-notification', (_event, info) => callback(info));
   },
   getChampSelect: () => ipcRenderer.invoke("get-champ-select"),
+  
+  // Add storage methods
+  storage: {
+    getItem: (key: string) => ipcRenderer.invoke('electron-store-get', key),
+    setItem: (key: string, value: string) => ipcRenderer.invoke('electron-store-set', key, value),
+  },
 })

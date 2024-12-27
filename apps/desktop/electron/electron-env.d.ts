@@ -32,6 +32,10 @@ interface ElectronAPI {
     callback: (info: { title: string; body: string }) => void
   ) => void;
   getChampSelect: () => Promise<any>;
+  storage: {
+    getItem: (key: string) => Promise<any>;
+    setItem: (key: string, value: any) => Promise<void>;
+  };
 }
 
 declare interface Window {
