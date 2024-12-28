@@ -5,8 +5,8 @@ import { ChampionGrid as SharedChampionGrid } from "@draftking/ui/components/dra
 import type {
   Champion,
   FavoriteChampions,
-  ImageComponent,
 } from "@draftking/ui/components/draftking/ChampionGrid";
+import { ImageComponent } from "@draftking/ui/lib/types";
 
 interface ChampionGridProps {
   champions: Champion[];
