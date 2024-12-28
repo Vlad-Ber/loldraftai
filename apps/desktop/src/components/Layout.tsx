@@ -15,7 +15,7 @@ export function Layout() {
         <App />
       </main>
 
-      <footer className="border-t border-border/40 bg-card">
+      <footer className="border-t border-border/40 bg-neutral-950">
         <div className="container p-4 text-center text-sm text-muted-foreground mx-auto">
           Last model update: {lastModified} on patch {currentPatch}. Contact
           looyyd on Discord for bug reports or feature requests.

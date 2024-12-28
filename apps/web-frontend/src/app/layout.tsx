@@ -65,7 +65,7 @@ export default async function RootLayout({
         className={`font-sans ${inter.variable} min-h-screen bg-background text-foreground`}
       >
         <ThemeProvider>
-          <nav className="sticky top-0 z-50 border-b border-border/40 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+          <nav className="sticky top-0 z-50 border-b border-border/40 bg-neutral-950 ">
             <NavigationMenu className="mx-auto px-4 py-3">
               <NavigationMenuList className="flex justify-center gap-10">
                 <NavigationMenuItem>
@@ -101,7 +101,7 @@ export default async function RootLayout({
 
           <main className="flex-1">{children}</main>
 
-          <footer className="border-t border-border/40 bg-card">
+          <footer className="border-t border-border/40  bg-neutral-950">
             <div className="container p-4 text-center text-sm text-muted-foreground mx-auto">
               Last model update: {lastModified} on patch {latestPatch}. Contact
               looyyd on Discord for bug reports or feature requests.
