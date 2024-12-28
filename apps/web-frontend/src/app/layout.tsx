@@ -22,9 +22,9 @@ const backendUrl =
   "https://leaguedraftv2inference.whiteground-3c896ca8.eastus2.azurecontainerapps.io/";
 
 export const metadata: Metadata = {
-  title: "Draftking - The Best League of Legends Draft Analysis Tool",
+  title: "LoLDraftAI - The Best League of Legends Draft Analysis Tool",
   description:
-    "Draftking is a tool for analyzing League of Legends drafts. Use it to select the best champion and win your draft!",
+    "LoLDraftAI is a tool for analyzing League of Legends drafts. Use it to select the best champion and win your draft!",
   icons: [{ rel: "icon", url: "/public/favicon.ico" }],
 };
 

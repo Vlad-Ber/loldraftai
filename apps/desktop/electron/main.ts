@@ -144,7 +144,7 @@ ipcMain.handle('electron-store-set', (_event, key, value) => {
 function createWindow() {
   win = new BrowserWindow({
     icon: path.join(process.env.VITE_PUBLIC, "logo512.png"),
-    title: "DraftKing",
+    title: "LoLDraftAI",
     webPreferences: {
       preload: path.join(__dirname, "preload.mjs"),
       contextIsolation: true,

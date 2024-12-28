@@ -22,7 +22,7 @@ export const HelpModal: React.FC<HelpModalProps> = ({
       <DialogContent className="max-h-[80vh] overflow-y-auto sm:max-w-lg">
         <DialogHeader>
           <DialogTitle>
-            How to use <span className="brand-text">Draftking</span>
+            How to use <span className="brand-text">LoLDraftAI</span>
           </DialogTitle>
         </DialogHeader>
         <div className="space-y-4">

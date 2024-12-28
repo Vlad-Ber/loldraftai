@@ -247,9 +247,8 @@ export function Visualizer() {
             className="size-24 bg-background border-[hsl(var(--chart-1))] border-2 flex items-center justify-center"
           >
             <span className="text-sm font-bold brand-text flex flex-col items-center">
-              <span>Draftking</span>
+              <span>LoLDraftAI</span>
               <span className="flex items-center gap-1">
-                AI
                 <SparklesIcon className="size-4 inline-block" />
               </span>
             </span>

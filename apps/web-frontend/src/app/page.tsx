@@ -17,7 +17,7 @@ export default function HomePage() {
       <div className="w-full bg-gradient-to-b from-primary/10 to-background py-8">
         <div className="container flex flex-col items-center justify-center gap-6 px-4">
           <h1 className="brand-text text-5xl font-extrabold tracking-tight leading-tight text-primary text-center sm:text-[5rem]">
-            Draftking
+            LoLDraftAI
           </h1>
           <p className="max-w-2xl text-xl text-center text-muted-foreground">
             The most accurate League of Legends draft tool, powered by AI{" "}
@@ -28,21 +28,21 @@ export default function HomePage() {
 
       {/* Main Content */}
       <div className="container flex flex-col items-center justify-center px-4 py-12 space-y-24">
-        {/* Why Draftking Section */}
+        {/* Why LoLDraftAI Section */}
         <section className="flex flex-col items-center max-w-4xl">
           <h2 className="text-3xl font-bold mb-8">
-            Why is <span className="brand-text">Draftking</span> the most
+            Why is <span className="brand-text">LoLDraftAI</span> the most
             accurate draft tool?
           </h2>
           <div className="grid gap-8 md:grid-cols-2 items-center">
             <div>
               <p className="text-lg">
-                <span className="brand-text">Draftking</span> is the best draft
+                <span className="brand-text">LoLDraftAI</span> is the best draft
                 tool because it doesn&apos;t rely on champion statistics to
                 predict the game.
               </p>
               <p className="text-lg mt-8">
-                Instead, the <span className="brand-text">Draftking</span> AI
+                Instead, the <span className="brand-text">LoLDraftAI</span>{" "}
                 model learns and{" "}
                 <span className="font-bold">
                   makes predictions based on the full complexity of League of
@@ -61,7 +61,7 @@ export default function HomePage() {
             <div className="flex flex-col items-center gap-2">
               <Visualizer />
               <p className="text-sm text-muted-foreground italic text-center">
-                Draftking AI understands the full complexity of champions, not
+                LoLDraftAI understands the full complexity of champions, not
                 just statistics!
               </p>
             </div>
@@ -76,12 +76,12 @@ export default function HomePage() {
               <LightBulbIcon className="inline-block h-7 w-7 mb-2" />
             </h2>
             <p className="text-lg text-center">
-              <span className="brand-text">Draftking </span>{" "}
+              <span className="brand-text">LoLDraftAI </span>{" "}
               <span className="font-bold">
                 {" "}
                 can help you pick the best champion for your game!{" "}
               </span>
-              <span className="brand-text">Draftking </span>
+              <span className="brand-text">LoLDraftAI </span>
               enables you to add champions to your{" "}
               <span className="inline-flex font-bold items-center">
                 favorites{" "}
@@ -92,8 +92,8 @@ export default function HomePage() {
                 />{" "}
               </span>{" "}
               for a position. You can then ask{" "}
-              <span className="brand-text">Draftking</span> to recommend you the
-              best champion for your game!
+              <span className="brand-text">LoLDraftAI</span> to recommend you
+              the best champion for your game!
             </p>
           </div>
         </section>
@@ -105,7 +105,7 @@ export default function HomePage() {
             <FaWindows className="inline-block h-7 w-7 mb-1 ml-1" />
           </h2>
           <p className="text-lg text-center">
-            <span className="brand-text">Draftking</span>{" "}
+            <span className="brand-text">LoLDraftAI</span>{" "}
             <span className="font-bold">
               {" "}
               is also available as a Windows desktop application.{" "}
