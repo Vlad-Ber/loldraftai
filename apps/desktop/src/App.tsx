@@ -33,6 +33,7 @@ import {
 import { getChampionRoles } from "@draftking/ui/lib/champions";
 import { StatusMessage } from "@draftking/ui/components/draftking/StatusMessage";
 import { useToast } from "@draftking/ui/hooks/use-toast";
+import { usePersistedState } from "@draftking/ui/hooks/usePersistedState";
 
 // Plain image component for Electron
 const PlainImage: React.FC<{
@@ -57,13 +58,16 @@ function App() {
   const [teamTwo, setTeamTwo] = useState<Team>(emptyTeam);
   const [selectedSpot, setSelectedSpot] = useState<SelectedSpot | null>(null);
   const [showHelpModal, setShowHelpModal] = useState(false);
-  const [favorites, setFavorites] = useState<FavoriteChampions>({
-    top: [],
-    jungle: [],
-    mid: [],
-    bot: [],
-    support: [],
-  });
+  const [favorites, setFavorites] = usePersistedState<FavoriteChampions>(
+    "favorites",
+    {
+      top: [],
+      jungle: [],
+      mid: [],
+      bot: [],
+      support: [],
+    }
+  );
   const [elo, setElo] = useState<Elo>("emerald");
   const [selectedDraftOrder, setSelectedDraftOrder] =
     useState<DraftOrderKey>("Draft Order");
@@ -288,7 +292,11 @@ function App() {
                   {isLiveTracking && (
                     <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-red-400 opacity-75" />
                   )}
-                  <span className={`relative inline-flex h-2 w-2 rounded-full ${isLiveTracking ? 'bg-red-500' : 'bg-gray-200'}`} />
+                  <span
+                    className={`relative inline-flex h-2 w-2 rounded-full ${
+                      isLiveTracking ? "bg-red-500" : "bg-gray-200"
+                    }`}
+                  />
                 </span>
                 {isLiveTracking ? "Stop Live Tracking" : "Start Live Tracking"}
               </Button>

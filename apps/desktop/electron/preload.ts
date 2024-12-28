@@ -28,6 +28,6 @@ contextBridge.exposeInMainWorld('electronAPI', {
   // Add storage methods
   storage: {
     getItem: (key: string) => ipcRenderer.invoke('electron-store-get', key),
-    setItem: (key: string, value: string) => ipcRenderer.invoke('electron-store-set', key, value),
+    setItem: (key: string, value: any) => ipcRenderer.invoke('electron-store-set', key, value),
   },
 })

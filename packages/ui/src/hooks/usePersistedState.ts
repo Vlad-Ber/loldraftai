@@ -1,5 +1,5 @@
-import { useState, useEffect } from 'react';
-import type { Elo } from '../lib/types';
+import { useState, useEffect } from "react";
+import type { Elo } from "../lib/types";
 
 interface Storage {
   getItem(key: string): string | null | Promise<string | null>;
@@ -7,10 +7,13 @@ interface Storage {
 }
 
 // Default to localStorage, can be overridden for electron
-let storage: Storage = typeof window !== 'undefined' ? window.localStorage : {
-  getItem: () => null,
-  setItem: () => {},
-};
+let storage: Storage =
+  typeof window !== "undefined"
+    ? window.localStorage
+    : {
+        getItem: () => null,
+        setItem: () => {},
+      };
 
 export const setStorageImpl = (impl: Storage) => {
   storage = impl;
@@ -34,7 +37,7 @@ export function usePersistedState<T>(key: string, defaultValue: T) {
         setIsInitialized(true);
       }
     };
-    
+
     void loadInitialValue();
   }, [key]);
 
@@ -56,10 +59,6 @@ export function usePersistedState<T>(key: string, defaultValue: T) {
   return [value, setValue] as const;
 }
 
-export const usePersistedElo = (defaultElo: Elo = 'emerald') => {
-  return usePersistedState<Elo>('draftking-elo', defaultElo);
+export const usePersistedElo = (defaultElo: Elo = "emerald") => {
+  return usePersistedState<Elo>("draftking-elo", defaultElo);
 };
-
-export const usePersistedPatch = (defaultPatch: string) => {
-  return usePersistedState<string>('draftking-patch', defaultPatch);
-}; 

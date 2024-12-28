@@ -1,7 +1,6 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
-
+import React, { useState } from "react";
 import ChampionGrid from "./ChampionGrid";
 import TeamPanel from "./TeamPanel";
 import { HelpModal } from "./HelpModal";
@@ -24,7 +23,6 @@ import {
   SelectValue,
 } from "@draftking/ui/components/ui/select";
 import { useDraftStore } from "@/app/stores/draftStore";
-import Cookies from "js-cookie";
 import {
   emptyTeam,
   DRAFT_ORDERS,
@@ -34,6 +32,7 @@ import {
   type DraftOrderKey,
 } from "@draftking/ui/lib/draftLogic";
 import { StatusMessage } from "@draftking/ui/components/draftking/StatusMessage";
+import { usePersistedState } from "@draftking/ui/hooks/usePersistedState";
 
 export default function Draft() {
   const [remainingChampions, setRemainingChampions] =
@@ -42,14 +41,16 @@ export default function Draft() {
   const [teamTwo, setTeamTwo] = useState<Team>(emptyTeam);
   const [analysisTrigger] = useState(0);
   const [selectedSpot, setSelectedSpot] = useState<SelectedSpot | null>(null);
-  const [favorites, setFavorites] = useState<FavoriteChampions>({
-    top: [],
-    jungle: [],
-    mid: [],
-    bot: [],
-    support: [],
-  });
-  const [isFavoritesLoaded, setIsFavoritesLoaded] = useState(false);
+  const [favorites, setFavorites] = usePersistedState<FavoriteChampions>(
+    "favorites",
+    {
+      top: [],
+      jungle: [],
+      mid: [],
+      bot: [],
+      support: [],
+    }
+  );
 
   const [showHelpModal, setShowHelpModal] = useState(false);
   const [selectedDraftOrder, setSelectedDraftOrder] =
@@ -58,24 +59,6 @@ export default function Draft() {
 
   const openHelpModal = () => setShowHelpModal(true);
   const closeHelpModal = () => setShowHelpModal(false);
-
-  useEffect(() => {
-    // Existing code to initialize favorites
-    const savedFavorites = Cookies.get("favorites");
-    if (savedFavorites) {
-      setFavorites(JSON.parse(savedFavorites) as FavoriteChampions);
-    }
-    setIsFavoritesLoaded(true);
-  }, []);
-
-  useEffect(() => {
-    // Save favorites on change, but only after initial load
-    if (isFavoritesLoaded) {
-      Cookies.set("favorites", JSON.stringify(favorites), {
-        expires: new Date("9999-12-31"),
-      });
-    }
-  }, [favorites, isFavoritesLoaded]);
 
   const resetDraft = () => {
     setRemainingChampions(champions);
