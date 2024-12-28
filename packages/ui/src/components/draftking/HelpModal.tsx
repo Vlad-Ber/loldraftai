@@ -42,8 +42,8 @@ export const HelpModal: React.FC<HelpModalProps> = ({
           <p className="flex items-center">
             <TrashIcon className="mr-2 h-6 w-6 flex-shrink-0" />
             <span className="flex-grow">
-              Right-click (or long-press on mobile) on a champion in team panels
-              to remove them from the team.
+              Right-click on a champion in team panels to remove them from the
+              team.
             </span>
           </p>
           <p className="flex items-center">
@@ -56,8 +56,8 @@ export const HelpModal: React.FC<HelpModalProps> = ({
           <p className="flex items-center">
             <StarIcon className="mr-2 h-6 w-6 flex-shrink-0" />
             <span className="flex-grow">
-              Right-click (or long-press on mobile) on a champion in the grid to
-              add them to your favorites.
+              Right-click on a champion in the grid to add them to your
+              favorites.
             </span>
           </p>
           <p className="flex items-center">
