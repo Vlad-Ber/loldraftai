@@ -8,6 +8,7 @@ import type {
   Elo,
   ImageComponent,
 } from "@draftking/ui/lib/types";
+import { champions } from "@draftking/ui/lib/champions";
 import { championIndexToFavoritesPosition } from "@draftking/ui/lib/types";
 import { eloToNumerical } from "@draftking/ui/lib/draftLogic";
 import { WinrateBar } from "./WinrateBar";
@@ -15,6 +16,7 @@ import { WinrateBar } from "./WinrateBar";
 interface ChampionWinrate {
   champion: Champion;
   winrate: number;
+  isAvailable: boolean;
 }
 
 interface BestChampionSuggestionProps {
@@ -56,13 +58,8 @@ export const BestChampionSuggestion = ({
   const championsIdsToConsider = useMemo(() => {
     const favoritesForSpot =
       favorites[championIndexToFavoritesPosition(selectedSpot.championIndex)];
-    const remainingChampionsIds = remainingChampions.map(
-      (champion) => champion.id
-    );
-    return favoritesForSpot.filter((favorite) =>
-      remainingChampionsIds.includes(favorite)
-    );
-  }, [selectedSpot, favorites, remainingChampions]);
+    return favoritesForSpot;
+  }, [selectedSpot, favorites]);
 
   useEffect(() => {
     const findBestChampion = async () => {
@@ -72,15 +69,7 @@ export const BestChampionSuggestion = ({
           async (champId) => {
             const newTeam =
               selectedSpot.teamIndex === 1 ? { ...team1 } : { ...team2 };
-            const champion = remainingChampions.find((c) => c.id === champId);
-
-            if (!champion) {
-              console.error(
-                "Champion in favorites not found in champions list:",
-                champId
-              );
-              return null;
-            }
+            const champion = champions.find((c) => c.id === champId);
 
             newTeam[selectedSpot.championIndex] = champion;
 
@@ -113,6 +102,7 @@ export const BestChampionSuggestion = ({
             return {
               champion,
               winrate: selectedSpot.teamIndex === 1 ? winrate : 100 - winrate,
+              isAvailable: remainingChampions.some((c) => c.id === champId),
             };
           }
         );
@@ -168,16 +158,27 @@ export const BestChampionSuggestion = ({
             <p className="text-red-500">{error}</p>
           ) : (
             championData.map((championWinrate, index) => (
-              <div key={index} className="mb-2 flex flex-col items-center">
-                <div className="flex items-center gap-2 mb-1">
+              <div
+                key={index}
+                className={`mb-2 flex flex-col items-center ${
+                  !championWinrate.isAvailable ? "opacity-50" : ""
+                }`}
+              >
+                <div className="flex items-center gap-2 mb-1 relative">
                   <ImageComponent
                     src={`/icons/champions/${championWinrate.champion.icon}`}
                     alt={championWinrate.champion.name}
                     width={32}
                     height={32}
-                    className="inline-block"
+                    className={`inline-block ${
+                      !championWinrate.isAvailable ? "grayscale" : ""
+                    }`}
                   />
-                  <h6 className="text-lg font-semibold">
+                  <h6
+                    className={`text-lg font-semibold ${
+                      !championWinrate.isAvailable ? "line-through" : ""
+                    }`}
+                  >
                     {`${
                       championWinrate.champion.name
                     }: ${championWinrate.winrate.toFixed(1)}%`}
