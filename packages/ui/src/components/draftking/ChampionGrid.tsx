@@ -46,7 +46,6 @@ interface ChampionGridProps {
   favorites: FavoriteChampions;
   setFavorites: (favorites: FavoriteChampions) => void;
   ImageComponent: ImageComponent;
-  onFavoritesChange?: (favorites: FavoriteChampions) => void;
 }
 
 interface SearchBarProps {
@@ -91,7 +90,6 @@ export const ChampionGrid: React.FC<ChampionGridProps> = ({
   favorites,
   setFavorites,
   ImageComponent,
-  onFavoritesChange,
 }) => {
   const [searchTerm, setSearchTerm] = useState("");
   const [filteredChampions, setFilteredChampions] = useState(champions);
@@ -128,7 +126,6 @@ export const ChampionGrid: React.FC<ChampionGridProps> = ({
       [position]: [...favorites[position], champion.id],
     };
     setFavorites(updatedFavorites);
-    onFavoritesChange?.(updatedFavorites);
   };
 
   const handleRemoveFromFavorites = (
@@ -140,7 +137,6 @@ export const ChampionGrid: React.FC<ChampionGridProps> = ({
       [position]: favorites[position].filter((id) => id !== champion.id),
     };
     setFavorites(updatedFavorites);
-    onFavoritesChange?.(updatedFavorites);
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {

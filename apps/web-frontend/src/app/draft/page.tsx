@@ -49,6 +49,7 @@ export default function Draft() {
     bot: [],
     support: [],
   });
+  const [isFavoritesLoaded, setIsFavoritesLoaded] = useState(false);
 
   const [showHelpModal, setShowHelpModal] = useState(false);
   const [selectedDraftOrder, setSelectedDraftOrder] =
@@ -64,7 +65,17 @@ export default function Draft() {
     if (savedFavorites) {
       setFavorites(JSON.parse(savedFavorites) as FavoriteChampions);
     }
-  }, [remainingChampions]);
+    setIsFavoritesLoaded(true);
+  }, []);
+
+  useEffect(() => {
+    // Save favorites on change, but only after initial load
+    if (isFavoritesLoaded) {
+      Cookies.set("favorites", JSON.stringify(favorites), {
+        expires: new Date("9999-12-31"),
+      });
+    }
+  }, [favorites, isFavoritesLoaded]);
 
   const resetDraft = () => {
     setRemainingChampions(champions);

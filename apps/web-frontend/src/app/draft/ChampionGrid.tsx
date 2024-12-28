@@ -7,7 +7,6 @@ import type {
   FavoriteChampions,
   ImageComponent,
 } from "@draftking/ui/components/draftking/ChampionGrid";
-import Cookies from "js-cookie";
 
 interface ChampionGridProps {
   champions: Champion[];
@@ -17,15 +16,11 @@ interface ChampionGridProps {
 }
 
 const ChampionGrid: React.FC<ChampionGridProps> = (props) => {
-  const handleFavoritesChange = (favorites: FavoriteChampions) => {
-    Cookies.set("favorites", JSON.stringify(favorites), { expires: 365 });
-  };
-
   return (
     <SharedChampionGrid
       {...props}
       ImageComponent={Image as ImageComponent}
-      onFavoritesChange={handleFavoritesChange}
+      setFavorites={props.setFavorites}
     />
   );
 };
