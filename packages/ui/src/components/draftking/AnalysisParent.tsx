@@ -158,7 +158,7 @@ const ChampionSuggestionButton = ({
         <TooltipContent>
           <p>
             {!selectedSpot
-              ? "Click on a team position to select a position."
+              ? "Click on a team position to select it."
               : "Right click a champion in the list to add to favorites."}
           </p>
         </TooltipContent>
