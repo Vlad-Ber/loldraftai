@@ -168,6 +168,7 @@ const championsData: ChampionData[] = [
   { id: 523, name: "Aphelios" },
   { id: 526, name: "Rell" },
   { id: 555, name: "Pyke" },
+  { id: 711, name: "Vex" },
   { id: 777, name: "Yone" },
   { id: 876, name: "Lillia" },
   { id: 887, name: "Gwen" },
