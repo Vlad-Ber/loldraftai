@@ -150,6 +150,10 @@ function App() {
         const champSelect = await window.electronAPI.getChampSelect();
         if (!champSelect) {
           setIsLiveTracking(false);
+          toast({
+            title: "Live Tracking Stopped",
+            description: "No live draft lobby found",
+          });
           return;
         }
 
