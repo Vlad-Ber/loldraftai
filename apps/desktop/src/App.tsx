@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { Button } from "@draftking/ui/components/ui/button";
 import { TeamPanel } from "@draftking/ui/components/draftking/TeamPanel";
 import { ChampionGrid } from "@draftking/ui/components/draftking/ChampionGrid";
@@ -58,6 +58,7 @@ function App() {
   const [remainingChampions, setRemainingChampions] =
     useState<Champion[]>(champions);
   const [isLiveTracking, setIsLiveTracking] = useState(false);
+  const [bannedChampions, setBannedChampions] = useState<Champion[]>([]);
 
   // Store
   const { currentPatch, patches, setCurrentPatch, setPatchList } =
@@ -113,6 +114,7 @@ function App() {
     setTeamOne(emptyTeam);
     setTeamTwo(emptyTeam);
     setSelectedSpot(null);
+    setBannedChampions([]);
     setRemainingChampions(champions);
   };
 
@@ -127,6 +129,8 @@ function App() {
   }, [toast]);
 
   useEffect(() => {
+    if (!isLiveTracking) return;
+
     let intervalId: NodeJS.Timeout;
 
     async function updateFromLiveGame() {
@@ -141,9 +145,36 @@ function App() {
           return;
         }
 
-        console.log("champSelect", champSelect);
+        // Process bans
+        const bannedActions = champSelect.actions
+          .flat()
+          .filter(
+            (action: any) => action.type === "ban" && action.completed === true
+          );
 
-        // Get all completed pick actions
+        const newBannedChampions = bannedActions
+          .map((action: any) =>
+            champions.find((c) => c.id === action.championId)
+          )
+          .filter(
+            (champion: any): champion is Champion => champion !== undefined
+          );
+
+        // Update bans if changed
+        setBannedChampions((current) => {
+          const currentIds = new Set(current.map((c) => c.id));
+          const newIds = new Set(newBannedChampions.map((c: any) => c.id));
+
+          if (
+            currentIds.size !== newIds.size ||
+            newBannedChampions.some((c: any) => !currentIds.has(c.id))
+          ) {
+            return newBannedChampions;
+          }
+          return current;
+        });
+
+        // Process picks (existing code)
         const completedActions = champSelect.actions
           .flat()
           .filter(
@@ -211,17 +242,14 @@ function App() {
       }
     }
 
-    if (isLiveTracking) {
-      updateFromLiveGame(); // Initial update
-      intervalId = setInterval(updateFromLiveGame, 1000);
-    }
+    void updateFromLiveGame();
+    intervalId = setInterval(updateFromLiveGame, 1000);
 
     return () => {
-      if (intervalId) {
-        clearInterval(intervalId);
-      }
+      clearInterval(intervalId);
+      setBannedChampions([]);
     };
-  }, [isLiveTracking, champions, teamOne, teamTwo]);
+  }, [isLiveTracking]);
 
   const toggleLiveTracking = () => {
     if (!isLiveTracking) {
@@ -229,6 +257,11 @@ function App() {
     }
     setIsLiveTracking(!isLiveTracking);
   };
+
+  const remainingNonBannedChampions = useMemo(() => {
+    const bannedIds = new Set(bannedChampions.map((c) => c.id));
+    return champions.filter((c) => !bannedIds.has(c.id));
+  }, [bannedChampions]);
 
   return (
     <div className="container mx-auto mt-12">
@@ -323,7 +356,7 @@ function App() {
 
             <div className="grow p-1">
               <ChampionGrid
-                champions={remainingChampions}
+                champions={remainingNonBannedChampions}
                 addChampion={handleAddChampion}
                 favorites={favorites}
                 setFavorites={setFavorites}
@@ -352,7 +385,7 @@ function App() {
             team2={teamTwo}
             selectedSpot={selectedSpot}
             favorites={favorites}
-            remainingChampions={remainingChampions}
+            remainingChampions={remainingNonBannedChampions}
             analysisTrigger={0}
             elo={elo}
             setElo={setElo}
