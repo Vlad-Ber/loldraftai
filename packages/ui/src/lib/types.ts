@@ -5,6 +5,15 @@ export interface Champion {
   icon: string;
 }
 
+export interface ImageComponentProps {
+  src: string;
+  alt: string;
+  width: number;
+  height: number;
+  className?: string;
+}
+export type ImageComponent = React.FC<ImageComponentProps>;
+
 export type ChampionIndex = 0 | 1 | 2 | 3 | 4;
 export type TeamIndex = 1 | 2;
 

@@ -5,17 +5,8 @@ import type {
   ChampionIndex,
   TeamIndex,
   SelectedSpot,
+  ImageComponent,
 } from "@draftking/ui/lib/types";
-
-// Image component interface
-interface ImageComponentProps {
-  src: string;
-  alt: string;
-  width: number;
-  height: number;
-  className?: string;
-}
-type ImageComponent = React.FC<ImageComponentProps>;
 
 interface TeamPanelProps {
   team: Team;

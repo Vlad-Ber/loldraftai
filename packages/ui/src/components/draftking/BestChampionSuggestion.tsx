@@ -6,6 +6,7 @@ import type {
   SelectedSpot,
   FavoriteChampions,
   Elo,
+  ImageComponent,
 } from "@draftking/ui/lib/types";
 import { championIndexToFavoritesPosition } from "@draftking/ui/lib/types";
 import { eloToNumerical } from "@draftking/ui/lib/draftLogic";
@@ -25,6 +26,7 @@ interface BestChampionSuggestionProps {
   elo: Elo;
   patch: string;
   baseApiUrl: string;
+  ImageComponent: ImageComponent;
 }
 
 // Helper functions from DraftAnalysis
@@ -45,6 +47,7 @@ export const BestChampionSuggestion = ({
   elo,
   patch,
   baseApiUrl,
+  ImageComponent,
 }: BestChampionSuggestionProps) => {
   const [championData, setChampionData] = useState<ChampionWinrate[]>([]);
   const [loading, setLoading] = useState(false);
@@ -166,9 +169,20 @@ export const BestChampionSuggestion = ({
           ) : (
             championData.map((championWinrate, index) => (
               <div key={index} className="mb-2 flex flex-col items-center">
-                <h6 className="text-lg font-semibold">{`${
-                  championWinrate.champion.name
-                }: ${championWinrate.winrate.toFixed(1)}%`}</h6>
+                <div className="flex items-center gap-2 mb-1">
+                  <ImageComponent
+                    src={`/icons/champions/${championWinrate.champion.icon}`}
+                    alt={championWinrate.champion.name}
+                    width={32}
+                    height={32}
+                    className="inline-block"
+                  />
+                  <h6 className="text-lg font-semibold">
+                    {`${
+                      championWinrate.champion.name
+                    }: ${championWinrate.winrate.toFixed(1)}%`}
+                  </h6>
+                </div>
                 <WinrateBar
                   team1Winrate={
                     selectedSpot.teamIndex === 1

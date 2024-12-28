@@ -6,7 +6,7 @@ import type {
   ChampionIndex,
   SelectedSpot,
 } from "@draftking/ui/lib/types";
-import type { ImageComponent } from "@draftking/ui/components/draftking/ChampionGrid";
+import type { ImageComponent } from "@draftking/ui/lib/types";
 interface TeamPanelProps {
   team: Team;
   is_first_team: boolean;

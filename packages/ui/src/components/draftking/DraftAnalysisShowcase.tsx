@@ -7,6 +7,7 @@ import {
   TooltipProvider,
 } from "../ui/tooltip";
 import { WinrateBar } from "./WinrateBar";
+import type { ImageComponent } from "@draftking/ui/lib/types";
 
 interface DraftAnalysisShowcaseProps {
   prediction: {
@@ -16,6 +17,7 @@ interface DraftAnalysisShowcaseProps {
   };
   team1: Team;
   team2: Team;
+  ImageComponent: ImageComponent; // Add ImageComponent prop
 }
 
 const HeaderTooltip = ({
@@ -37,6 +39,7 @@ export const DraftAnalysisShowcase = ({
   prediction,
   team1,
   team2,
+  ImageComponent,
 }: DraftAnalysisShowcaseProps) => {
   const { win_probability, gold_diff_15min, champion_impact } = prediction;
 
@@ -76,7 +79,17 @@ export const DraftAnalysisShowcase = ({
               {Array.from({ length: 5 }).map((_, i) => (
                 <tr key={i} className="border-b">
                   <td className="p-2">
-                    {team1[i as 0 | 1 | 2 | 3 | 4]?.name ?? ""}
+                    {team1[i as 0 | 1 | 2 | 3 | 4] && (
+                      <ImageComponent
+                        src={`/icons/champions/${
+                          team1[i as 0 | 1 | 2 | 3 | 4]?.icon
+                        }`}
+                        alt={team1[i as 0 | 1 | 2 | 3 | 4]?.name ?? ""}
+                        width={40}
+                        height={40}
+                        className="inline-block "
+                      />
+                    )}
                   </td>
                   <td
                     className={`p-2 text-right ${
@@ -90,12 +103,12 @@ export const DraftAnalysisShowcase = ({
                     {champion_impact[i] !== 0 &&
                       `(${((champion_impact[i] as number) * 100).toFixed(1)}%)`}
                   </td>
-                  <td className="p-2 text-right">
+                  <td className="p-2 text-center">
                     {(gold_diff_15min[i] ?? 0) > 0
                       ? Math.abs(gold_diff_15min[i] ?? 0).toFixed(0)
                       : ""}
                   </td>
-                  <td className="p-2 text-right">
+                  <td className="p-2 text-center">
                     {(gold_diff_15min[i] ?? 0) < 0
                       ? Math.abs(gold_diff_15min[i] ?? 0).toFixed(0)
                       : ""}
@@ -115,7 +128,17 @@ export const DraftAnalysisShowcase = ({
                       )}%)`}
                   </td>
                   <td className="p-2 text-right">
-                    {team2[i as 0 | 1 | 2 | 3 | 4]?.name ?? ""}
+                    {team2[i as 0 | 1 | 2 | 3 | 4] && (
+                      <ImageComponent
+                        src={`/icons/champions/${
+                          team2[i as 0 | 1 | 2 | 3 | 4]?.icon
+                        }`}
+                        alt={team2[i as 0 | 1 | 2 | 3 | 4]?.name ?? ""}
+                        width={40}
+                        height={40}
+                        className="inline-block"
+                      />
+                    )}
                   </td>
                 </tr>
               ))}

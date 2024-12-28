@@ -1,5 +1,7 @@
+import Image from "next/image";
 import { DraftAnalysisShowcase as SharedDraftAnalysisShowcase } from "@draftking/ui/components/draftking/DraftAnalysisShowcase";
 import type { Team } from "@draftking/ui/lib/types";
+import type { ImageComponent } from "@draftking/ui/lib/types";
 
 interface DraftAnalysisShowcaseProps {
   prediction: {
@@ -12,5 +14,10 @@ interface DraftAnalysisShowcaseProps {
 }
 
 export const DraftAnalysisShowcase = (props: DraftAnalysisShowcaseProps) => {
-  return <SharedDraftAnalysisShowcase {...props} />;
+  return (
+    <SharedDraftAnalysisShowcase
+      {...props}
+      ImageComponent={Image as ImageComponent}
+    />
+  );
 };

@@ -3,6 +3,7 @@ import { Button } from "@draftking/ui/components/ui/button";
 import { TeamPanel } from "@draftking/ui/components/draftking/TeamPanel";
 import { ChampionGrid } from "@draftking/ui/components/draftking/ChampionGrid";
 import { AnalysisParent } from "./components/AnalysisParent";
+import { PlainImage } from "./components/PlainImage";
 import { HelpModal } from "@draftking/ui/components/draftking/HelpModal";
 import { champions, roleToIndexMap } from "@draftking/ui/lib/champions";
 import { useDraftStore } from "./stores/draftStore";
@@ -34,23 +35,6 @@ import { getChampionRoles } from "@draftking/ui/lib/champions";
 import { StatusMessage } from "@draftking/ui/components/draftking/StatusMessage";
 import { useToast } from "@draftking/ui/hooks/use-toast";
 import { usePersistedState } from "@draftking/ui/hooks/usePersistedState";
-
-// Plain image component for Electron
-const PlainImage: React.FC<{
-  src: string;
-  alt: string;
-  width: number;
-  height: number;
-  className?: string;
-}> = ({ src, ...props }) => {
-  // In production, the paths need to be relative to the dist directory
-  const imagePath =
-    window.location.protocol === "file:"
-      ? src.replace("/icons/", "./icons/") // Convert absolute path to relative
-      : src;
-
-  return <img src={imagePath} {...props} />;
-};
 
 function App() {
   // Draft state

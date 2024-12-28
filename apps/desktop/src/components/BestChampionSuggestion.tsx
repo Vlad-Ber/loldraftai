@@ -7,6 +7,7 @@ import type {
   Elo,
 } from "@draftking/ui/lib/types";
 import { VERCEL_URL } from "../utils";
+import { PlainImage } from "./PlainImage";
 
 interface BestChampionSuggestionProps {
   team1: Team;
@@ -19,5 +20,11 @@ interface BestChampionSuggestionProps {
 }
 
 export const BestChampionSuggestion = (props: BestChampionSuggestionProps) => {
-  return <SharedBestChampionSuggestion {...props} baseApiUrl={VERCEL_URL} />;
+  return (
+    <SharedBestChampionSuggestion
+      {...props}
+      baseApiUrl={VERCEL_URL}
+      ImageComponent={PlainImage}
+    />
+  );
 };

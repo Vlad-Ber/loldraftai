@@ -14,6 +14,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "../ui/tooltip";
+import type { ImageComponent } from "@draftking/ui/lib/types";
 
 // Types that should be moved to a shared types package
 export interface Champion {
@@ -30,15 +31,6 @@ export type FavoriteChampions = {
   bot: number[];
   support: number[];
 };
-
-interface ImageComponentProps {
-  src: string;
-  alt: string;
-  width: number;
-  height: number;
-  className?: string;
-}
-export type ImageComponent = React.FC<ImageComponentProps>;
 
 interface ChampionGridProps {
   champions: Champion[];
