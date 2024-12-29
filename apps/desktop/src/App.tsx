@@ -34,6 +34,7 @@ import { getChampionRoles } from "@draftking/ui/lib/champions";
 import { StatusMessage } from "@draftking/ui/components/draftking/StatusMessage";
 import { useToast } from "@draftking/ui/hooks/use-toast";
 import { usePersistedState } from "@draftking/ui/hooks/usePersistedState";
+import isEqual from "lodash/isEqual";
 
 function App() {
   // Draft state
@@ -158,75 +159,76 @@ function App() {
             (champion: any): champion is Champion => champion !== undefined
           );
 
-        // Update bans if changed
+        // Accumulate bans while avoiding duplicates
         setBannedChampions((current) => {
-          const currentIds = new Set(current.map((c) => c.id));
-          const newIds = new Set(newBannedChampions.map((c: any) => c.id));
-
-          if (
-            currentIds.size !== newIds.size ||
-            newBannedChampions.some((c: any) => !currentIds.has(c.id))
-          ) {
-            return newBannedChampions;
+          const mergedBans = [...current];
+          for (const champion of newBannedChampions) {
+            if (!mergedBans.some((ban) => ban.id === champion.id)) {
+              mergedBans.push(champion);
+            }
           }
-          return current;
+          return isEqual(current, mergedBans) ? current : mergedBans;
         });
 
-        // Process picks (existing code)
+        // Process picks
         const completedActions = champSelect.actions
           .flat()
           .filter(
             (action: any) => action.type === "pick" && action.completed === true
           );
 
-        // Process all players
         const allPlayers = [...champSelect.myTeam, ...champSelect.theirTeam];
 
+        // Build new team states first, then update only if changed
+        const newTeamOne = { ...teamOne };
+        const newTeamTwo = { ...teamTwo };
+        let hasChanges = false;
+
         for (const player of allPlayers) {
-          // Find if this player has a completed pick action
           const completedAction = completedActions.find(
             (action: any) => action.actorCellId === player.cellId
           );
 
-          // Skip if no completed action found or no champion selected
-          if (!completedAction || completedAction.championId === 0) continue;
+          if (!completedAction?.championId) continue;
 
           const champion = champions.find(
             (c) => c.id === completedAction.championId
           );
           if (!champion) continue;
 
-          const targetTeam = player.team === 1 ? teamOne : teamTwo;
-          const setTeamFn = player.team === 1 ? setTeamOne : setTeamTwo;
+          const targetTeam = player.team === 1 ? newTeamOne : newTeamTwo;
 
-          // Skip if champion is already in team
-          const isAlreadyInTeam = Object.values(targetTeam).some(
-            (c) => c && c.id === champion.id
-          );
-          if (isAlreadyInTeam) continue;
+          // Skip if champion is already in either team
+          const isAlreadyInTeams = [
+            ...Object.values(newTeamOne),
+            ...Object.values(newTeamTwo),
+          ].some((c) => c && c.id === champion.id);
+          if (isAlreadyInTeams) continue;
 
           // Get potential roles based on play rates
           const potentialRoles = getChampionRoles(champion.id, currentPatch);
-          const potentialRolesIndexes = potentialRoles.map(
-            (role) => roleToIndexMap[role]
-          );
-
-          // Add any remaining roles at the end
-          for (let i = 0; i < 5; i++) {
-            if (!potentialRolesIndexes.includes(i)) {
-              potentialRolesIndexes.push(i);
-            }
-          }
+          const potentialRolesIndexes = [
+            ...potentialRoles.map((role) => roleToIndexMap[role]),
+            ...Array.from({ length: 5 }, (_, i) => i), // Add remaining roles
+          ].filter((value, index, self) => self.indexOf(value) === index); // Remove duplicates
 
           // Try to place champion in their most played role first
           for (const roleIndex of potentialRolesIndexes) {
             if (!targetTeam[roleIndex as keyof Team]) {
-              setTeamFn({
-                ...targetTeam,
-                [roleIndex]: champion,
-              });
+              targetTeam[roleIndex as keyof Team] = champion;
+              hasChanges = true;
               break;
             }
+          }
+        }
+
+        // Only update teams if there were actual changes
+        if (hasChanges) {
+          if (!isEqual(teamOne, newTeamOne)) {
+            setTeamOne(newTeamOne);
+          }
+          if (!isEqual(teamTwo, newTeamTwo)) {
+            setTeamTwo(newTeamTwo);
           }
         }
 
@@ -247,7 +249,7 @@ function App() {
       clearInterval(intervalId);
       setBannedChampions([]);
     };
-  }, [isLiveTracking]);
+  }, [isLiveTracking, teamOne, teamTwo, currentPatch]);
 
   const toggleLiveTracking = () => {
     if (!isLiveTracking) {
