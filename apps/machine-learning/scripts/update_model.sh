@@ -10,6 +10,8 @@ VENV_PATH="$ML_PATH/venv"
 PLAYRATES_PATH="$REPO_PATH/packages/ui/src/lib/config/champion_play_rates.json"
 ACR_REGISTRY="leaguedraftv2registry.azurecr.io"
 IMAGE_NAME="serve-model"
+CONTAINER_APP_NAME="leaguedraftv2inference"
+RESOURCE_GROUP="LeagueDraftv2"
 
 # Log function
 log() {
@@ -54,10 +56,20 @@ log "Training model"
 python ./scripts/match-prediction/train.py
 
 # Build and push Docker image
-log "Building Docker image"
-docker build -t $ACR_REGISTRY/$IMAGE_NAME:latest -f ./Dockerfile ./
+log "Building Docker image with platform specification"
+docker build --platform linux/amd64 \
+  -t $ACR_REGISTRY/$IMAGE_NAME:latest \
+  -f ./Dockerfile ./
 
 log "Pushing Docker image"
 docker push $ACR_REGISTRY/$IMAGE_NAME:latest
+
+# Update the container app with timestamp suffix for forced revision
+log "Updating Container App with new revision"
+az containerapp update \
+  --name $CONTAINER_APP_NAME \
+  --resource-group $RESOURCE_GROUP \
+  --image $ACR_REGISTRY/$IMAGE_NAME:latest \
+  --revision-suffix $(date +%Y%m%d%H%M)
 
 log "Script completed successfully"

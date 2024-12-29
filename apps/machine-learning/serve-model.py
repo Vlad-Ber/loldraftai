@@ -76,6 +76,10 @@ def api_input_to_model_input(api_input: APIInput) -> ModelInput:
         encoded_champion_ids = label_encoders["champion_ids"].transform(
             ["UNKNOWN" if id == -1 else id for id in api_input.champion_ids]
         )
+        # TODO: bugfix the training loop and remove this
+        encoded_champion_ids[encoded_champion_ids == 169] = (
+            951  # Replace all 169s with 951s
+        )
     except ValueError as e:
         raise HTTPException(status_code=400, detail="Invalid champion IDs")
 
