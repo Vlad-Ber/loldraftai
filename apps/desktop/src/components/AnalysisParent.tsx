@@ -4,7 +4,6 @@ import type {
   Team,
   SelectedSpot,
   FavoriteChampions,
-  Elo,
 } from "@draftking/ui/lib/types";
 import { VERCEL_URL } from "../utils";
 import { DraftAnalysis } from "./DraftAnalysis";
@@ -18,8 +17,6 @@ interface AnalysisParentProps {
   favorites: FavoriteChampions;
   remainingChampions: Champion[];
   analysisTrigger: number;
-  elo: Elo;
-  setElo: (elo: Elo) => void;
   currentPatch: string;
   patches: string[];
   setCurrentPatch: (patch: string) => void;

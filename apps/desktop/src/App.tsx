@@ -14,7 +14,6 @@ import type {
   TeamIndex,
   Champion,
   FavoriteChampions,
-  Elo,
 } from "@draftking/ui/lib/types";
 import {
   Select,
@@ -52,7 +51,6 @@ function App() {
       support: [],
     }
   );
-  const [elo, setElo] = useState<Elo>("emerald");
   const [selectedDraftOrder, setSelectedDraftOrder] =
     useState<DraftOrderKey>("Draft Order");
   const [remainingChampions, setRemainingChampions] =
@@ -387,8 +385,6 @@ function App() {
             favorites={favorites}
             remainingChampions={remainingNonBannedChampions}
             analysisTrigger={0}
-            elo={elo}
-            setElo={setElo}
             currentPatch={currentPatch}
             patches={patches}
             setCurrentPatch={setCurrentPatch}
