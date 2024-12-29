@@ -49,8 +49,8 @@ export const DraftAnalysisShowcase = ({
         <div className="w-full">
           <h2 className="text-center text-lg font-bold">Predicted Winrate</h2>
           <div className="mb-1 flex w-full justify-between">
-            <p>{`${Math.round(win_probability)}% Blue Side`}</p>
-            <p>{`Red Side ${Math.round(100 - win_probability)}%`}</p>
+            <p>{`${win_probability.toFixed(1)}% Blue Side`}</p>
+            <p>{`Red Side ${(100 - win_probability).toFixed(1)}%`}</p>
           </div>
           <WinrateBar team1Winrate={win_probability} />
         </div>
