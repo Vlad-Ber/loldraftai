@@ -151,6 +151,7 @@ function App() {
             (action: any) => action.type === "ban" && action.completed === true
           );
 
+        // TODO: i think this is not needed, we can just compare all banned champions
         const newBannedChampions = bannedActions
           .map((action: any) =>
             champions.find((c) => c.id === action.championId)
@@ -183,6 +184,9 @@ function App() {
         const newTeamOne = { ...teamOne };
         const newTeamTwo = { ...teamTwo };
         let hasChanges = false;
+
+        // Track newly picked champions to update remaining champions
+        const newlyPickedChampions: Champion[] = [];
 
         for (const player of allPlayers) {
           const completedAction = completedActions.find(
@@ -217,6 +221,7 @@ function App() {
             if (!targetTeam[roleIndex as keyof Team]) {
               targetTeam[roleIndex as keyof Team] = champion;
               hasChanges = true;
+              newlyPickedChampions.push(champion);
               break;
             }
           }
@@ -229,6 +234,17 @@ function App() {
           }
           if (!isEqual(teamTwo, newTeamTwo)) {
             setTeamTwo(newTeamTwo);
+          }
+
+          // Update remaining champions if new picks were made
+          if (newlyPickedChampions.length > 0) {
+            setRemainingChampions((current) => {
+              const newRemaining = current.filter(
+                (c) =>
+                  !newlyPickedChampions.some((picked) => picked.id === c.id)
+              );
+              return isEqual(current, newRemaining) ? current : newRemaining;
+            });
           }
         }
 
@@ -260,8 +276,8 @@ function App() {
 
   const remainingNonBannedChampions = useMemo(() => {
     const bannedIds = new Set(bannedChampions.map((c) => c.id));
-    return champions.filter((c) => !bannedIds.has(c.id));
-  }, [bannedChampions]);
+    return remainingChampions.filter((c) => !bannedIds.has(c.id));
+  }, [bannedChampions, remainingChampions]);
 
   return (
     <div className="container mx-auto mt-12">

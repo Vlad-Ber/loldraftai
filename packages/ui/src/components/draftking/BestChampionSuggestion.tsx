@@ -13,12 +13,6 @@ import { championIndexToFavoritesPosition } from "@draftking/ui/lib/types";
 import { eloToNumerical } from "@draftking/ui/lib/draftLogic";
 import { WinrateBar } from "./WinrateBar";
 
-interface ChampionWinrate {
-  champion: Champion;
-  winrate: number;
-  isAvailable: boolean;
-}
-
 interface BestChampionSuggestionProps {
   team1: Team;
   team2: Team;
@@ -51,7 +45,9 @@ export const BestChampionSuggestion = ({
   baseApiUrl,
   ImageComponent,
 }: BestChampionSuggestionProps) => {
-  const [championData, setChampionData] = useState<ChampionWinrate[]>([]);
+  const [championWinrates, setChampionWinrates] = useState<
+    Array<{ champion: Champion; winrate: number }>
+  >([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -61,8 +57,16 @@ export const BestChampionSuggestion = ({
     return favoritesForSpot;
   }, [selectedSpot, favorites]);
 
+  const championData = useMemo(() => {
+    return championWinrates.map(({ champion, winrate }) => ({
+      champion,
+      winrate,
+      isAvailable: remainingChampions.some((c) => c.id === champion.id),
+    }));
+  }, [championWinrates, remainingChampions]);
+
   useEffect(() => {
-    const findBestChampion = async () => {
+    const fetchWinrates = async () => {
       setLoading(true);
       try {
         const predictionPromises = championsIdsToConsider.map(
@@ -70,6 +74,7 @@ export const BestChampionSuggestion = ({
             const newTeam =
               selectedSpot.teamIndex === 1 ? { ...team1 } : { ...team2 };
             const champion = champions.find((c) => c.id === champId);
+            if (!champion) return null;
 
             newTeam[selectedSpot.championIndex] = champion;
 
@@ -102,17 +107,18 @@ export const BestChampionSuggestion = ({
             return {
               champion,
               winrate: selectedSpot.teamIndex === 1 ? winrate : 100 - winrate,
-              isAvailable: remainingChampions.some((c) => c.id === champId),
             };
           }
         );
 
         const results = await Promise.all(predictionPromises);
-        const championsWinrates = results
-          .filter((result): result is ChampionWinrate => result !== null)
+        const winrates = results
+          .filter(
+            (result): result is NonNullable<typeof result> => result !== null
+          )
           .sort((a, b) => b.winrate - a.winrate);
 
-        setChampionData(championsWinrates);
+        setChampionWinrates(winrates);
       } catch (error) {
         console.error("Error in finding best champion:", error);
         setError("Failed to load champion suggestions. Please try again.");
@@ -121,7 +127,7 @@ export const BestChampionSuggestion = ({
       }
     };
 
-    void findBestChampion();
+    void fetchWinrates();
   }, [
     selectedSpot,
     team1,
@@ -130,7 +136,6 @@ export const BestChampionSuggestion = ({
     elo,
     patch,
     baseApiUrl,
-    remainingChampions,
   ]);
 
   useEffect(() => {
