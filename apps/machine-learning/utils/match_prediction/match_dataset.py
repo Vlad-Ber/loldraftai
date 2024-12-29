@@ -130,6 +130,7 @@ class MatchDataset(IterableDataset):
                     self.masking_function is not None
                     and self.unknown_champion_id is not None
                 ):
+                    # TODO: maybe could batch this?
                     df_chunk[col] = df_chunk[col].apply(
                         lambda x: self._mask_champions(x, self.masking_function())
                     )

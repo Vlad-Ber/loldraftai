@@ -18,8 +18,8 @@ class TrainingConfig:
         self.max_grad_norm = 1.0
         self.accumulation_steps = 1
         self.masking_strategy = {
-            "name": "linear_decay",
-            "params": {"max_value": 9, "decay_factor": 5.0},
+            "name": "strategic",
+            "params": {"decay_factor": 2.0},
         }
 
         self.calculate_val_loss = True
