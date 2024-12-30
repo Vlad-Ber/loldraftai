@@ -25,15 +25,6 @@ interface BestChampionSuggestionProps {
   ImageComponent: ImageComponent;
 }
 
-// Helper functions from DraftAnalysis
-const formatTeamData = (team: Team): (number | "UNKNOWN")[] => {
-  const championsIds: (number | "UNKNOWN")[] = [];
-  for (let i = 0; i < 5; i++) {
-    championsIds.push(team[i as keyof Team]?.id ?? "UNKNOWN");
-  }
-  return championsIds;
-};
-
 export const BestChampionSuggestion = ({
   team1,
   team2,
@@ -69,53 +60,31 @@ export const BestChampionSuggestion = ({
     const fetchWinrates = async () => {
       setLoading(true);
       try {
-        const predictionPromises = championsIdsToConsider.map(
-          async (champId) => {
-            const newTeam =
-              selectedSpot.teamIndex === 1 ? { ...team1 } : { ...team2 };
-            const champion = champions.find((c) => c.id === champId);
-            if (!champion) return null;
+        const response = await fetch(`${baseApiUrl}/api/champion-suggestions`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            team1,
+            team2,
+            championIds: championsIdsToConsider,
+            selectedTeamIndex: selectedSpot.teamIndex,
+            selectedChampionIndex: selectedSpot.championIndex,
+            elo: eloToNumerical(elo),
+            patch,
+          }),
+        });
 
-            newTeam[selectedSpot.championIndex] = champion;
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
 
-            const requestBody = {
-              champion_ids: [
-                ...formatTeamData(
-                  selectedSpot.teamIndex === 1 ? newTeam : team1
-                ),
-                ...formatTeamData(
-                  selectedSpot.teamIndex === 2 ? newTeam : team2
-                ),
-              ],
-              numerical_elo: eloToNumerical(elo),
-              patch,
-            };
-
-            const response = await fetch(`${baseApiUrl}/api/predict`, {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify(requestBody),
-            });
-
-            if (!response.ok) {
-              throw new Error(`HTTP error! status: ${response.status}`);
-            }
-
-            const result = await response.json();
-            const winrate = result.win_probability * 100;
-
-            return {
-              champion,
-              winrate: selectedSpot.teamIndex === 1 ? winrate : 100 - winrate,
-            };
-          }
-        );
-
-        const results = await Promise.all(predictionPromises);
-        const winrates = results
-          .filter(
-            (result): result is NonNullable<typeof result> => result !== null
-          )
+        const predictions: { championId: number; winrate: number }[] =
+          await response.json();
+        const winrates = predictions
+          .map((pred: { championId: number; winrate: number }) => ({
+            champion: champions.find((c) => c.id === pred.championId)!,
+            winrate: pred.winrate,
+          }))
           .sort((a, b) => b.winrate - a.winrate);
 
         setChampionWinrates(winrates);
