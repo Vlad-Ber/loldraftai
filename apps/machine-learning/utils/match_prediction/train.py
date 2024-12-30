@@ -53,16 +53,20 @@ def set_random_seeds(seed=42):
     os.environ["PYTHONHASHSEED"] = str(seed)
 
 
-def get_num_champions():
+def get_num_champions() -> tuple[int, int]:
+    """Get the total number of champion embeddings needed and the ID for unknown champions.
+
+    Returns:
+        tuple[int, int]: (num_champions, unknown_champion_id)
+    """
     with open(ENCODERS_PATH, "rb") as f:
         label_encoders = pickle.load(f)
 
     champion_encoder = label_encoders["champion_ids"]
-    max_champion_id = max(
-        int(champ_id) for champ_id in champion_encoder.classes_ if champ_id != "UNKNOWN"
-    )
-    unknown_champion_id = max_champion_id + 1
-    num_champions = unknown_champion_id + 1  # Total number of embeddings
+    # Get the unknown champion ID directly from the encoder
+    unknown_champion_id = champion_encoder.transform(["UNKNOWN"])[0]
+    # Total number of embeddings is simply the number of classes in the encoder
+    num_champions = len(champion_encoder.classes_)
 
     return num_champions, unknown_champion_id
 
