@@ -2,7 +2,7 @@
 
 import React from "react";
 import { Button } from "@draftking/ui/components/ui/button";
-import { Download } from "lucide-react";
+import { Download, AlertTriangle } from "lucide-react";
 import { FaWindows } from "react-icons/fa";
 
 export default function DownloadPage() {
@@ -26,11 +26,32 @@ export default function DownloadPage() {
           </span>{" "}
           game tracking.
         </p>
-        <Button
-          asChild
-          size="lg"
-          className="gap-2"
-        >
+        <div className="bg-yellow-200 text-yellow-950 p-4 rounded-md border border-yellow-300 space-y-2">
+          <h2 className="font-semibold text-lg flex items-center gap-2">
+            <AlertTriangle className="h-5 w-5" />
+            Before You Install
+          </h2>
+          <p className="text-sm">
+            Since <span className="brand-text">LoLDraftAI</span> is currently in
+            beta, Windows SmartScreen might display a warning during
+            installation. This is normal because:
+          </p>
+          <ul className="text-sm list-disc list-inside space-y-1">
+            <li>
+              We&apos;re a new application that hasn&apos;t built up a
+              reputation with Microsoft yet
+            </li>
+            <li>
+              The app only needs access to read your League client data -
+              nothing else
+            </li>
+          </ul>
+          <p className="text-sm mt-2">
+            To proceed with installation, click &quot;More info&quot; →
+            &quot;Run anyway&quot; when prompted.
+          </p>
+        </div>
+        <Button asChild size="lg" className="gap-2">
           <a
             href="https://releases.draftking.lol/latest/LoLDraftAI.Setup.exe"
             download
