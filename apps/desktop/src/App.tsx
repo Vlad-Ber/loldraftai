@@ -280,7 +280,10 @@ function App() {
   }, [bannedChampions, remainingChampions]);
 
   return (
-    <div className="container mx-auto mt-12 font-sans">
+    <div className="container mx-auto mt-8 font-sans">
+      <h1 className="brand-text text-5xl font-extrabold tracking-tight leading-tight text-primary text-center mb-8">
+        LoLDraftAI Analysis
+      </h1>
       <div className="mx-auto">
         <div className="flex flex-wrap items-stretch justify-start mb-4">
           <div className="flex w-full p-1 sm:w-auto">

@@ -113,6 +113,9 @@ export default function Draft() {
   return (
     <div className="flex w-full flex-col items-center mt-4">
       <div className="container mx-auto">
+        <h1 className="brand-text text-5xl font-extrabold tracking-tight leading-tight text-primary text-center mb-8">
+          LoLDraftAI Analysis
+        </h1>
         <div className="flex flex-wrap items-stretch justify-start mb-4">
           <div className="flex w-full p-1 sm:w-auto">
             <div className="flex-1">

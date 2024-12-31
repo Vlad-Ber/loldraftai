@@ -8,7 +8,7 @@
   }
 
   body {
-    font-family: 'Chakra Petch', sans-serif;
+    font-family: "Chakra Petch", sans-serif;
   }
 
   .dark {
@@ -41,5 +41,13 @@
     --ring: 224 71% 4%;
 
     --radius: 0.5rem;
+  }
+
+  .brand-text {
+    @apply font-bold;
+    background: linear-gradient(to right, hsl(220 70% 50%), hsl(160 60% 45%));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
   }
 }
