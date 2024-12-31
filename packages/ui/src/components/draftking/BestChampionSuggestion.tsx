@@ -12,6 +12,13 @@ import { champions } from "@draftking/ui/lib/champions";
 import { championIndexToFavoritesPosition } from "@draftking/ui/lib/types";
 import { eloToNumerical } from "@draftking/ui/lib/draftLogic";
 import { WinrateBar } from "./WinrateBar";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+  TooltipProvider,
+} from "../ui/tooltip";
+import { HelpCircle } from "lucide-react";
 
 interface BestChampionSuggestionProps {
   team1: Team;
@@ -110,9 +117,49 @@ export const BestChampionSuggestion = ({
   return (
     <div className="mt-5 rounded-lg border border-gray-200 bg-gradient-to-b from-white to-gray-50 dark:from-gray-900 dark:to-gray-950 p-6 shadow-sm">
       <div>
-        <h6 className="mb-4 text-xl font-semibold brand-text">
-          LoLDraftAI Champion Suggestions
-        </h6>
+        <div className="flex items-center gap-2 mb-4">
+          <h6 className="text-xl font-semibold brand-text">
+            LoLDraftAI Champion Suggestions
+          </h6>
+          <TooltipProvider delayDuration={0}>
+            <Tooltip>
+              <TooltipTrigger>
+                <HelpCircle className="h-6 w-6 text-gray-500" />
+              </TooltipTrigger>
+              <TooltipContent className="max-w-[350px] whitespace-normal">
+                <p className="mb-2">
+                  Champions suggestions are ranked by the{" "}
+                  <span className="brand-text">LoLDraftAI</span> winrate
+                  prediction with that champion in the team.
+                </p>
+                <p className="mb-2">
+                  <strong>Note:</strong>
+                </p>
+                <ul className="list-disc pl-4 space-y-1">
+                  <li>
+                    When the draft is not complete, the model predictions are
+                    for the average draft,{" "}
+                    <strong>
+                      not necessarily for drafts where a champion ends up hard
+                      countered
+                    </strong>
+                    . If not many enemy champions are visible, prioritize strong
+                    blind picks.
+                  </li>
+                  <li>
+                    The model doesn't take into account player skill. It
+                    predicts the average performance on each champion.
+                  </li>
+                </ul>
+                <p className="mt-2">
+                  For these reasons you as the player should still make the
+                  final call on what the best champion is.
+                </p>
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+        </div>
+
         <div className="space-y-1">
           {loading ? (
             <div className="flex items-center gap-2">
