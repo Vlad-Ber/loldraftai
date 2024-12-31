@@ -7,7 +7,7 @@ import * as os from "os";
 import fetch from "node-fetch";
 import https from "https";
 import * as fs from "fs";
-import Store from 'electron-store';
+import Store from "electron-store";
 
 // const require = createRequire(import.meta.url)
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -133,11 +133,11 @@ ipcMain.handle("get-champ-select", getChampSelect);
 const store = new Store();
 
 // Add IPC handlers for electron-store
-ipcMain.handle('electron-store-get', (_event, key) => {
+ipcMain.handle("electron-store-get", (_event, key) => {
   return store.get(key);
 });
 
-ipcMain.handle('electron-store-set', (_event, key, value) => {
+ipcMain.handle("electron-store-set", (_event, key, value) => {
   store.set(key, value);
 });
 
@@ -150,6 +150,7 @@ function createWindow() {
       contextIsolation: true,
       nodeIntegration: false,
     },
+    backgroundColor: "#09090b",
   });
 
   win.maximize();
