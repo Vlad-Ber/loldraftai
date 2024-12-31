@@ -17,8 +17,17 @@ export function Layout() {
 
       <footer className="border-t border-border/40 bg-neutral-950">
         <div className="container p-4 text-center text-sm text-muted-foreground mx-auto">
-          Last model update: {lastModified} on patch {currentPatch}. Contact
-          looyyd on Discord for bug reports or feature requests.
+          <div className="mb-2">
+            Last model update: {lastModified} on patch {currentPatch}. Contact
+            looyyd on Discord for bug reports or feature requests.
+          </div>
+          <div className="text-xs">
+            LoLDraftAI isn't endorsed by Riot Games and doesn't reflect the
+            views or opinions of Riot Games or anyone officially involved in
+            producing or managing Riot Games properties. Riot Games, and all
+            associated properties are trademarks or registered trademarks of
+            Riot Games, Inc.
+          </div>
         </div>
       </footer>
       <Toaster />
