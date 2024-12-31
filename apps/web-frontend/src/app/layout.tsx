@@ -56,7 +56,7 @@ export const metadata: Metadata = {
     url: "https://loldraftai.com",
     title: "LoLDraftAI - The Best League of Legends Draft Analysis Tool",
     description:
-      "AI-powered League of Legends draft analysis tool for winning your games",
+      "AI-powered League of Legends draft analysis tool to win your games",
     siteName: "LoLDraftAI",
     images: [
       {
@@ -71,7 +71,7 @@ export const metadata: Metadata = {
     card: "summary_large_image",
     title: "LoLDraftAI - The Best League of Legends Draft Analysis Tool",
     description:
-      "AI-powered League of Legends draft analysis tool for winning your games",
+      "AI-powered League of Legends draft analysis tool to win your games",
     images: [
       {
         url: "https://loldraftai.com/og-image.png",
