@@ -29,42 +29,42 @@ export const HelpModal: React.FC<HelpModalProps> = ({
           <p className="flex items-center">
             <CursorArrowRaysIcon className="mr-2 h-6 w-6 flex-shrink-0" />
             <span className="flex-grow">
-              Click on a champion to add them to a team.
+              Click on a champion to add them to a team
             </span>
           </p>
           <p className="flex items-center">
             <ArrowsRightLeftIcon className="mr-2 h-6 w-6 flex-shrink-0" />
             <span className="flex-grow">
               Select a team position to swap champions or add a new champion to
-              the position.
+              the position
             </span>
           </p>
           <p className="flex items-center">
             <TrashIcon className="mr-2 h-6 w-6 flex-shrink-0" />
             <span className="flex-grow">
               Right-click on a champion in team panels to remove them from the
-              team.
+              team
             </span>
           </p>
           <p className="flex items-center">
             <SparklesIcon className="mr-2 h-6 w-6 flex-shrink-0" />
             <span className="flex-grow">
               Request a draft analysis to see win probabilities as well as
-              additional predictions.
+              additional predictions
             </span>
           </p>
           <p className="flex items-center">
             <StarIcon className="mr-2 h-6 w-6 flex-shrink-0" />
             <span className="flex-grow">
               Right-click on a champion in the grid to add them to your
-              favorites.
+              favorites
             </span>
           </p>
           <p className="flex items-center">
             <LightBulbIcon className="mr-2 h-6 w-6 flex-shrink-0" />
             <span className="flex-grow">
-              Use the suggest champion button and favorites to get champion
-              suggestions for a selected slots.
+              Use the suggest champion button and favorites to get suggestions
+              for a selected position
             </span>
           </p>
         </div>
