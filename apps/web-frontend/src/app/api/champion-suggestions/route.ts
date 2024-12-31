@@ -73,12 +73,23 @@ export async function POST(request: Request) {
       })
     );
 
-    return NextResponse.json(predictions);
+    return NextResponse.json(predictions, {
+      headers: {
+        "Access-Control-Allow-Origin": "*",
+        "Content-Type": "application/json",
+      },
+    });
   } catch (error) {
     console.error("Champion suggestions error:", error);
     return NextResponse.json(
       { error: "Failed to get champion suggestions" },
-      { status: 500 }
+      {
+        status: 500,
+        headers: {
+          "Access-Control-Allow-Origin": "*",
+          "Content-Type": "application/json",
+        },
+      }
     );
   }
 }
