@@ -3,7 +3,7 @@ import { ThemeProvider } from "@/components/theme-provider";
 import { Analytics } from "@vercel/analytics/react";
 import { SpeedInsights } from "@vercel/speed-insights/next";
 import { Chakra_Petch } from "next/font/google";
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import "./globals.css";
 import {
   NavigationMenu,
@@ -24,11 +24,67 @@ const backendUrl =
   process.env.INFERENCE_BACKEND_URL ??
   "https://leaguedraftv2inference.whiteground-3c896ca8.eastus2.azurecontainerapps.io/";
 
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  themeColor: "#000000",
+};
+
 export const metadata: Metadata = {
-  title: "LoLDraftAI - The Best League of Legends Draft Analysis Tool",
+  metadataBase: new URL("https://loldraftai.com"),
+  title: {
+    default: "LoLDraftAI - The Best League of Legends Draft Analysis Tool",
+    template: "%s | LoLDraftAI",
+  },
   description:
-    "LoLDraftAI is a tool for analyzing League of Legends drafts. Use it to select the best champion and win your draft!",
-  icons: [{ rel: "icon", url: "/public/favicon.ico" }],
+    "LoLDraftAI is an AI-powered League of Legends draft tool that helps you win more games by analyzing team compositions and suggesting the best champions.",
+  keywords: [
+    "League of Legends",
+    "League",
+    "LoL",
+    "Draft Tool",
+    "Champion Select",
+    "AI",
+    "Machine Learning",
+    "Draft Analysis",
+    "LoLDraftAI",
+  ],
+  authors: [{ name: "looyyd" }],
+  openGraph: {
+    type: "website",
+    locale: "en_US",
+    url: "https://loldraftai.com",
+    title: "LoLDraftAI - The Best League of Legends Draft Analysis Tool",
+    description:
+      "AI-powered League of Legends draft analysis tool for winning your games",
+    siteName: "LoLDraftAI",
+    images: [
+      {
+        url: "https://loldraftai.com/og-image.png",
+        width: 1200,
+        height: 630,
+        alt: "LoLDraftAI - League of Legends Draft Analysis Tool",
+      },
+    ],
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "LoLDraftAI - The Best League of Legends Draft Analysis Tool",
+    description:
+      "AI-powered League of Legends draft analysis tool for winning your games",
+    images: [
+      {
+        url: "https://loldraftai.com/og-image.png",
+        width: 1200,
+        height: 630,
+        alt: "LoLDraftAI - League of Legends Draft Analysis Tool",
+      },
+    ],
+  },
+  icons: {
+    icon: "/favicon.ico",
+    shortcut: "/favicon.ico",
+  },
 };
 
 export default async function RootLayout({
