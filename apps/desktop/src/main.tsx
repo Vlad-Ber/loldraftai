@@ -1,9 +1,10 @@
 import React from "react";
 import ReactDOM from "react-dom/client";
 import "./styles/index.css";
+import "./fonts.css";
 import { ThemeProvider } from "./providers/theme-provider";
 import { Layout } from "./components/Layout";
-import { setStorageImpl } from '@draftking/ui/hooks/usePersistedState';
+import { setStorageImpl } from "@draftking/ui/hooks/usePersistedState";
 
 // Initialize storage implementation
 setStorageImpl(window.electronAPI.storage);

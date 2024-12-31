@@ -2,7 +2,7 @@ import Link from "next/link";
 import { ThemeProvider } from "@/components/theme-provider";
 import { Analytics } from "@vercel/analytics/react";
 import { SpeedInsights } from "@vercel/speed-insights/next";
-import { Inter } from "next/font/google";
+import { Chakra_Petch } from "next/font/google";
 import type { Metadata } from "next";
 import "./globals.css";
 import {
@@ -13,9 +13,10 @@ import {
   navigationMenuTriggerStyle,
 } from "@draftking/ui/components/ui/navigation-menu";
 
-const inter = Inter({
+const font = Chakra_Petch({
   subsets: ["latin"],
-  variable: "--font-sans",
+  weight: ["400", "500", "600", "700"],
+  variable: "--font-chakra-petch",
 });
 
 // Default to the production backend, otherwise vercel builds will fail
@@ -63,7 +64,7 @@ export default async function RootLayout({
 
   return (
     <html lang="en" className="dark" suppressHydrationWarning>
-      <body className={`font-sans ${inter.variable}`}>
+      <body className={`${font.variable} font-sans`}>
         <ThemeProvider>
           <div className="flex min-h-screen flex-col bg-background text-foreground">
             <nav className="sticky top-0 z-50 border-b border-border/40 bg-neutral-950">

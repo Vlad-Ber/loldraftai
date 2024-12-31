@@ -280,7 +280,7 @@ function App() {
   }, [bannedChampions, remainingChampions]);
 
   return (
-    <div className="container mx-auto mt-12">
+    <div className="container mx-auto mt-12 font-sans">
       <div className="mx-auto">
         <div className="flex flex-wrap items-stretch justify-start mb-4">
           <div className="flex w-full p-1 sm:w-auto">
