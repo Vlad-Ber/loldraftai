@@ -259,7 +259,7 @@ function App() {
     }
 
     void updateFromLiveGame();
-    intervalId = setInterval(updateFromLiveGame, 1000);
+    intervalId = setInterval(updateFromLiveGame, 500);
 
     return () => {
       clearInterval(intervalId);
