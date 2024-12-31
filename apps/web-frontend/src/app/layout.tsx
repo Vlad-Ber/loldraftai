@@ -85,6 +85,9 @@ export const metadata: Metadata = {
     icon: "/favicon.ico",
     shortcut: "/favicon.ico",
   },
+  alternates: {
+    canonical: 'https://loldraftai.com'
+  },
 };
 
 export default async function RootLayout({
