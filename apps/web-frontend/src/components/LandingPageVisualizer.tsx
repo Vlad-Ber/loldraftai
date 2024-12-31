@@ -11,7 +11,6 @@ import {
 } from "@draftking/ui/lib/champions";
 import { motion, AnimatePresence } from "framer-motion";
 import type { Champion } from "@draftking/ui/lib/types";
-import { SparklesIcon } from "@heroicons/react/24/solid";
 
 // Animated champion icon component
 const AnimatedChampionIcon = ({
@@ -248,9 +247,6 @@ export function Visualizer() {
           >
             <span className="text-sm font-bold brand-text flex flex-col items-center">
               <span>LoLDraftAI</span>
-              <span className="flex items-center gap-1">
-                <SparklesIcon className="size-4 inline-block" />
-              </span>
             </span>
           </Circle>
 
