@@ -13,6 +13,17 @@ interface ChampionSuggestionRequest {
 
 const backendUrl = process.env.INFERENCE_BACKEND_URL ?? "http://127.0.0.1:8000";
 
+export async function OPTIONS() {
+  return new NextResponse(null, {
+    status: 204,
+    headers: {
+      "Access-Control-Allow-Origin": "*",
+      "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+      "Access-Control-Allow-Headers": "Content-Type",
+    },
+  });
+}
+
 export async function POST(request: Request) {
   try {
     const body: ChampionSuggestionRequest = await request.json();
