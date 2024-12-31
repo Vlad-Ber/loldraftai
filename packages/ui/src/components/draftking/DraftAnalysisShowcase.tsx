@@ -55,11 +55,11 @@ export const DraftAnalysisShowcase = ({
           <WinrateBar team1Winrate={win_probability} />
         </div>
 
-        <div className="w-full overflow-x-auto">
+        <div className="w-full overflow-x-auto rounded-lg bg-white dark:bg-gray-900 shadow-sm">
           <table className="w-full min-w-[600px] table-auto">
             <thead>
-              <tr className="border-b text-sm text-blue-600">
-                <th className="p-2 text-left">BLUE SIDE</th>
+              <tr className="border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 text-sm text-white">
+                <th className="p-3 text-left font-medium">BLUE SIDE</th>
                 <HeaderTooltip content="How much this champion contributes to their team's win probability">
                   IMPACT
                 </HeaderTooltip>
@@ -72,13 +72,16 @@ export const DraftAnalysisShowcase = ({
                 <HeaderTooltip content="How much this champion contributes to their team's win probability">
                   IMPACT
                 </HeaderTooltip>
-                <th className="p-2 text-right">RED SIDE</th>
+                <th className="p-3 text-right font-medium">RED SIDE</th>
               </tr>
             </thead>
             <tbody>
               {Array.from({ length: 5 }).map((_, i) => (
-                <tr key={i} className="border-b">
-                  <td className="p-2">
+                <tr
+                  key={i}
+                  className="border-b border-gray-100 dark:border-gray-800"
+                >
+                  <td className="p-3">
                     {team1[i as 0 | 1 | 2 | 3 | 4] && (
                       <ImageComponent
                         src={`/icons/champions/${
@@ -92,7 +95,7 @@ export const DraftAnalysisShowcase = ({
                     )}
                   </td>
                   <td
-                    className={`p-2 text-right ${
+                    className={`p-3 text-right ${
                       (champion_impact[i] as number) > 0
                         ? "text-green-600"
                         : (champion_impact[i] as number) < 0
@@ -103,18 +106,18 @@ export const DraftAnalysisShowcase = ({
                     {champion_impact[i] !== 0 &&
                       `(${((champion_impact[i] as number) * 100).toFixed(1)}%)`}
                   </td>
-                  <td className="p-2 text-center">
+                  <td className="p-3 text-center">
                     {(gold_diff_15min[i] ?? 0) > 0
                       ? Math.abs(gold_diff_15min[i] ?? 0).toFixed(0)
                       : ""}
                   </td>
-                  <td className="p-2 text-center">
+                  <td className="p-3 text-center">
                     {(gold_diff_15min[i] ?? 0) < 0
                       ? Math.abs(gold_diff_15min[i] ?? 0).toFixed(0)
                       : ""}
                   </td>
                   <td
-                    className={`p-2 text-right ${
+                    className={`p-3 text-right ${
                       (champion_impact[i + 5] as number) > 0
                         ? "text-green-600"
                         : (champion_impact[i + 5] as number) < 0
@@ -127,7 +130,7 @@ export const DraftAnalysisShowcase = ({
                         1
                       )}%)`}
                   </td>
-                  <td className="p-2 text-right">
+                  <td className="p-3 text-right">
                     {team2[i as 0 | 1 | 2 | 3 | 4] && (
                       <ImageComponent
                         src={`/icons/champions/${

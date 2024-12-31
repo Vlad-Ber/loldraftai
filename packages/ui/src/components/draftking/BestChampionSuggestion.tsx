@@ -107,25 +107,16 @@ export const BestChampionSuggestion = ({
     baseApiUrl,
   ]);
 
-  useEffect(() => {
-    if (loading) {
-      window.scrollTo({
-        top: document.body.scrollHeight,
-        behavior: "smooth",
-      });
-    }
-  }, [loading]);
-
   return (
-    <div className="mt-5 rounded border p-4">
+    <div className="mt-5 rounded-lg border border-gray-200 bg-gradient-to-b from-white to-gray-50 dark:from-gray-900 dark:to-gray-950 p-6 shadow-sm">
       <div>
-        <h6 className="mb-2 text-lg font-semibold">
-          Champion Suggestions (Best First)
+        <h6 className="mb-4 text-xl font-semibold brand-text">
+          LoLDraftAI Champion Suggestions
         </h6>
-        <div>
+        <div className="space-y-1">
           {loading ? (
             <div className="flex items-center gap-2">
-              <Loader2 className="h-4 w-4 animate-spin" />
+              <Loader2 className="h-4 w-4 animate-spin text-blue-500" />
               <p>Loading best champion suggestion...</p>
             </div>
           ) : error ? (
@@ -134,37 +125,53 @@ export const BestChampionSuggestion = ({
             championData.map((championWinrate, index) => (
               <div
                 key={index}
-                className={`mb-2 flex flex-col items-center ${
+                className={`relative rounded-md p-3 ${
                   !championWinrate.isAvailable ? "opacity-50" : ""
                 }`}
               >
-                <div className="flex items-center gap-2 mb-1 relative">
-                  <ImageComponent
-                    src={`/icons/champions/${championWinrate.champion.icon}`}
-                    alt={championWinrate.champion.name}
-                    width={32}
-                    height={32}
-                    className={`inline-block ${
-                      !championWinrate.isAvailable ? "grayscale" : ""
-                    }`}
-                  />
-                  <h6
-                    className={`text-lg font-semibold ${
-                      !championWinrate.isAvailable ? "line-through" : ""
-                    }`}
-                  >
-                    {`${
-                      championWinrate.champion.name
-                    }: ${championWinrate.winrate.toFixed(1)}%`}
-                  </h6>
+                <div className="flex flex-col items-center gap-2">
+                  <div className="flex items-center gap-3 mb-1">
+                    <div className="relative">
+                      <div className="absolute -left-2 -top-2 flex h-5 w-5 items-center justify-center rounded-full bg-slate-700 text-xs font-bold text-white">
+                        {index + 1}
+                      </div>
+                      <ImageComponent
+                        src={`/icons/champions/${championWinrate.champion.icon}`}
+                        alt={championWinrate.champion.name}
+                        width={40}
+                        height={40}
+                        className={`rounded-full ${
+                          !championWinrate.isAvailable ? "grayscale" : ""
+                        }`}
+                      />
+                    </div>
+                    <h6
+                      className={`text-lg font-semibold ${
+                        !championWinrate.isAvailable ? "line-through" : ""
+                      }`}
+                    >
+                      {championWinrate.champion.name}
+                      <span
+                        className={`ml-2 ${
+                          selectedSpot.teamIndex === 1
+                            ? "text-blue-500"
+                            : "text-red-500"
+                        }`}
+                      >
+                        {championWinrate.winrate.toFixed(1)}%
+                      </span>
+                    </h6>
+                  </div>
+                  <div className="w-full">
+                    <WinrateBar
+                      team1Winrate={
+                        selectedSpot.teamIndex === 1
+                          ? championWinrate.winrate
+                          : 100 - championWinrate.winrate
+                      }
+                    />
+                  </div>
                 </div>
-                <WinrateBar
-                  team1Winrate={
-                    selectedSpot.teamIndex === 1
-                      ? championWinrate.winrate
-                      : 100 - championWinrate.winrate
-                  }
-                />
               </div>
             ))
           )}

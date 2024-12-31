@@ -209,15 +209,6 @@ export const AnalysisParent = ({
   }, [analysisTrigger]);
 
   useEffect(() => {
-    if (showAnalysis) {
-      window.scrollTo({
-        top: document.body.scrollHeight,
-        behavior: "smooth",
-      });
-    }
-  }, [showAnalysis]);
-
-  useEffect(() => {
     const fetchMetadata = async () => {
       try {
         const response = await fetch(`${baseApiUrl}/api/metadata`);

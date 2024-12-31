@@ -84,11 +84,13 @@ export const DraftAnalysis = ({
   }, [team1, team2, elo, patch, baseApiUrl]);
 
   return (
-    <div className="mt-5 rounded border border-gray-200 p-4">
+    <div className="mt-5 rounded-lg border border-gray-200 bg-gradient-to-b from-white to-gray-50 dark:from-gray-900 dark:to-gray-950 p-6 shadow-sm">
       <div className="flex items-center justify-between">
-        <h6 className="text-lg font-semibold">Draft Analysis</h6>
+        <h6 className="text-xl font-semibold brand-text">
+          LoLDraftAI Analysis
+        </h6>
       </div>
-      <div className="mb-2.5 mt-2 grid grid-cols-1 gap-2">
+      <div className="mb-2.5 mt-4 grid grid-cols-1 gap-2">
         <div>
           {loading ? (
             <div className="flex items-center gap-2">
