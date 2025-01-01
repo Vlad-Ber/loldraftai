@@ -55,10 +55,10 @@ function Logo() {
     points.push(`${x},${y}`);
   }
 
-  // Calculate 2 points for the lines
+  // Calculate 2 points for the lines - increased vertical spread to 0.4
   const leftPoints = [
-    { x: centerX - size * 0.4, y: centerY - size * 0.25 },
-    { x: centerX - size * 0.4, y: centerY + size * 0.25 },
+    { x: centerX - size * 0.4, y: centerY - size * 0.4 },
+    { x: centerX - size * 0.4, y: centerY + size * 0.4 },
   ];
   const rightX = centerX + size * 0.4;
   const rightY = centerY;
@@ -92,7 +92,7 @@ function Logo() {
         strokeWidth="8"
       />
 
-      {/* Converging lines */}
+      {/* Converging lines - increased strokeWidth to 32 */}
       {leftPoints.map((point, i) => (
         <line
           key={i}
@@ -101,18 +101,18 @@ function Logo() {
           x2={rightX}
           y2={rightY}
           stroke="white"
-          strokeWidth="12"
+          strokeWidth="32"
           strokeLinecap="round"
         />
       ))}
 
-      {/* Starting points dots */}
+      {/* Starting points dots - increased radius to 32 */}
       {leftPoints.map((point, i) => (
-        <circle key={i} cx={point.x} cy={point.y} r="12" fill="white" />
+        <circle key={i} cx={point.x} cy={point.y} r="32" fill="white" />
       ))}
 
-      {/* End point dot */}
-      <circle cx={rightX} cy={rightY} r="20" fill="white" />
+      {/* End point dot - increased radius to 48 */}
+      <circle cx={rightX} cy={rightY} r="48" fill="white" />
     </svg>
   );
 }
