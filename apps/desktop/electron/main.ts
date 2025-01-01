@@ -155,13 +155,17 @@ function createWindow() {
 
   win.maximize();
 
+  const downloadNotificaiton = {
+    title: "LoLDraftAI",
+    body: "Update available, it will automatically install when you close the app. Please wait around 30s after app close to let the update complete.",
+  };
   // Simplified auto-update setup
-  autoUpdater.checkForUpdatesAndNotify();
+  autoUpdater.checkForUpdatesAndNotify(downloadNotificaiton);
 
-  // Check for updates every hour
+  // Check for updates every 10 minutes
   setInterval(() => {
-    autoUpdater.checkForUpdatesAndNotify();
-  }, 60 * 60 * 1000);
+    autoUpdater.checkForUpdatesAndNotify(downloadNotificaiton);
+  }, 10 * 60 * 1000);
 
   // Test active push message to Renderer-process.
   win.webContents.on("did-finish-load", () => {
