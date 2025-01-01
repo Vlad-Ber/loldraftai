@@ -66,11 +66,11 @@
     ],
     "mac": {
       "target": "dmg",
-      "icon": "src/assets/logo512.ico"
+      "icon": "src/assets/icon.ico"
     },
     "win": {
       "target": "nsis",
-      "icon": "src/assets/logo512.ico",
+      "icon": "src/assets/icon.ico",
       "artifactName": "LoLDraftAI-${version}-Setup.${ext}"
     }
   }

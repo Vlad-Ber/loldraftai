@@ -44,7 +44,7 @@ function Logo() {
   const height = 512;
   const centerX = width / 2;
   const centerY = height / 2;
-  const size = Math.min(width, height) * 0.4;
+  const size = Math.min(width, height) * 0.48;
 
   // Calculate hexagon points
   const points = [];
