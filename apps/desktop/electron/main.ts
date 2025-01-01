@@ -1,4 +1,4 @@
-import { app, BrowserWindow, ipcMain } from "electron";
+import { app, BrowserWindow, ipcMain, Menu } from "electron";
 import { autoUpdater } from "electron-updater";
 import { fileURLToPath } from "node:url";
 import path from "node:path";
@@ -152,6 +152,9 @@ function createWindow() {
     },
     backgroundColor: "#09090b",
   });
+
+  // Remove default menu
+  Menu.setApplicationMenu(null);
 
   win.maximize();
 
