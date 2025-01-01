@@ -2,10 +2,12 @@
 
 import Link from "next/link";
 import { Visualizer } from "../components/LandingPageVisualizer";
+import { FeaturesShowcase } from "../components/FeaturesShowcase";
 import {
   StarIcon,
   SparklesIcon,
   LightBulbIcon,
+  TrophyIcon,
 } from "@heroicons/react/24/solid";
 import { FaWindows } from "react-icons/fa";
 import { AnimatedButton } from "../components/AnimatedButton";
@@ -125,6 +127,23 @@ export default function HomePage() {
             </Link>{" "}
             for details.
           </p>
+        </section>
+
+        {/* How to win your games using LoLDraftAI Section */}
+        <section className="w-full">
+          <h2 className="text-3xl font-bold text-center mb-2">
+            How to win your games using{" "}
+            <span className="brand-text">LoLDraftAI</span>{" "}
+            <TrophyIcon className="inline-block h-7 w-7 mb-1 ml-1" />
+          </h2>
+          <FeaturesShowcase />
+        </section>
+
+        {/* Added CTA Section */}
+        <section className="flex flex-col items-center">
+          <AnimatedButton href="/draft">
+            Analyse a Draft Now
+          </AnimatedButton>
         </section>
       </div>
     </main>
