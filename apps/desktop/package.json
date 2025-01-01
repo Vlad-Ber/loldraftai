@@ -48,7 +48,10 @@
   },
   "description": "LoLDraftAI Desktop App",
   "build": {
-    "appId": "com.draftking.desktop",
+    "appId": "com.loldraftai.desktop",
+    "extraMetadata": {
+      "name": "LoLDraftAI"
+    },
     "productName": "LoLDraftAI",
     "artifactName": "LoLDraftAI-${version}-Setup.${ext}",
     "files": [
@@ -58,7 +61,7 @@
     "publish": [
       {
         "provider": "generic",
-        "url": "https://releases.draftking.lol/latest/"
+        "url": "https://releases.loldraftai.com/latest/"
       }
     ],
     "mac": {
