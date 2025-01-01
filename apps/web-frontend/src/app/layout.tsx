@@ -186,7 +186,9 @@ export default async function RootLayout({
               <div className="container p-4 text-center text-sm text-muted-foreground mx-auto">
                 <div className="mb-2">
                   Last model update: {lastModified} on patch {latestPatch}.
-                  Contact looyyd on Discord for bug reports or feature requests.
+                  After a new patch, expect a few days of delay before an
+                  update. Contact looyyd on Discord for bug reports or feature
+                  requests.
                 </div>
                 <div className="text-xs">
                   LoLDraftAI isn&apos;t endorsed by Riot Games and doesn&apos;t

@@ -18,7 +18,8 @@ export function Layout() {
       <footer className="border-t border-border/40 bg-neutral-950">
         <div className="container p-4 text-center text-sm text-muted-foreground mx-auto">
           <div className="mb-2">
-            Last model update: {lastModified} on patch {currentPatch}. Contact
+            Last model update: {lastModified} on patch {currentPatch}. After a
+            new patch, expect a few days of delay before an update. Contact
             looyyd on Discord for bug reports or feature requests.
           </div>
           <div className="text-xs">
