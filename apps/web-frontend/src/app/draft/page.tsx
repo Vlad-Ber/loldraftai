@@ -202,18 +202,17 @@ export default function Draft() {
               />
             </div>
           </div>
-
-          {/* Draft Analysis */}
-          <div className="flex w-full justify-center">
-            <AnalysisParent
-              team1={teamOne}
-              team2={teamTwo}
-              selectedSpot={selectedSpot}
-              favorites={favorites}
-              remainingChampions={remainingChampions}
-              analysisTrigger={analysisTrigger}
-            />
-          </div>
+        </div>
+        {/* Draft Analysis */}
+        <div className="mt-4">
+          <AnalysisParent
+            team1={teamOne}
+            team2={teamTwo}
+            selectedSpot={selectedSpot}
+            favorites={favorites}
+            remainingChampions={remainingChampions}
+            analysisTrigger={analysisTrigger}
+          />
         </div>
       </div>
     </div>
