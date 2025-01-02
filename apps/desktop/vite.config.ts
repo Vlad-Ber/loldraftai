@@ -5,7 +5,12 @@ import react from "@vitejs/plugin-react";
 
 // https://vitejs.dev/config/
 export default defineConfig({
-  assetsInclude: ["**/*.woff2"],
+  assetsInclude: ["**/*.woff2", "**/*.ttf"],
+  resolve: {
+    alias: {
+      "@": path.resolve(__dirname, "./src"),
+    },
+  },
   plugins: [
     react(),
     electron({
