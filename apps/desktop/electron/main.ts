@@ -151,6 +151,13 @@ function createWindow() {
       nodeIntegration: false,
     },
     backgroundColor: "#09090b",
+    show: false,
+  });
+
+  // Show window when ready to render
+  win.once("ready-to-show", () => {
+    win?.show();
+    win?.maximize();
   });
 
   // Remove default menu
