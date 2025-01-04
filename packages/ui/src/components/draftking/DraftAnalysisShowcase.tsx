@@ -23,11 +23,13 @@ interface DraftAnalysisShowcaseProps {
 const HeaderTooltip = ({
   children,
   content,
+  align = "center",
 }: {
   children: React.ReactNode;
   content: string;
+  align?: "left" | "center" | "right";
 }) => (
-  <th className="p-2 text-right">
+  <th className={`p-2 text-${align}`}>
     <Tooltip>
       <TooltipTrigger className="cursor-help">{children}</TooltipTrigger>
       <TooltipContent className="max-w-[200px] whitespace-normal text-center">
@@ -62,16 +64,28 @@ export const DraftAnalysisShowcase = ({
             <thead>
               <tr className="border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 text-sm text-white">
                 <th className="p-3 text-left font-medium">BLUE SIDE</th>
-                <HeaderTooltip content="How much this champion contributes to their team's win probability. Tip: play around champions with high impact, they are your key to victory.">
+                <HeaderTooltip
+                  content="How much this champion contributes to their team's win probability. Tip: play around champions with high impact, they are your key to victory."
+                  align="right"
+                >
                   IMPACT
                 </HeaderTooltip>
-                <HeaderTooltip content="Predicted gold lead for this champion at 15 minutes">
+                <HeaderTooltip
+                  content="Predicted gold lead for this champion at 15 minutes"
+                  align="center"
+                >
                   G@15 LEAD
                 </HeaderTooltip>
-                <HeaderTooltip content="Predicted gold lead for this champion at 15 minutes">
+                <HeaderTooltip
+                  content="Predicted gold lead for this champion at 15 minutes"
+                  align="center"
+                >
                   G@15 LEAD
                 </HeaderTooltip>
-                <HeaderTooltip content="How much this champion contributes to their team's win probability. Tip: play around champions with high impact, they are your key to victory.">
+                <HeaderTooltip
+                  content="How much this champion contributes to their team's win probability. Tip: play around champions with high impact, they are your key to victory."
+                  align="right"
+                >
                   IMPACT
                 </HeaderTooltip>
                 <th className="p-3 text-right font-medium">RED SIDE</th>
