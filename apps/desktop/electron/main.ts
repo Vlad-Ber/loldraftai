@@ -160,7 +160,7 @@ function createWindow() {
 
   const downloadNotificaiton = {
     title: "LoLDraftAI",
-    body: "Update available, it will automatically install when you close the app. Please wait around 30s after app close to let the update complete.",
+    body: "Update available, it will automatically install when you close the app. Please wait around 30s before reopening the app to let the update complete.",
   };
   // Simplified auto-update setup
   autoUpdater.checkForUpdatesAndNotify(downloadNotificaiton);
