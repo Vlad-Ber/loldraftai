@@ -35,6 +35,12 @@ import { StatusMessage } from "@draftking/ui/components/draftking/StatusMessage"
 import { useToast } from "@draftking/ui/hooks/use-toast";
 import { usePersistedState } from "@draftking/ui/hooks/usePersistedState";
 import isEqual from "lodash/isEqual";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+  TooltipProvider,
+} from "@draftking/ui/components/ui/tooltip";
 
 function App() {
   // Draft state
@@ -323,23 +329,36 @@ function App() {
           </div>
           <div className="flex w-full p-1 sm:w-auto">
             <div className="flex-1">
-              <Button
-                variant="outline"
-                onClick={toggleLiveTracking}
-                className="inline-flex items-center gap-2"
-              >
-                <span className="relative flex h-2 w-2">
-                  {isLiveTracking && (
-                    <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-red-400 opacity-75" />
-                  )}
-                  <span
-                    className={`relative inline-flex h-2 w-2 rounded-full ${
-                      isLiveTracking ? "bg-red-500" : "bg-gray-200"
-                    }`}
-                  />
-                </span>
-                {isLiveTracking ? "Stop Live Tracking" : "Start Live Tracking"}
-              </Button>
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      variant="outline"
+                      onClick={toggleLiveTracking}
+                      className="inline-flex items-center gap-2"
+                    >
+                      <span className="relative flex h-2 w-2">
+                        {isLiveTracking && (
+                          <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-red-400 opacity-75" />
+                        )}
+                        <span
+                          className={`relative inline-flex h-2 w-2 rounded-full ${
+                            isLiveTracking ? "bg-red-500" : "bg-gray-200"
+                          }`}
+                        />
+                      </span>
+                      {isLiveTracking
+                        ? "Stop Live Tracking"
+                        : "Start Live Tracking"}
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent className="max-w-[300px] whitespace-normal">
+                    Syncs with your live draft lobby. Champions are auto-placed
+                    based on their common roles, but may need manual adjustment
+                    since actual positions aren't known.
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
             </div>
           </div>
         </div>
