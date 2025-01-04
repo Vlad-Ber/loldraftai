@@ -1,13 +1,46 @@
 import { useDraftStore } from "../stores/draftStore";
 import App from "../App";
 import { Toaster } from "@draftking/ui/components/ui/toaster";
+import { useEffect, useState } from "react";
+import { VERCEL_URL } from "../utils";
 
 export function Layout() {
   const { currentPatch } = useDraftStore();
-  const lastModified = new Date().toLocaleDateString("en-US", {
-    day: "numeric",
-    month: "long",
-  });
+  const [lastModified, setLastModified] = useState<string>("");
+
+  useEffect(() => {
+    const fetchMetadata = async () => {
+      try {
+        const response = await fetch(`${VERCEL_URL}/api/metadata`);
+        if (!response.ok) {
+          throw new Error("Failed to fetch metadata");
+        }
+        const data = await response.json();
+        const date = new Date(data.last_modified);
+
+        if (isNaN(date.getTime())) {
+          throw new Error("Invalid date received from server");
+        }
+
+        const formattedDate = date.toLocaleDateString("en-US", {
+          day: "numeric",
+          month: "long",
+        });
+        setLastModified(formattedDate);
+      } catch (error) {
+        console.error("Error fetching metadata:", error);
+        // Fallback to current date if fetch fails
+        setLastModified(
+          new Date().toLocaleDateString("en-US", {
+            day: "numeric",
+            month: "long",
+          })
+        );
+      }
+    };
+
+    fetchMetadata();
+  }, []); // Run once on component mount
 
   return (
     <div className="flex min-h-screen flex-col bg-background text-foreground">
