@@ -71,13 +71,13 @@ export const DraftAnalysisShowcase = ({
                   IMPACT
                 </HeaderTooltip>
                 <HeaderTooltip
-                  content="Predicted gold lead for this champion at 15 minutes"
+                  content="Predicted gold lead for this champion at 15 minutes, usually indicates winning lanes."
                   align="center"
                 >
                   G@15 LEAD
                 </HeaderTooltip>
                 <HeaderTooltip
-                  content="Predicted gold lead for this champion at 15 minutes"
+                  content="Predicted gold lead for this champion at 15 minutes, usually indicates winning lanes."
                   align="center"
                 >
                   G@15 LEAD
