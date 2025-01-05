@@ -234,7 +234,7 @@ export const sortedPatches = Object.keys(playRatesData).sort((a, b) => {
 });
 
 // Helper function to get champion play rates for a specific patch
-function getChampionPlayRates(
+export function getChampionPlayRates(
   championId: number,
   patch: string
 ): PlayRates | undefined {

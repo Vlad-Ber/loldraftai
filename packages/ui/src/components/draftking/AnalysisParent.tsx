@@ -24,6 +24,7 @@ import type {
 import { elos } from "@draftking/ui/lib/types";
 import { championIndexToFavoritesPosition } from "@draftking/ui/lib/types";
 import { SparklesIcon, LightBulbIcon } from "@heroicons/react/24/solid";
+import { LowPickrateWarning } from "./LowPickrateWarning";
 
 interface AnalysisParentProps {
   team1: Team;
@@ -234,6 +235,12 @@ export const AnalysisParent = ({
 
   return (
     <div className="draft-analysis p-5">
+      <LowPickrateWarning
+        teamOne={team1}
+        teamTwo={team2}
+        currentPatch={currentPatch}
+      />
+
       <div className="flex flex-wrap items-stretch justify-center">
         <div className="flex w-full p-1 sm:w-auto">
           <div className="flex-1">
