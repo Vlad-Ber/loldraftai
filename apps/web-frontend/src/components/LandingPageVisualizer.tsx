@@ -375,8 +375,8 @@ export function Visualizer() {
         />
       </div>
 
-      {/* Simple prefetcher for next batch */}
-      <ImagePrefetcher champions={nextChampions} />
+      {/* Simple prefetcher for next batch, commented out because it is not working */}
+      {/*<ImagePrefetcher champions={nextChampions} /> */}
     </>
   );
 }
