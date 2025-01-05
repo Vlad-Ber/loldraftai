@@ -1,7 +1,13 @@
 import React, { useEffect, useState } from "react";
-import { Loader2 } from "lucide-react";
+import { Loader2, HelpCircle } from "lucide-react";
 import type { Team, Elo } from "@draftking/ui/lib/types";
 import { eloToNumerical } from "@draftking/ui/lib/draftLogic";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+  TooltipProvider,
+} from "../ui/tooltip";
 
 interface PredictionResult {
   win_probability: number;
@@ -85,10 +91,41 @@ export const DraftAnalysis = ({
 
   return (
     <div className="mt-5 rounded-lg border border-gray-200 bg-gradient-to-b from-white to-gray-50 dark:from-gray-900 dark:to-gray-950 p-6 shadow-sm">
-      <div className="flex items-center justify-between">
+      <div className="flex items-center gap-2">
         <h6 className="text-xl font-semibold brand-text">
           LoLDraftAI Analysis
         </h6>
+        <TooltipProvider delayDuration={0}>
+          <Tooltip>
+            <TooltipTrigger>
+              <HelpCircle className="h-5 w-5 text-gray-500" />
+            </TooltipTrigger>
+            <TooltipContent className="max-w-[350px] whitespace-normal">
+              <p className="mb-2">
+                <span className="brand-text">LoLDraftAI</span> analyzes drafts
+                by understanding complex game dynamics and champion
+                interactions, not just statistics.
+              </p>
+              <p className="mb-2">Understanding the analysis:</p>
+              <ul className="list-disc pl-4 space-y-1">
+                <li>
+                  <strong>Impact Score:</strong> Indicates a champion's
+                  contribution to their team's win probability. Higher impact
+                  champions are your win conditions, play around them.
+                </li>
+                <li>
+                  <strong>Gold@15:</strong> Predicted gold differences at 15
+                  minutes, use this to detect winning lanes.
+                </li>
+              </ul>
+              <p className="mt-2 text-sm italic">
+                Remember that these predictions are based on average game
+                patterns - use them to create your game plan but adapt to the
+                actual game state.
+              </p>
+            </TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
       </div>
       <div className="mb-2.5 mt-4 grid grid-cols-1 gap-2">
         <div>
