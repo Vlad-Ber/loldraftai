@@ -51,15 +51,3 @@
     background-clip: text;
   }
 }
-
-@layer utilities {
-  .scrollbar-gutter-stable {
-    scrollbar-gutter: stable;
-  }
-}
-
-html,
-body {
-  overflow-y: auto;
-  scrollbar-gutter: stable;
-}
