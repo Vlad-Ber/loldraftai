@@ -119,6 +119,7 @@ const getRandomChampions = (): ChampionsToVisualize => {
 };
 
 // Simple prefetcher component
+/*
 const ImagePrefetcher = ({
   champions,
 }: {
@@ -139,6 +140,7 @@ const ImagePrefetcher = ({
     </div>
   );
 };
+*/
 
 export function Visualizer() {
   const containerRef = useRef<HTMLDivElement>(null);
