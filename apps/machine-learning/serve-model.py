@@ -359,6 +359,23 @@ async def startup_event():
     asyncio.create_task(model_inference_worker())
 
 
+@app.post("/predict-batch")
+async def predict_batch(inputs: List[APIInput]):
+    # Create futures for all predictions
+    loop = asyncio.get_event_loop()
+    futures = []
+    
+    for api_input in inputs:
+        model_input = api_input_to_model_input(api_input)
+        future = loop.create_future()
+        await request_queue.put({"input": model_input, "future": future})
+        futures.append(future)
+
+    # Wait for all results
+    results = await asyncio.gather(*futures)
+    return [WinratePrediction(win_probability=result["win_probability"]) for result in results]
+
+
 # For running with uvicorn
 if __name__ == "__main__":
     uvicorn.run("your_script_name:app", host="0.0.0.0", port=8000)
