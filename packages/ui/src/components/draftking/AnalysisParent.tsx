@@ -287,15 +287,16 @@ export const AnalysisParent = ({
                     <ul className="list-disc pl-4 space-y-1">
                       <li>
                         <strong>Favorites Only:</strong> Only shows suggestions
-                        from your favorite champions
+                        for your favorite champions
                       </li>
                       <li>
                         <strong>Meta Champions:</strong> Shows suggestions for
-                        champions with &gt;0.5% pick rate in this role
+                        your favorite champions and champions with &gt;0.5% pick
+                        rate in this role
                       </li>
                       <li>
                         <strong>All Champions:</strong> Shows suggestions for
-                        all possible champions
+                        all champions
                       </li>
                     </ul>
                   </TooltipContent>

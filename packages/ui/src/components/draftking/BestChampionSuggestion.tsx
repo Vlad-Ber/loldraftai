@@ -74,13 +74,17 @@ export const BestChampionSuggestion = ({
     if (suggestionMode === "favorites") return favoritesForSpot;
 
     if (suggestionMode === "meta") {
-      return champions
+      // Get meta champions based on play rate
+      const metaChampions = champions
         .filter((champion) => {
           const roleKey = roleIndexToKey[selectedSpot.championIndex];
           const playRates = getChampionPlayRates(champion.id, patch);
           return playRates && playRates[roleKey] >= META_THRESHOLD;
         })
         .map((c) => c.id);
+
+      // Combine meta champions with favorites and remove duplicates
+      return [...new Set([...metaChampions, ...favoritesForSpot])];
     }
 
     // "all" mode
