@@ -26,6 +26,7 @@ import { championIndexToFavoritesPosition } from "@draftking/ui/lib/types";
 import { SparklesIcon, LightBulbIcon } from "@heroicons/react/24/solid";
 import { LowPickrateWarning } from "./LowPickrateWarning";
 import { HelpCircle } from "lucide-react";
+import { usePersistedState } from "../../hooks/usePersistedState";
 
 type SuggestionMode = "favorites" | "meta" | "all";
 
@@ -195,7 +196,10 @@ export const AnalysisParent = ({
 }: AnalysisParentProps) => {
   const [showChampionSuggestion, setShowChampionSuggestion] = useState(false);
   const [showAnalysis, setShowAnalysis] = useState(false);
-  const [suggestionMode, setSuggestionMode] = useState<SuggestionMode>("meta");
+  const [suggestionMode, setSuggestionMode] = usePersistedState<SuggestionMode>(
+    "draftking-suggestion-mode",
+    "meta"
+  );
 
   useEffect(() => {
     setShowChampionSuggestion(false);
