@@ -37,39 +37,44 @@ export async function POST(request: Request) {
       patch,
     } = body;
 
-    // Make parallel requests to the inference API
-    const predictions = await Promise.all(
-      championIds.map(async (champId) => {
-        const newTeam = selectedTeamIndex === 1 ? { ...team1 } : { ...team2 };
-        newTeam[selectedChampionIndex as keyof Team] = {
-          id: champId,
-        } as Champion;
+    // Prepare batch of predictions - one for each candidate champion
+    const batchInputs = championIds.map((champId) => {
+      const newTeam = selectedTeamIndex === 1 ? { ...team1 } : { ...team2 };
+      newTeam[selectedChampionIndex as keyof Team] = {
+        id: champId,
+      } as Champion;
 
-        const response = await fetch(`${backendUrl}/predict`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            champion_ids: [
-              ...formatTeamData(selectedTeamIndex === 1 ? newTeam : team1),
-              ...formatTeamData(selectedTeamIndex === 2 ? newTeam : team2),
-            ],
-            numerical_elo: elo,
-            patch,
-          }),
-        });
+      return {
+        champion_ids: [
+          ...formatTeamData(selectedTeamIndex === 1 ? newTeam : team1),
+          ...formatTeamData(selectedTeamIndex === 2 ? newTeam : team2),
+        ],
+        numerical_elo: elo,
+        patch,
+      };
+    });
 
-        if (!response.ok) {
-          throw new Error(`HTTP error! status: ${response.status}`);
-        }
+    // Make single batched request
+    const response = await fetch(`${backendUrl}/predict-batch`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(batchInputs),
+    });
 
-        const result = await response.json();
-        return {
-          championId: champId,
-          winrate:
-            selectedTeamIndex === 1
-              ? result.win_probability * 100
-              : (1 - result.win_probability) * 100,
-        };
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+
+    const results = await response.json();
+
+    // Transform results to match the expected format
+    const predictions = results.map(
+      (result: { win_probability: number }, index: number) => ({
+        championId: championIds[index],
+        winrate:
+          selectedTeamIndex === 1
+            ? result.win_probability * 100
+            : (1 - result.win_probability) * 100,
       })
     );
 
