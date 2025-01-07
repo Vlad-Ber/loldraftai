@@ -25,6 +25,9 @@ import { elos } from "@draftking/ui/lib/types";
 import { championIndexToFavoritesPosition } from "@draftking/ui/lib/types";
 import { SparklesIcon, LightBulbIcon } from "@heroicons/react/24/solid";
 import { LowPickrateWarning } from "./LowPickrateWarning";
+import { HelpCircle } from "lucide-react";
+
+type SuggestionMode = "favorites" | "meta" | "all";
 
 interface AnalysisParentProps {
   team1: Team;
@@ -53,6 +56,7 @@ interface AnalysisParentProps {
     remainingChampions: Champion[];
     elo: Elo;
     patch: string;
+    suggestionMode: SuggestionMode;
   }>;
   setPatchList: (patches: string[]) => void;
 }
@@ -65,7 +69,7 @@ interface EloSelectProps {
 const EloSelect = ({ elo, setElo }: EloSelectProps) => {
   return (
     <Select value={elo} onValueChange={setElo}>
-      <SelectTrigger>
+      <SelectTrigger className="w-[120px]">
         <SelectValue placeholder="Select Elo" />
       </SelectTrigger>
       <SelectContent>
@@ -93,7 +97,7 @@ const PatchSelect = ({
   setCurrentPatch,
 }: PatchSelectProps) => (
   <Select value={currentPatch} onValueChange={setCurrentPatch}>
-    <SelectTrigger>
+    <SelectTrigger className="w-[80px]">
       <SelectValue placeholder="Select Patch" />
     </SelectTrigger>
     <SelectContent>
@@ -191,6 +195,7 @@ export const AnalysisParent = ({
 }: AnalysisParentProps) => {
   const [showChampionSuggestion, setShowChampionSuggestion] = useState(false);
   const [showAnalysis, setShowAnalysis] = useState(false);
+  const [suggestionMode, setSuggestionMode] = useState<SuggestionMode>("meta");
 
   useEffect(() => {
     setShowChampionSuggestion(false);
@@ -226,12 +231,17 @@ export const AnalysisParent = ({
   }, [baseApiUrl, setPatchList]);
 
   const enableChampionSuggestion = useMemo(() => {
-    return (
-      selectedSpot &&
-      favorites[championIndexToFavoritesPosition(selectedSpot.championIndex)]
-        .length > 0
-    );
-  }, [selectedSpot, favorites]);
+    if (!selectedSpot) return false;
+
+    if (suggestionMode === "favorites") {
+      return (
+        favorites[championIndexToFavoritesPosition(selectedSpot.championIndex)]
+          .length > 0
+      );
+    }
+
+    return true;
+  }, [selectedSpot, favorites, suggestionMode]);
 
   return (
     <div className="draft-analysis p-5">
@@ -241,41 +251,99 @@ export const AnalysisParent = ({
         currentPatch={currentPatch}
       />
 
-      <div className="flex flex-wrap items-stretch justify-center">
-        <div className="flex w-full p-1 sm:w-auto">
-          <div className="flex-1">
+      <div className="flex flex-wrap items-end justify-center gap-4">
+        <div className="flex flex-col">
+          <span className="text-xs text-neutral-500 mb-1 ml-1">Config</span>
+          <div className="flex items-center gap-2 p-2 rounded-lg border border-neutral-200 dark:border-neutral-800 bg-neutral-50/50 dark:bg-neutral-900/50">
             <EloSelect elo={elo} setElo={setElo} />
-          </div>
-        </div>
-        <div className="flex w-full p-1 sm:w-auto">
-          <div className="flex-1">
             <PatchSelect
               currentPatch={currentPatch}
               patches={patches}
               setCurrentPatch={setCurrentPatch}
             />
+            <div className="flex items-center gap-1">
+              <Select
+                value={suggestionMode}
+                onValueChange={(value: SuggestionMode) =>
+                  setSuggestionMode(value)
+                }
+              >
+                <SelectTrigger className="w-[160px]">
+                  <SelectValue placeholder="Suggestion mode" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="favorites">Favorites Only</SelectItem>
+                  <SelectItem value="meta">Meta Champions</SelectItem>
+                  <SelectItem value="all">All Champions</SelectItem>
+                </SelectContent>
+              </Select>
+              <TooltipProvider delayDuration={0}>
+                <Tooltip>
+                  <TooltipTrigger>
+                    <HelpCircle className="h-5 w-5 text-gray-500" />
+                  </TooltipTrigger>
+                  <TooltipContent className="max-w-[350px]">
+                    <p className="font-semibold mb-2">Suggestion Modes:</p>
+                    <ul className="list-disc pl-4 space-y-1">
+                      <li>
+                        <strong>Favorites Only:</strong> Only shows suggestions
+                        from your favorite champions
+                      </li>
+                      <li>
+                        <strong>Meta Champions:</strong> Shows suggestions for
+                        champions with &gt;0.5% pick rate in this role
+                      </li>
+                      <li>
+                        <strong>All Champions:</strong> Shows suggestions for
+                        all possible champions
+                      </li>
+                    </ul>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            </div>
           </div>
         </div>
-        <div className="flex w-full p-1 sm:w-auto">
-          <div className="flex-1">
-            <AnalyzeDraftButton
-              toggleAnalyzeDraft={() => setShowAnalysis(!showAnalysis)}
-              showAnalysis={showAnalysis}
-            />
-          </div>
-        </div>
-        <div className="flex w-full p-1 sm:w-auto">
-          <div className="flex-1">
-            <ChampionSuggestionButton
-              enableChampionSuggestion={enableChampionSuggestion ?? false}
-              toggleChampionSuggestion={() =>
-                setShowChampionSuggestion(!showChampionSuggestion)
-              }
-              showChampionSuggestion={showChampionSuggestion}
-              selectedSpot={selectedSpot}
-            />
-          </div>
-        </div>
+
+        <Button
+          variant="outline"
+          onClick={() => setShowAnalysis(!showAnalysis)}
+          className="h-[58px] text-base font-medium px-6"
+        >
+          {showAnalysis ? "Hide Analysis" : "Analyze Draft"}{" "}
+          <SparklesIcon className="inline-block h-5 w-5 ml-1" />
+        </Button>
+
+        <TooltipProvider delayDuration={0}>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <div className="inline-block">
+                <Button
+                  variant="outline"
+                  onClick={() =>
+                    setShowChampionSuggestion(!showChampionSuggestion)
+                  }
+                  disabled={!enableChampionSuggestion}
+                  className="h-[58px] text-base font-medium px-6"
+                >
+                  {showChampionSuggestion
+                    ? "Hide Suggestions"
+                    : "Suggest Champion"}{" "}
+                  <LightBulbIcon className="inline-block h-5 w-5 ml-1" />
+                </Button>
+              </div>
+            </TooltipTrigger>
+            <TooltipContent>
+              <p>
+                {!selectedSpot
+                  ? "Click on a team position to select it."
+                  : suggestionMode === "favorites" && !enableChampionSuggestion
+                  ? "Right click a champion in the list to add to favorites."
+                  : "Click to show champion suggestions."}
+              </p>
+            </TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
       </div>
 
       {showAnalysis && (
@@ -296,6 +364,7 @@ export const AnalysisParent = ({
           remainingChampions={remainingChampions}
           elo={elo}
           patch={currentPatch}
+          suggestionMode={suggestionMode}
         />
       )}
     </div>

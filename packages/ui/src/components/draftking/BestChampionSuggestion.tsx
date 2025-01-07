@@ -18,7 +18,10 @@ import {
   TooltipTrigger,
   TooltipProvider,
 } from "../ui/tooltip";
-import { HelpCircle } from "lucide-react";
+import { AlertTriangle } from "lucide-react";
+import { StarIcon } from "@heroicons/react/24/solid";
+
+import { getChampionPlayRates } from "../../lib/champions";
 
 interface BestChampionSuggestionProps {
   team1: Team;
@@ -30,7 +33,21 @@ interface BestChampionSuggestionProps {
   patch: string;
   baseApiUrl: string;
   ImageComponent: ImageComponent;
+  suggestionMode: SuggestionMode;
 }
+
+type SuggestionMode = "favorites" | "meta" | "all";
+
+const PICKRATE_THRESHOLD = 0.003;
+const META_THRESHOLD = 0.005;
+
+const roleIndexToKey = {
+  0: "TOP",
+  1: "JUNGLE",
+  2: "MIDDLE",
+  3: "BOTTOM",
+  4: "UTILITY",
+} as const;
 
 export const BestChampionSuggestion = ({
   team1,
@@ -42,6 +59,7 @@ export const BestChampionSuggestion = ({
   patch,
   baseApiUrl,
   ImageComponent,
+  suggestionMode,
 }: BestChampionSuggestionProps) => {
   const [championWinrates, setChampionWinrates] = useState<
     Array<{ champion: Champion; winrate: number }>
@@ -52,8 +70,22 @@ export const BestChampionSuggestion = ({
   const championsIdsToConsider = useMemo(() => {
     const favoritesForSpot =
       favorites[championIndexToFavoritesPosition(selectedSpot.championIndex)];
-    return favoritesForSpot;
-  }, [selectedSpot, favorites]);
+
+    if (suggestionMode === "favorites") return favoritesForSpot;
+
+    if (suggestionMode === "meta") {
+      return champions
+        .filter((champion) => {
+          const roleKey = roleIndexToKey[selectedSpot.championIndex];
+          const playRates = getChampionPlayRates(champion.id, patch);
+          return playRates && playRates[roleKey] >= META_THRESHOLD;
+        })
+        .map((c) => c.id);
+    }
+
+    // "all" mode
+    return champions.map((c) => c.id);
+  }, [suggestionMode, selectedSpot, favorites, patch]);
 
   const championData = useMemo(() => {
     return championWinrates.map(({ champion, winrate }) => ({
@@ -114,51 +146,24 @@ export const BestChampionSuggestion = ({
     baseApiUrl,
   ]);
 
+  const isLowPickrate = (champion: Champion) => {
+    const roleKey = roleIndexToKey[selectedSpot.championIndex];
+    const playRates = getChampionPlayRates(champion.id, patch);
+    return playRates ? playRates[roleKey] < PICKRATE_THRESHOLD : false;
+  };
+
+  const isFavorite = (champion: Champion) => {
+    const favoritesForSpot =
+      favorites[championIndexToFavoritesPosition(selectedSpot.championIndex)];
+    return favoritesForSpot.includes(champion.id);
+  };
+
   return (
     <div className="mt-5 rounded-lg border border-gray-200 bg-gradient-to-b from-white to-gray-50 dark:from-gray-900 dark:to-gray-950 p-6 shadow-sm">
       <div>
-        <div className="flex items-center gap-2 mb-4">
-          <h6 className="text-xl font-semibold brand-text">
-            LoLDraftAI Champion Suggestions
-          </h6>
-          <TooltipProvider delayDuration={0}>
-            <Tooltip>
-              <TooltipTrigger>
-                <HelpCircle className="h-6 w-6 text-gray-500" />
-              </TooltipTrigger>
-              <TooltipContent className="max-w-[350px] whitespace-normal">
-                <p className="mb-2">
-                  Champions suggestions are ranked by the{" "}
-                  <span className="brand-text">LoLDraftAI</span> winrate
-                  prediction with that champion in the team.
-                </p>
-                <p className="mb-2">
-                  <strong>Note:</strong>
-                </p>
-                <ul className="list-disc pl-4 space-y-1">
-                  <li>
-                    When the draft is not complete, the model predictions are
-                    for the average draft,{" "}
-                    <strong>
-                      not necessarily for drafts where a champion ends up hard
-                      countered
-                    </strong>
-                    . If not many enemy champions are visible, prioritize strong
-                    blind picks.
-                  </li>
-                  <li>
-                    The model doesn't take into account player skill. It
-                    predicts the average performance on each champion.
-                  </li>
-                </ul>
-                <p className="mt-2">
-                  For these reasons you as the player should still make the
-                  final call on what the best champion is.
-                </p>
-              </TooltipContent>
-            </Tooltip>
-          </TooltipProvider>
-        </div>
+        <h6 className="text-xl font-semibold brand-text mb-4">
+          LoLDraftAI Champion Suggestions
+        </h6>
 
         <div className="space-y-1">
           {loading ? (
@@ -182,6 +187,37 @@ export const BestChampionSuggestion = ({
                       <div className="absolute -left-2 -top-2 flex h-5 w-5 items-center justify-center rounded-full bg-slate-700 text-xs font-bold text-white">
                         {index + 1}
                       </div>
+
+                      <div className="absolute -right-2 -top-2 flex gap-1">
+                        {isFavorite(championWinrate.champion) && (
+                          <TooltipProvider>
+                            <Tooltip>
+                              <TooltipTrigger>
+                                <StarIcon
+                                  className="h-4 w-4 text-yellow-500"
+                                  stroke="black"
+                                  strokeWidth={2}
+                                />
+                              </TooltipTrigger>
+                              <TooltipContent>Favorite Champion</TooltipContent>
+                            </Tooltip>
+                          </TooltipProvider>
+                        )}
+                        {isLowPickrate(championWinrate.champion) && (
+                          <TooltipProvider>
+                            <Tooltip>
+                              <TooltipTrigger>
+                                <AlertTriangle className="h-4 w-4 text-amber-500" />
+                              </TooltipTrigger>
+                              <TooltipContent>
+                                Uncommon pick in this role. Predictions may have
+                                lower confidence.
+                              </TooltipContent>
+                            </Tooltip>
+                          </TooltipProvider>
+                        )}
+                      </div>
+
                       <ImageComponent
                         src={`/icons/champions/${championWinrate.champion.icon}`}
                         alt={championWinrate.champion.name}
