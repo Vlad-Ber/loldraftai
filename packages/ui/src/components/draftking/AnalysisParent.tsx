@@ -300,7 +300,8 @@ export const AnalysisParent = ({
                       </li>
                       <li>
                         <strong>All Champions:</strong> Shows suggestions for
-                        all champions
+                        all champions. Note: Predictions for rarely-played
+                        champions may be less accurate due to limited data.
                       </li>
                     </ul>
                   </TooltipContent>

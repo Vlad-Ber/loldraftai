@@ -38,8 +38,8 @@ interface BestChampionSuggestionProps {
 
 type SuggestionMode = "favorites" | "meta" | "all";
 
-const PICKRATE_THRESHOLD = 0.003;
-const META_THRESHOLD = 0.005;
+const PICKRATE_THRESHOLD = 0.3;
+const META_THRESHOLD = 0.5;
 
 const roleIndexToKey = {
   0: "TOP",
