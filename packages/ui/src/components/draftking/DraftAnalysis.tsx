@@ -109,16 +109,27 @@ export const DraftAnalysis = ({
               <p className="mb-2">Understanding the analysis:</p>
               <ul className="list-disc pl-4 space-y-1">
                 <li>
-                  <strong>Impact Score:</strong> Indicates a champion's
-                  contribution to their team's win probability. Higher impact
-                  champions are your win conditions, play around them.
+                  <strong>Impact Score:</strong> Shows how much each champion
+                  influences their team's chances of winning. A positive score
+                  means the champion increases their team's win chance, while a
+                  negative score means they decrease it. Calculated by comparing
+                  team's win probability with each champion minus the win
+                  probability with that position left empty.
+                  <div className="mt-2 text-sm text-blue-600 dark:text-blue-400 font-medium">
+                    Pro tip: Focus your gameplay around champions with high
+                    impact scores - they are your win conditions!
+                  </div>
                 </li>
                 <li>
                   <strong>Gold@15:</strong> Predicted gold differences at 15
-                  minutes, use this to detect winning lanes.
+                  minutes.
+                  <div className="mt-2 text-sm text-blue-600 dark:text-blue-400 font-medium">
+                    Pro tip: Use these predictions to identify which lanes are
+                    likely to have an advantage.
+                  </div>
                 </li>
               </ul>
-              <p className="mt-2 text-sm italic">
+              <p className="mt-2 text-sm ">
                 Remember that these predictions are based on average game
                 patterns - use them to create your game plan but adapt to the
                 actual game state.

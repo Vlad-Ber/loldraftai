@@ -64,30 +64,76 @@ export const DraftAnalysisShowcase = ({
             <thead>
               <tr className="border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 text-sm text-white">
                 <th className="p-3 text-left font-medium">BLUE SIDE</th>
-                <HeaderTooltip
-                  content="How much this champion contributes to their team's win probability. Tip: play around champions with high impact, they are your key to victory."
-                  align="right"
-                >
-                  IMPACT
-                </HeaderTooltip>
-                <HeaderTooltip
-                  content="Predicted gold lead for this champion at 15 minutes, usually indicates winning lanes."
-                  align="center"
-                >
-                  G@15 LEAD
-                </HeaderTooltip>
-                <HeaderTooltip
-                  content="Predicted gold lead for this champion at 15 minutes, usually indicates winning lanes."
-                  align="center"
-                >
-                  G@15 LEAD
-                </HeaderTooltip>
-                <HeaderTooltip
-                  content="How much this champion contributes to their team's win probability. Tip: play around champions with high impact, they are your key to victory."
-                  align="right"
-                >
-                  IMPACT
-                </HeaderTooltip>
+                <th className="p-2 text-right">
+                  <Tooltip>
+                    <TooltipTrigger className="cursor-help">
+                      IMPACT
+                    </TooltipTrigger>
+                    <TooltipContent className="max-w-[250px] text-center whitespace-normal space-y-2">
+                      <p>
+                        Shows how much each champion influences their team's
+                        chances of winning. A positive score means the champion
+                        increases their team's win chance, while a negative
+                        score means they decrease it.
+                      </p>
+                      <div className="text-sm text-blue-600 dark:text-blue-400 font-medium">
+                        Pro tip: Play around champions with high impact scores -
+                        they are your win conditions!
+                      </div>
+                    </TooltipContent>
+                  </Tooltip>
+                </th>
+                <th className="p-2 text-center">
+                  <Tooltip>
+                    <TooltipTrigger className="cursor-help">
+                      G@15 LEAD
+                    </TooltipTrigger>
+                    <TooltipContent className="max-w-[250px] text-center whitespace-normal space-y-2">
+                      <p>
+                        Predicted gold difference at 15 minutes against opposing
+                        laner.
+                      </p>
+                      <div className="text-sm text-blue-600 dark:text-blue-400 font-medium">
+                        Pro tip: Use this to identify winning lanes!
+                      </div>
+                    </TooltipContent>
+                  </Tooltip>
+                </th>
+                <th className="p-2 text-center">
+                  <Tooltip>
+                    <TooltipTrigger className="cursor-help">
+                      G@15 LEAD
+                    </TooltipTrigger>
+                    <TooltipContent className="max-w-[250px] text-center whitespace-normal space-y-2">
+                      <p>
+                        Predicted gold difference at 15 minutes against opposing
+                        laner.
+                      </p>
+                      <div className="text-sm text-blue-600 dark:text-blue-400 font-medium">
+                        Pro tip: Use this to identify winning lanes!
+                      </div>
+                    </TooltipContent>
+                  </Tooltip>
+                </th>
+                <th className="p-2 text-right">
+                  <Tooltip>
+                    <TooltipTrigger className="cursor-help">
+                      IMPACT
+                    </TooltipTrigger>
+                    <TooltipContent className="max-w-[250px]  text-center whitespace-normal space-y-2">
+                      <p>
+                        Shows how much each champion influences their team's
+                        chances of winning. A positive score means the champion
+                        increases their team's win chance, while a negative
+                        score means they decrease it.
+                      </p>
+                      <div className="text-sm text-blue-600 dark:text-blue-400 font-medium">
+                        Pro tip: Play around champions with high impact scores -
+                        they are your win conditions!
+                      </div>
+                    </TooltipContent>
+                  </Tooltip>
+                </th>
                 <th className="p-3 text-right font-medium">RED SIDE</th>
               </tr>
             </thead>
