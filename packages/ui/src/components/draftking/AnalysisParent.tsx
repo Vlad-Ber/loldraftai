@@ -113,65 +113,6 @@ const PatchSelect = ({
   </Select>
 );
 
-interface AnalyzeDraftButtonProps {
-  toggleAnalyzeDraft: () => void;
-  showAnalysis: boolean;
-}
-
-const AnalyzeDraftButton = ({
-  toggleAnalyzeDraft,
-  showAnalysis,
-}: AnalyzeDraftButtonProps) => (
-  <Button variant="outline" onClick={toggleAnalyzeDraft}>
-    {showAnalysis ? "Hide Analysis" : "Analyze Draft"}{" "}
-    <SparklesIcon className="inline-block h-5 w-5 ml-1" />
-  </Button>
-);
-
-interface ChampionSuggestionButtonProps {
-  enableChampionSuggestion: boolean;
-  toggleChampionSuggestion: () => void;
-  showChampionSuggestion: boolean;
-  selectedSpot: SelectedSpot | null;
-}
-
-const ChampionSuggestionButton = ({
-  enableChampionSuggestion,
-  toggleChampionSuggestion,
-  showChampionSuggestion,
-  selectedSpot,
-}: ChampionSuggestionButtonProps) =>
-  enableChampionSuggestion ? (
-    <Button variant="outline" onClick={toggleChampionSuggestion}>
-      {showChampionSuggestion ? "Hide Suggestions" : "Suggest Champion"}{" "}
-      <LightBulbIcon className="inline-block h-5 w-5 ml-1" />
-    </Button>
-  ) : (
-    <TooltipProvider delayDuration={0}>
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <div className="inline-block">
-            <Button
-              variant="outline"
-              onClick={toggleChampionSuggestion}
-              disabled
-            >
-              {showChampionSuggestion ? "Hide Suggestions" : "Suggest Champion"}{" "}
-              <LightBulbIcon className="inline-block h-5 w-5 ml-1" />
-            </Button>
-          </div>
-        </TooltipTrigger>
-        <TooltipContent>
-          <p>
-            {!selectedSpot
-              ? "Click on a team position to select it."
-              : "Right click a champion in the list to add to favorites."}
-          </p>
-        </TooltipContent>
-      </Tooltip>
-    </TooltipProvider>
-  );
-
 interface ModelMetadata {
   patches: string[];
   last_modified: string;

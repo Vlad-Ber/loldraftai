@@ -17,6 +17,7 @@ interface BestChampionSuggestionProps {
   remainingChampions: Champion[];
   elo: Elo;
   patch: string;
+  suggestionMode: "favorites" | "meta" | "all";
 }
 
 export const BestChampionSuggestion = (props: BestChampionSuggestionProps) => {

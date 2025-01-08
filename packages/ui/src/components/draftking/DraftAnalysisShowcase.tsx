@@ -1,4 +1,3 @@
-import React from "react";
 import type { Team } from "@draftking/ui/lib/types";
 import {
   Tooltip,
@@ -19,25 +18,6 @@ interface DraftAnalysisShowcaseProps {
   team2: Team;
   ImageComponent: ImageComponent; // Add ImageComponent prop
 }
-
-const HeaderTooltip = ({
-  children,
-  content,
-  align = "center",
-}: {
-  children: React.ReactNode;
-  content: string;
-  align?: "left" | "center" | "right";
-}) => (
-  <th className={`p-2 text-${align}`}>
-    <Tooltip>
-      <TooltipTrigger className="cursor-help">{children}</TooltipTrigger>
-      <TooltipContent className="max-w-[200px] whitespace-normal text-center">
-        {content}
-      </TooltipContent>
-    </Tooltip>
-  </th>
-);
 
 export const DraftAnalysisShowcase = ({
   prediction,
