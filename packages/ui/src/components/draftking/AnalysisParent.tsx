@@ -103,7 +103,7 @@ const PatchSelect = ({
     </SelectTrigger>
     <SelectContent>
       <SelectGroup>
-        {patches.map((patchOption) => (
+        {patches.reverse().map((patchOption) => (
           <SelectItem key={patchOption} value={patchOption}>
             {patchOption}
           </SelectItem>
