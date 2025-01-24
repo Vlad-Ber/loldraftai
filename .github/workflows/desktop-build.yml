@@ -63,26 +63,30 @@ jobs:
         env:
           AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+          AWS_EC2_METADATA_DISABLED: true
         working-directory: apps/desktop
         run: |
           # Get version from package.json
           VERSION=$(node -p "require('./package.json').version")
           
-          # Upload the .exe file with version
+          # Common AWS CLI options
+          AWS_OPTS="--endpoint-url https://${{ secrets.CLOUDFLARE_ACCOUNT_ID }}.r2.cloudflarestorage.com --region auto --content-type application/octet-stream --no-verify-ssl"
+          
+          # Upload files with increased retries and timeout
+          aws configure set default.s3.max_concurrent_requests 1
+          aws configure set default.s3.multipart_threshold 64MB
+          aws configure set default.s3.multipart_chunksize 16MB
+          aws configure set default.retry.mode adaptive
+          aws configure set default.retry.max_attempts 5
+          
+          # Upload the files
           aws s3 cp dist/LoLDraftAI-${VERSION}-Setup.exe \
             s3://${{ secrets.R2_BUCKET_NAME }}/latest/LoLDraftAI-${VERSION}-Setup.exe \
-            --endpoint-url https://${{ secrets.CLOUDFLARE_ACCOUNT_ID }}.r2.cloudflarestorage.com \
-            --no-verify-ssl \
-            --region auto \
-            --content-type application/octet-stream
+            $AWS_OPTS
 
-          # Upload the .blockmap file with version
           aws s3 cp dist/LoLDraftAI-${VERSION}-Setup.exe.blockmap \
             s3://${{ secrets.R2_BUCKET_NAME }}/latest/LoLDraftAI-${VERSION}-Setup.exe.blockmap \
-            --endpoint-url https://${{ secrets.CLOUDFLARE_ACCOUNT_ID }}.r2.cloudflarestorage.com \
-            --no-verify-ssl \
-            --region auto \
-            --content-type application/octet-stream
+            $AWS_OPTS
 
           # Create and upload latest.yml
           echo "version: ${VERSION}
