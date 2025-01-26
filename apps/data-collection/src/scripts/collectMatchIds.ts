@@ -76,8 +76,9 @@ async function collectMatchIds() {
             const matchIds = await riotApiClient.getMatchIdsByPuuid(
               summoner.puuid!,
               {
-                type: "ranked",
-                queue: 420, // Ranked Solo/Duo queue
+                // TODO: this is because of riot api bug, add back when bug is fixed(tracking the github issue)
+                // type: "ranked",
+                // queue: 420, // Ranked Solo/Duo queue
                 count: 100, // max count
               }
             );

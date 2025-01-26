@@ -105,6 +105,23 @@ async function processMatches() {
               }`
             );
 
+            // Skip non-ranked solo queue games
+            // TODO: this is because of riot api bug, change when bug is fixed(tracking the github issue)
+            if (processedData.queueId !== 420) {
+              log(
+                `Match ${match.matchId} is not a ranked solo queue game (queueId: ${processedData.queueId}), marking as processed`
+              );
+              await prisma.match.update({
+                where: { id: match.id },
+                data: {
+                  processed: true,
+                  processingErrored: true, // Mark as errored so we don't try to process it again
+                  queueId: processedData.queueId, // Store the queue ID for reference
+                },
+              });
+              return;
+            }
+
             // Database updates and telemetry continue without rate limiting
             const updateStart = Date.now();
             await prisma.match.update({
