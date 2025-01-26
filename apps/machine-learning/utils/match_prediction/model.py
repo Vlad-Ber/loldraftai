@@ -1,4 +1,4 @@
-# Utils/match_prediction/model.py
+# utils/match_prediction/model.py
 
 import torch
 import torch.nn as nn
@@ -84,6 +84,14 @@ class SimpleMatchModel(nn.Module):
                 TaskType.REGRESSION,
             ]:
                 self.output_layers[task_name] = nn.Linear(hidden_dims[-1], 1)
+
+        # Add trainable log-variance parameters for each task
+        self.log_vars = nn.ParameterDict()
+        for task_name in TASKS.keys():
+            # Initialize near zero (sigma^2 ≈ 1.0)
+            self.log_vars[task_name] = nn.Parameter(torch.zeros(1))
+
+        print(f"Initialized log-variance parameters for {len(self.log_vars)} tasks")
 
     def forward(self, features):
         batch_size = features["champion_ids"].size(0)
