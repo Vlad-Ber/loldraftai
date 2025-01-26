@@ -45,8 +45,10 @@ const limiter = new Bottleneck({
 
 async function collectMatchIds() {
   try {
+    console.log(`[${new Date().toISOString()}] Starting collectMatchIds for region: ${region}`);
+    
     while (true) {
-      // Fetch summoners with a PUUID and outdated matchesFetchedAt
+      console.log(`[${new Date().toISOString()}] Fetching next batch of summoners...`);
       const summoners = (await prisma.$queryRaw`
         SELECT *
         FROM "Summoner"
@@ -60,29 +62,35 @@ async function collectMatchIds() {
         )
         AND "rankUpdateTime" > ${new Date(
           Date.now() - 7 * 24 * 60 * 60 * 1000
-        )} -- Updated less than 1 week ago (up to date)
-        AND "matchFetchErrored" = false -- Not errored
-        LIMIT 100 -- Not too many to avoid spikes in db usage
+        )}
+        AND "matchFetchErrored" = false
+        LIMIT 100
       `) as Summoner[];
 
+      console.log(`[${new Date().toISOString()}] Found ${summoners.length} summoners to process`);
+
       if (summoners.length === 0) {
+        console.log(`[${new Date().toISOString()}] No summoners found, waiting 60 seconds...`);
         await sleep(60 * 1000);
         continue;
       }
 
       for (const summoner of summoners) {
+        console.log(`[${new Date().toISOString()}] Processing summoner: ${summoner.summonerId}`);
+        
         await limiter.schedule(async () => {
           try {
+            console.log(`[${new Date().toISOString()}] Fetching matches for summoner: ${summoner.summonerId}`);
             const matchIds = await riotApiClient.getMatchIdsByPuuid(
               summoner.puuid!,
               {
                 type: "ranked",
-                queue: 420, // Ranked Solo/Duo queue
-                count: 100, // max count
+                queue: 420,
+                count: 100,
               }
             );
+            console.log(`[${new Date().toISOString()}] Found ${matchIds.length} matches for summoner: ${summoner.summonerId}`);
 
-            // Prepare batch create data
             const matchCreates = matchIds.map((matchId) => ({
               matchId,
               region,
@@ -91,11 +99,11 @@ async function collectMatchIds() {
               averageDivision: summoner.rank,
             }));
 
-            // Perform batch create, skipping duplicates
             const { count } = await prisma.match.createMany({
               data: matchCreates,
               skipDuplicates: true,
             });
+            console.log(`[${new Date().toISOString()}] Created ${count} new matches for summoner: ${summoner.summonerId}`);
 
             telemetry.trackEvent("MatchesCollected", {
               count: matchIds.length,
@@ -106,7 +114,6 @@ async function collectMatchIds() {
               region,
             });
 
-            // Update the summoner's matchesFetchedAt timestamp
             await prisma.summoner.update({
               where: {
                 id: summoner.id,
@@ -115,9 +122,11 @@ async function collectMatchIds() {
                 matchesFetchedAt: new Date(),
               },
             });
+            console.log(`[${new Date().toISOString()}] Updated matchesFetchedAt for summoner: ${summoner.summonerId}`);
+
           } catch (error: any) {
             if (axios.isAxiosError(error) && error.response?.status === 400) {
-              // Mark summoner as having match fetch errors
+              console.log(`[${new Date().toISOString()}] 400 error for summoner ${summoner.summonerId}, marking as errored`);
               await prisma.summoner.update({
                 where: { id: summoner.id },
                 data: {
@@ -125,11 +134,9 @@ async function collectMatchIds() {
                   matchesFetchedAt: new Date(),
                 },
               });
-              // TODO: could track error as event
             } else {
-              // Log other errors but don't mark as errored (could be temporary API issues)
               console.error(
-                `Error fetching match IDs for summoner ${summoner.summonerId}:`,
+                `[${new Date().toISOString()}] Error fetching match IDs for summoner ${summoner.summonerId}:`,
                 error
               );
             }
@@ -138,7 +145,7 @@ async function collectMatchIds() {
       }
     }
   } catch (error) {
-    console.error("Error in collectMatchIds:", error);
+    console.error(`[${new Date().toISOString()}] Fatal error in collectMatchIds:`, error);
   } finally {
     await prisma.$disconnect();
   }
