@@ -2,7 +2,8 @@
 
 import pandas as pd
 from enum import Enum
-from typing import Callable
+from typing import Callable, Dict
+from utils.match_prediction.config import TrainingConfig
 
 TEAMS = ["100", "200"]
 POSITIONS = ["TOP", "JUNGLE", "MIDDLE", "BOTTOM", "UTILITY"]
@@ -117,3 +118,15 @@ for timestamp in TIMESTAMPS:
                 task_type=TaskType.REGRESSION,
                 weight=0.1 / (len(TIMESTAMPS) * len(TEAM_STATS) * len(TEAMS)),
             )
+
+
+def get_enabled_tasks(config: TrainingConfig) -> Dict[str, TaskDefinition]:
+    """Returns dictionary of enabled tasks based on configuration"""
+    if config.aux_tasks_enabled:
+        return TASKS
+    else:
+        # Return only win prediction task
+        return {
+            "win_prediction": TASKS["win_prediction"],
+            "gameDuration": TASKS["gameDuration"],
+        }

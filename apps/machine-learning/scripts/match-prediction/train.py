@@ -36,7 +36,7 @@ from utils.match_prediction import (
 from utils.match_prediction.column_definitions import (
     CATEGORICAL_COLUMNS,
 )
-from utils.match_prediction.task_definitions import TASKS, TaskType
+from utils.match_prediction.task_definitions import TASKS, TaskType, get_enabled_tasks
 from utils.match_prediction.config import TrainingConfig
 from utils.match_prediction.train import (
     get_optimizer_grouped_parameters,
@@ -183,9 +183,10 @@ def train_epoch(
     model.train()
     epoch_loss = 0.0
     epoch_steps = 0
-    task_names = list(TASKS.keys())
+    enabled_tasks = get_enabled_tasks(config)
+    task_names = list(enabled_tasks.keys())
     task_weights = torch.tensor(
-        [task_def.weight for task_def in TASKS.values()], device=device
+        [task_def.weight for task_def in enabled_tasks.values()], device=device
     )
 
     for batch_idx, (features, labels) in enumerate(train_loader):
@@ -244,15 +245,16 @@ def validate(
     device: torch.device,
 ) -> Tuple[Optional[float], Dict[str, float]]:
     model.eval()
+    enabled_tasks = get_enabled_tasks(config)  # Get only enabled tasks
     metric_accumulators = {
-        task_name: torch.zeros(2).to(device) for task_name in TASKS.keys()
+        task_name: torch.zeros(2).to(device) for task_name in enabled_tasks.keys()
     }
     num_samples = 0
     total_loss = 0.0
     total_steps = 0
-    task_names = list(TASKS.keys())
+    task_names = list(enabled_tasks.keys())
     task_weights = torch.tensor(
-        [task_def.weight for task_def in TASKS.values()], device=device
+        [task_def.weight for task_def in enabled_tasks.values()], device=device
     )
 
     with torch.no_grad():
@@ -365,7 +367,6 @@ def train_model(
     config: TrainingConfig,
     continue_training: bool = False,
     load_path: Optional[str] = None,
-    small_dataset: bool = False,
 ):
     global model  # to be able to save the model on interrupt
     best_metric = float("inf")  # For loss minimization
@@ -373,7 +374,7 @@ def train_model(
 
     num_champions, unknown_champion_id = get_num_champions()
 
-    # Initialize the datasets with masking parameters
+    # Initialize the datasets with masking parameters and dataset fraction
     datasets = []
     for split in ["train", "test", "test_masked"]:
         masking_function = (
@@ -385,7 +386,7 @@ def train_model(
             masking_function=masking_function,
             unknown_champion_id=unknown_champion_id,
             train_or_test=train_or_test,
-            small_dataset=small_dataset,
+            dataset_fraction=config.dataset_fraction,
         )
         datasets.append(dataset)
 
@@ -413,9 +414,10 @@ def train_model(
 
     # Initialize loss functions for each task
     criterion = {}
-    for task_name, task_def in TASKS.items():
+    enabled_tasks = get_enabled_tasks(config)  # Get only enabled tasks
+    for task_name, task_def in enabled_tasks.items():
         if task_def.task_type == TaskType.BINARY_CLASSIFICATION:
-            criterion[task_name] = nn.BCEWithLogitsLoss()  # Remove label_smoothing here
+            criterion[task_name] = nn.BCEWithLogitsLoss()
         elif task_def.task_type == TaskType.REGRESSION:
             criterion[task_name] = nn.MSELoss()
         elif task_def.task_type == TaskType.MULTICLASS_CLASSIFICATION:
@@ -460,29 +462,38 @@ def train_model(
         if config.log_wandb:
             wandb.log({"epoch": epoch + 1, "avg_train_loss": avg_loss})
 
-        val_loss, val_metrics = validate(model, test_loader, criterion, config, device)
-        val_masked_loss, val_masked_metrics = validate(
-            model, test_masked_loader, criterion, config, device
-        )
+        # Only run validation on specified intervals
+        if (epoch + 1) % config.validation_interval == 0:
+            val_loss, val_metrics = validate(
+                model, test_loader, criterion, config, device
+            )
+            val_masked_loss, val_masked_metrics = validate(
+                model, test_masked_loader, criterion, config, device
+            )
 
-        if config.calculate_val_loss:
-            if config.log_wandb:
-                wandb.log(
-                    {
-                        "val_loss": val_loss,
-                        "val_masked_loss": val_masked_loss,
-                        **{f"val_{k}": v for k, v in val_metrics.items()},
-                        **{f"val_masked_{k}": v for k, v in val_masked_metrics.items()},
-                    }
-                )
+            if config.calculate_val_loss:
+                if config.log_wandb:
+                    wandb.log(
+                        {
+                            "val_loss": val_loss,
+                            "val_masked_loss": val_masked_loss,
+                            **{f"val_{k}": v for k, v in val_metrics.items()},
+                            **{
+                                f"val_masked_{k}": v
+                                for k, v in val_masked_metrics.items()
+                            },
+                        }
+                    )
 
-            if val_loss < best_metric:
-                best_metric = val_loss
-                best_model_state = copy.deepcopy(model.state_dict())
-                torch.save(best_model_state, MODEL_PATH)
-                print(f"New best model saved with validation loss: {best_metric:.4f}")
+                if val_loss < best_metric:
+                    best_metric = val_loss
+                    best_model_state = copy.deepcopy(model.state_dict())
+                    torch.save(best_model_state, MODEL_PATH)
+                    print(
+                        f"New best model saved with validation loss: {best_metric:.4f}"
+                    )
 
-        log_validation_metrics(val_metrics, config)
+            log_validation_metrics(val_metrics, config)
 
         epoch_end_time = time.time()
         if config.log_wandb:
@@ -525,9 +536,22 @@ if __name__ == "__main__":
         help="Path to load the model from (default: MODEL_PATH)",
     )
     parser.add_argument(
-        "--small",
+        "--dataset-fraction",
+        type=float,
+        default=1.0,
+        help="Fraction of dataset to use (0.0-1.0)",
+    )
+
+    parser.add_argument(
+        "--validation-interval",
+        type=int,
+        default=1,
+        help="Run validation every N epochs",
+    )
+    parser.add_argument(
+        "--disable-aux-tasks",
         action="store_true",
-        help="Use only 5% of the dataset for quick iteration",
+        help="Disable auxiliary tasks and train only on win prediction",
     )
     args = parser.parse_args()
 
@@ -535,6 +559,11 @@ if __name__ == "__main__":
     config = TrainingConfig()
     if args.config:
         config.update_from_json(args.config)
+
+    # Update config with command line arguments
+    config.dataset_fraction = args.dataset_fraction
+    config.validation_interval = args.validation_interval
+    config.aux_tasks_enabled = not args.disable_aux_tasks
 
     print("Training configuration:")
     print(config)
@@ -554,7 +583,6 @@ if __name__ == "__main__":
             config,
             continue_training=args.continue_training,
             load_path=args.load_path,
-            small_dataset=args.small,
         )
     except Exception as e:
         print(f"An error occurred: {e}")

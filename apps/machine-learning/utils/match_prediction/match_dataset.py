@@ -26,7 +26,7 @@ class MatchDataset(IterableDataset):
         masking_function: Optional[Callable[[], int]] = None,
         unknown_champion_id=None,
         train_or_test="train",
-        small_dataset=False,
+        dataset_fraction: float = 1.0,
     ):
         self.data_files = sorted(
             glob.glob(
@@ -36,12 +36,12 @@ class MatchDataset(IterableDataset):
             )
         )
         self.transform = transform
-        self.small_dataset = small_dataset
+        self.dataset_fraction = dataset_fraction
         self.train_or_test = train_or_test
 
-        # If small_dataset is True, only use 5% of the files
-        if small_dataset:
-            num_files = max(1, int(len(self.data_files) * 0.05))
+        # Use specified fraction of the files
+        if dataset_fraction < 1.0:
+            num_files = max(1, int(len(self.data_files) * dataset_fraction))
             self.data_files = self.data_files[:num_files]
 
         self.total_samples = self._count_total_samples()
@@ -60,9 +60,7 @@ class MatchDataset(IterableDataset):
                     counts = pickle.load(f)
                     count = counts.get(self.train_or_test)
                     if count is not None:
-                        if self.small_dataset:
-                            count = int(count * 0.05)
-                        return count
+                        return int(count * self.dataset_fraction)
         except Exception as e:
             print(f"Warning: Error reading sample counts file: {e}")
 
@@ -85,9 +83,7 @@ class MatchDataset(IterableDataset):
         except Exception as e:
             print(f"Warning: Could not save sample counts: {e}")
 
-        if self.small_dataset:
-            total = int(total * 0.05)
-        return total
+        return int(total * self.dataset_fraction)
 
     def __len__(self):
         return self.total_samples

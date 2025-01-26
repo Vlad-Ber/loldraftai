@@ -33,6 +33,11 @@ class TrainingConfig:
         self.div_factor = 25.0  # initial_lr = max_lr/div_factor
         self.final_div_factor = 1e4  # final_lr = max_lr/(div_factor * final_div_factor)
 
+        # Add new configuration parameters
+        self.validation_interval = 1  # Run validation every N epochs
+        self.aux_tasks_enabled = True  # Enable/disable auxiliary tasks
+        self.dataset_fraction = 1.0  # Use full dataset by default
+
     def update_from_json(self, json_file: str):
         with open(json_file, "r") as f:
             config_dict = json.load(f)
