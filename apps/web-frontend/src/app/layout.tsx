@@ -1,3 +1,4 @@
+// /apps/web-frontend/src/app/layout.tsx
 import Link from "next/link";
 import { ThemeProvider } from "@/components/theme-provider";
 import { Analytics } from "@vercel/analytics/react";
@@ -12,6 +13,7 @@ import {
   NavigationMenuLink,
   navigationMenuTriggerStyle,
 } from "@draftking/ui/components/ui/navigation-menu";
+import { ClarityProvider } from "@/components/clarity-provider";
 
 const font = Chakra_Petch({
   subsets: ["latin"],
@@ -23,6 +25,9 @@ const font = Chakra_Petch({
 const backendUrl =
   process.env.INFERENCE_BACKEND_URL ??
   "https://leaguedraftv2inference.whiteground-3c896ca8.eastus2.azurecontainerapps.io/";
+
+// Add this near your other constants
+const CLARITY_PROJECT_ID = process.env.NEXT_PUBLIC_CLARITY_PROJECT_ID ?? "";
 
 export const viewport: Viewport = {
   width: "device-width",
@@ -145,6 +150,7 @@ export default async function RootLayout({
     <html lang="en" className="dark" suppressHydrationWarning>
       <body className={`${font.variable} font-sans`}>
         <ThemeProvider>
+          <ClarityProvider projectId={CLARITY_PROJECT_ID} />
           <div className="flex min-h-screen flex-col bg-background text-foreground">
             <nav className="sticky top-0 z-50 border-b border-border/40 bg-neutral-950">
               <NavigationMenu className="mx-auto px-4 py-3">

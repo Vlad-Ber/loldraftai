@@ -12,6 +12,7 @@
   "dependencies": {
     "@draftking/ui": "*",
     "@heroicons/react": "^2.2.0",
+    "@microsoft/clarity": "^1.0.0",
     "@radix-ui/react-context-menu": "^2.2.2",
     "@radix-ui/react-dialog": "^1.1.2",
     "@radix-ui/react-navigation-menu": "^1.2.1",
