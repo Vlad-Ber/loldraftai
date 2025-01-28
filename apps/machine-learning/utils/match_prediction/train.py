@@ -19,27 +19,39 @@ def get_optimizer_grouped_parameters(
     # Get all parameters that require gradients
     param_dict = {pn: p for pn, p in model.named_parameters() if p.requires_grad}
 
-    # Separate parameters into decay and no-decay groups
-    # dim >= 2 are the weight matrices, dim < 2 are biases
+    # Separate parameters into three groups:
+    # 1. log variance parameters (no decay) (source that explains it https://chatgpt.com/c/679686b5-7634-8008-bed6-398cc9ccdecc)
+    # 2. weight matrices (with decay)
+    # 3. biases and normalization layer    
     # decaying biases and normalization layers is not needed
-    # source: https://youtu.be/l8pRSuU81PU?si=f_taru0joQ5LW19e&t=8861
-    decay_params = [p for n, p in param_dict.items() if p.dim() >= 2]
-    nodecay_params = [p for n, p in param_dict.items() if p.dim() < 2]
+    # source: https://youtu.be/l8pRSuU81PU?si=f_taru0joQ5LW19e&t=8861s (no decay)
+    log_var_params = [p for n, p in param_dict.items() if "log_vars" in n]
+    non_log_var_params = [
+        p for n, p in param_dict.items() if "log_vars" not in n and p.dim() >= 2
+    ]
+    bias_and_norm_params = [
+        p for n, p in param_dict.items() if "log_vars" not in n and p.dim() < 2
+    ]
 
     # Create optimizer groups
     optim_groups = [
-        {"params": decay_params, "weight_decay": weight_decay},
-        {"params": nodecay_params, "weight_decay": 0.0},
+        {"params": non_log_var_params, "weight_decay": weight_decay},
+        {"params": bias_and_norm_params, "weight_decay": 0.0},
+        {"params": log_var_params, "weight_decay": 0.0},
     ]
 
     # Print statistics
-    num_decay_params = sum(p.numel() for p in decay_params)
-    num_nodecay_params = sum(p.numel() for p in nodecay_params)
+    num_decay_params = sum(p.numel() for p in non_log_var_params)
+    num_nodecay_params = sum(p.numel() for p in bias_and_norm_params)
+    num_logvar_params = sum(p.numel() for p in log_var_params)
     print(
-        f"num decayed parameter tensors: {len(decay_params)}, with {num_decay_params:,} parameters"
+        f"num decayed parameter tensors: {len(non_log_var_params)}, with {num_decay_params:,} parameters"
     )
     print(
-        f"num non-decayed parameter tensors: {len(nodecay_params)}, with {num_nodecay_params:,} parameters"
+        f"num non-decayed parameter tensors: {len(bias_and_norm_params)}, with {num_nodecay_params:,} parameters"
+    )
+    print(
+        f"num log variance parameter tensors: {len(log_var_params)}, with {num_logvar_params:,} parameters"
     )
 
     return optim_groups
@@ -72,6 +84,7 @@ def get_num_champions() -> tuple[int, int]:
     return num_champions, unknown_champion_id
 
 
+# TODO: here are 2? why? delete one?
 def collate_fn(
     batch: List[Dict[str, Any]]
 ) -> Tuple[Dict[str, torch.Tensor], Dict[str, torch.Tensor]]:

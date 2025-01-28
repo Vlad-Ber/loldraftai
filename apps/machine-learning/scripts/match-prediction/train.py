@@ -36,7 +36,12 @@ from utils.match_prediction import (
 from utils.match_prediction.column_definitions import (
     CATEGORICAL_COLUMNS,
 )
-from utils.match_prediction.task_definitions import TASKS, TaskType, get_enabled_tasks
+from utils.match_prediction.task_definitions import (
+    TASKS,
+    TaskType,
+    get_enabled_tasks,
+    TaskDefinition,
+)
 from utils.match_prediction.config import TrainingConfig
 from utils.match_prediction.train import (
     get_optimizer_grouped_parameters,
@@ -170,6 +175,10 @@ def apply_label_smoothing(labels: torch.Tensor, smoothing: float = 0.2) -> torch
     return labels * (1 - smoothing) + 0.5 * smoothing
 
 
+MAIN_TASK_NAME = "win_prediction"
+MAIN_TASK_PRIOR = 50.0
+
+
 def multi_task_homoscedastic_loss(
     model: SimpleMatchModel,
     outputs: Dict[str, torch.Tensor],
@@ -178,10 +187,9 @@ def multi_task_homoscedastic_loss(
     enabled_tasks: Dict[str, TaskDefinition],
 ) -> Tuple[torch.Tensor, Dict[str, torch.Tensor]]:
     """
-    Compute the homoscedastic uncertainty-weighted multi-task loss.
-
-    Returns:
-        Tuple[torch.Tensor, Dict[str, torch.Tensor]]: (total_loss, individual_losses)
+    Compute the homoscedastic uncertainty-weighted multi-task loss,
+    *with an additional multiplier on the main task* to ensure
+    it gets priority.
     """
     total_loss = 0.0
     individual_losses = {}
@@ -190,15 +198,22 @@ def multi_task_homoscedastic_loss(
         pred = outputs[task_name]
         true = labels[task_name]
 
-        # Get task-specific loss
+        # Standard per-task loss (BCE, MSE, cross-entropy, etc.)
         task_loss = criterion[task_name](pred, true)
 
-        # Get learned log variance (precision = 1/variance = exp(-log_var))
+        # Learned log variance => sigma^2 => precision = exp(-log_var)
         log_var = model.log_vars[task_name]
         precision = torch.exp(-log_var)
 
-        # Calculate weighted loss: 0.5 * precision * task_loss + 0.5 * log_var
-        weighted_loss = 0.5 * (precision * task_loss + log_var)
+        # The vanilla homoscedastic term:
+        #   0.5 * (precision * task_loss + log_var)
+        base_weighted_loss = 0.5 * (precision * task_loss + log_var)
+
+        # Apply a multiplier ONLY for the main task
+        if task_name == MAIN_TASK_NAME:
+            weighted_loss = MAIN_TASK_PRIOR * base_weighted_loss
+        else:
+            weighted_loss = base_weighted_loss
 
         total_loss += weighted_loss
         individual_losses[task_name] = task_loss
@@ -532,7 +547,7 @@ def train_model(
                     best_model_state = copy.deepcopy(model.state_dict())
                     torch.save(best_model_state, MODEL_PATH)
                     print(
-                        f"New best model saved with validation loss: {best_metric:.4f}"
+                        f"New best model saved with validation loss: {best_metric.item():.4f}"
                     )
 
             log_validation_metrics(val_metrics, config)
