@@ -184,6 +184,7 @@ const championsData: ChampionData[] = [
   { id: 910, name: "Hwei" },
   { id: 233, name: "Briar" },
   { id: 200, name: "Bel'Veth" },
+  { id: 800, name: "Mel" },
 ];
 
 /**
