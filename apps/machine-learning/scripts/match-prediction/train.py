@@ -1,4 +1,4 @@
-# scripts/match-prediction/train.py
+# scripts/train.py
 import multiprocessing
 import signal
 import os
@@ -170,42 +170,6 @@ def apply_label_smoothing(labels: torch.Tensor, smoothing: float = 0.2) -> torch
     return labels * (1 - smoothing) + 0.5 * smoothing
 
 
-def multi_task_homoscedastic_loss(
-    model: SimpleMatchModel,
-    outputs: Dict[str, torch.Tensor],
-    labels: Dict[str, torch.Tensor],
-    criterion: Dict[str, nn.Module],
-    enabled_tasks: Dict[str, TaskDefinition],
-) -> Tuple[torch.Tensor, Dict[str, torch.Tensor]]:
-    """
-    Compute the homoscedastic uncertainty-weighted multi-task loss.
-
-    Returns:
-        Tuple[torch.Tensor, Dict[str, torch.Tensor]]: (total_loss, individual_losses)
-    """
-    total_loss = 0.0
-    individual_losses = {}
-
-    for task_name in enabled_tasks.keys():
-        pred = outputs[task_name]
-        true = labels[task_name]
-
-        # Get task-specific loss
-        task_loss = criterion[task_name](pred, true)
-
-        # Get learned log variance (precision = 1/variance = exp(-log_var))
-        log_var = model.log_vars[task_name]
-        precision = torch.exp(-log_var)
-
-        # Calculate weighted loss: 0.5 * precision * task_loss + 0.5 * log_var
-        weighted_loss = 0.5 * (precision * task_loss + log_var)
-
-        total_loss += weighted_loss
-        individual_losses[task_name] = task_loss
-
-    return total_loss, individual_losses
-
-
 def train_epoch(
     model: SimpleMatchModel,
     train_loader: DataLoader,
@@ -220,29 +184,37 @@ def train_epoch(
     epoch_loss = 0.0
     epoch_steps = 0
     enabled_tasks = get_enabled_tasks(config)
+    task_names = list(enabled_tasks.keys())
+    task_weights = torch.tensor(
+        [task_def.weight for task_def in enabled_tasks.values()], device=device
+    )
 
     for batch_idx, (features, labels) in enumerate(train_loader):
         features = {k: v.to(device, non_blocking=True) for k, v in features.items()}
         labels = {k: v.to(device, non_blocking=True) for k, v in labels.items()}
 
         # Apply label smoothing to binary classification labels
-        for task_name, task_def in enabled_tasks.items():
+        for task_name, task_def in TASKS.items():
             if task_def.task_type == TaskType.BINARY_CLASSIFICATION:
                 labels[task_name] = apply_label_smoothing(labels[task_name])
 
         optimizer.zero_grad()
         with torch.autocast(device_type="cuda", dtype=torch.bfloat16):
             outputs = model(features)
-            total_loss, individual_losses = multi_task_homoscedastic_loss(
-                model, outputs, labels, criterion, enabled_tasks
+            losses = torch.stack(
+                [
+                    criterion[task_name](outputs[task_name], labels[task_name])
+                    for task_name in task_names
+                ]
             )
-            total_loss = total_loss / config.accumulation_steps
+            total_loss = (losses * task_weights).sum() / config.accumulation_steps
 
         total_loss.backward()
 
         if (batch_idx + 1) % config.accumulation_steps == 0:
             grad_norm = clip_grad_norm_(model.parameters(), config.max_grad_norm)
             optimizer.step()
+            # TODO: not sure why but had an error on remote machine where it tried to do an extra step.
             if scheduler is not None and batch_idx < len(train_loader) - 1:
                 scheduler.step()
             optimizer.zero_grad()
@@ -255,21 +227,9 @@ def train_epoch(
                     if scheduler
                     else optimizer.param_groups[0]["lr"]
                 )
-                # Log task-specific losses and their learned weights
-                log_data = {
-                    "epoch": epoch + 1,
-                    "batch": (batch_idx + 1) // config.accumulation_steps,
-                    "grad_norm": grad_norm,
-                    "learning_rate": current_lr,
-                }
-                # Add individual task losses
-                for task_name, loss in individual_losses.items():
-                    log_data[f"train_loss_{task_name}"] = loss.item()
-                    # Log the learned weight (precision) for each task
-                    precision = torch.exp(-model.log_vars[task_name]).item()
-                    log_data[f"task_weight_{task_name}"] = precision
-
-                wandb.log(log_data)
+                log_training_step(
+                    epoch, batch_idx, grad_norm, losses, task_names, config, current_lr
+                )
 
         epoch_loss += total_loss.item()
         epoch_steps += 1
@@ -285,13 +245,17 @@ def validate(
     device: torch.device,
 ) -> Tuple[Optional[float], Dict[str, float]]:
     model.eval()
-    enabled_tasks = get_enabled_tasks(config)
+    enabled_tasks = get_enabled_tasks(config)  # Get only enabled tasks
     metric_accumulators = {
         task_name: torch.zeros(2).to(device) for task_name in enabled_tasks.keys()
     }
     num_samples = 0
     total_loss = 0.0
     total_steps = 0
+    task_names = list(enabled_tasks.keys())
+    task_weights = torch.tensor(
+        [task_def.weight for task_def in enabled_tasks.values()], device=device
+    )
 
     with torch.no_grad():
         for features, labels in test_loader:
@@ -301,9 +265,13 @@ def validate(
             with torch.autocast(device_type="cuda", dtype=torch.bfloat16):
                 outputs = model(features)
                 if config.calculate_val_loss:
-                    total_loss, _ = multi_task_homoscedastic_loss(
-                        model, outputs, labels, criterion, enabled_tasks
+                    losses = torch.stack(
+                        [
+                            criterion[task_name](outputs[task_name], labels[task_name])
+                            for task_name in task_names
+                        ]
                     )
+                    total_loss += (losses * task_weights).sum()
 
             batch_size = next(iter(labels.values())).size(0)
             num_samples += batch_size
@@ -315,16 +283,6 @@ def validate(
 
     metrics = calculate_final_metrics(metric_accumulators)
     avg_loss = total_loss / total_steps if config.calculate_val_loss else None
-
-    # Log the final learned weights for each task
-    if config.log_wandb:
-        weight_metrics = {
-            f"final_task_weight_{task_name}": torch.exp(
-                -model.log_vars[task_name]
-            ).item()
-            for task_name in enabled_tasks.keys()
-        }
-        wandb.log(weight_metrics)
 
     return avg_loss, metrics
 
