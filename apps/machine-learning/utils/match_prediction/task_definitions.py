@@ -19,18 +19,18 @@ TEAM_STATS = [
     # "totalAssists",
     # "totalGold",
     "towerKills",
-    "inhibitorKills",
-    "baronKills",
+    #"inhibitorKills",
+    #"baronKills",
     "dragonKills",
     "riftHeraldKills",
 ]
 
 INDIVIDUAL_STATS = [
     "kills",
-    "level",
+    #"level",
     "deaths",
     "assists",
-    "totalGold",
+    #"totalGold",
     "creepScore",
 ]
 
@@ -65,7 +65,7 @@ TASKS = {
         name="win_prediction",
         getter=get_win_prediction,
         task_type=TaskType.BINARY_CLASSIFICATION,
-        weight=0.8,
+        weight=0.9,
     ),
     "gameDuration": TaskDefinition(
         name="gameDuration",
@@ -81,7 +81,7 @@ for stat in INDIVIDUAL_STATS:
                 TASKS[task_name] = TaskDefinition(
                     name=task_name,
                     task_type=TaskType.REGRESSION,
-                    weight=0.05
+                    weight=0.025
                     / (
                         len(INDIVIDUAL_STATS)
                         * len(POSITIONS)
@@ -99,7 +99,7 @@ for damage_type in DAMAGE_STATS:
                 TASKS[task_name] = TaskDefinition(
                     name=task_name,
                     task_type=TaskType.REGRESSION,
-                    weight=0.05
+                    weight=0.025
                     / (
                         len(DAMAGE_STATS)
                         * len(POSITIONS)
@@ -116,7 +116,7 @@ for timestamp in TIMESTAMPS:
             TASKS[task_name] = TaskDefinition(
                 name=task_name,
                 task_type=TaskType.REGRESSION,
-                weight=0.1 / (len(TIMESTAMPS) * len(TEAM_STATS) * len(TEAMS)),
+                weight=0.05 / (len(TIMESTAMPS) * len(TEAM_STATS) * len(TEAMS)),
             )
 
 
