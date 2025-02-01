@@ -106,7 +106,8 @@ async function processMatches() {
             );
 
             // Skip non-ranked solo queue games
-            // TODO: this is because of riot api bug, change when bug is fixed(tracking the github issue)
+            // This shouldn't happen because we filter for ranked solo queue games in collectMatchIds.ts
+            // but there was a 2 week period where the filter was not working, and so there are some non-ranked solo queue games in the db
             if (processedData.queueId !== 420) {
               log(
                 `Match ${match.matchId} is not a ranked solo queue game (queueId: ${processedData.queueId}), marking as processed`
