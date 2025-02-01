@@ -1,4 +1,4 @@
-# Utils/match_prediction/model.py
+# utils/match_prediction/model.py
 
 import torch
 import torch.nn as nn

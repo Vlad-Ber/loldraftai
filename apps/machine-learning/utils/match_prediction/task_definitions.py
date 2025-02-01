@@ -18,20 +18,20 @@ TEAM_STATS = [
     # "totalDeaths",
     # "totalAssists",
     # "totalGold",
-    "towerKills",
+    # "towerKills",
     #"inhibitorKills",
     #"baronKills",
     "dragonKills",
-    "riftHeraldKills",
+    #"riftHeraldKills",
 ]
 
 INDIVIDUAL_STATS = [
     "kills",
     #"level",
     "deaths",
-    "assists",
-    #"totalGold",
-    "creepScore",
+    #"assists",
+    #"totalGold", #TODO: if i remove that, then can't have it in predictions...
+    #"creepScore",
 ]
 
 
@@ -65,7 +65,7 @@ TASKS = {
         name="win_prediction",
         getter=get_win_prediction,
         task_type=TaskType.BINARY_CLASSIFICATION,
-        weight=0.9,
+        weight=0.945,
     ),
     "gameDuration": TaskDefinition(
         name="gameDuration",
@@ -81,7 +81,7 @@ for stat in INDIVIDUAL_STATS:
                 TASKS[task_name] = TaskDefinition(
                     name=task_name,
                     task_type=TaskType.REGRESSION,
-                    weight=0.025
+                    weight=0.01
                     / (
                         len(INDIVIDUAL_STATS)
                         * len(POSITIONS)
@@ -116,7 +116,7 @@ for timestamp in TIMESTAMPS:
             TASKS[task_name] = TaskDefinition(
                 name=task_name,
                 task_type=TaskType.REGRESSION,
-                weight=0.05 / (len(TIMESTAMPS) * len(TEAM_STATS) * len(TEAMS)),
+                weight=0.01 / (len(TIMESTAMPS) * len(TEAM_STATS) * len(TEAMS)),
             )
 
 
