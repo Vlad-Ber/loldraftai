@@ -13,6 +13,7 @@ interface ChampionSuggestionRequest {
 }
 
 const backendUrl = process.env.INFERENCE_BACKEND_URL ?? "http://127.0.0.1:8000";
+const backendApiKey = process.env.INFERENCE_BACKEND_API_KEY;
 
 export async function OPTIONS() {
   return new NextResponse(null, {
@@ -77,11 +78,18 @@ export async function POST(request: Request) {
     // Make single batched request
     const response = await fetch(`${backendUrl}/predict-batch`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: {
+        "Content-Type": "application/json",
+        "X-API-Key": backendApiKey || "",
+      },
       body: JSON.stringify(batchInputs),
     });
 
     if (!response.ok) {
+      if (response.status === 403) {
+        console.error("API key validation failed");
+        throw new Error("API key validation failed");
+      }
       throw new Error(`HTTP error! status: ${response.status}`);
     }
 
