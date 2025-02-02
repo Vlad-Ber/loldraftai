@@ -70,7 +70,7 @@ interface EloSelectProps {
 const EloSelect = ({ elo, setElo }: EloSelectProps) => {
   return (
     <Select value={elo} onValueChange={setElo}>
-      <SelectTrigger className="w-[120px]">
+      <SelectTrigger className="w-[140px]">
         <SelectValue placeholder="Select Elo" />
       </SelectTrigger>
       <SelectContent>
@@ -98,7 +98,7 @@ const PatchSelect = ({
   setCurrentPatch,
 }: PatchSelectProps) => (
   <Select value={currentPatch} onValueChange={setCurrentPatch}>
-    <SelectTrigger className="w-[80px]">
+    <SelectTrigger className="w-[110px]">
       <SelectValue placeholder="Select Patch" />
     </SelectTrigger>
     <SelectContent>
@@ -213,7 +213,7 @@ export const AnalysisParent = ({
                   setSuggestionMode(value)
                 }
               >
-                <SelectTrigger className="w-[160px]">
+                <SelectTrigger className="w-[200px]">
                   <SelectValue placeholder="Suggestion mode" />
                 </SelectTrigger>
                 <SelectContent>
