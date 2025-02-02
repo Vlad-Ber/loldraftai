@@ -288,7 +288,7 @@ function App() {
   return (
     <>
       {/* Mobile message */}
-      <div className="md:hidden flex h-screen w-full items-center justify-center p-4">
+      <div className="md:hidden flex mt-16 w-full items-center justify-center p-4">
         <h2 className="text-center text-xl font-semibold text-primary">
           Sorry, <span className="brand-text">LoLDraftAI</span> is not yet
           available on mobile devices. Please use a larger screen.
