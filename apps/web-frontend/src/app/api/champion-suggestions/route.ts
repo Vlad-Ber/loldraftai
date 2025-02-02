@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server";
 import { Champion, Team } from "@draftking/ui/lib/types";
-import { RateLimit } from "@/app/lib/rate-limit";
-import { headers } from "next/headers";
+
 interface ChampionSuggestionRequest {
   team1: Team;
   team2: Team;
@@ -27,25 +26,6 @@ export async function OPTIONS() {
 }
 
 export async function POST(request: Request) {
-  const headersList = headers();
-  const ip = (await headersList).get("x-forwarded-for") || "unknown";
-
-  // Check rate limit
-  const isAllowed = await RateLimit.checkRateLimit(ip);
-  if (!isAllowed) {
-    return new NextResponse(
-      JSON.stringify({ error: "Too many requests. Please try again later." }),
-      {
-        status: 429,
-        headers: {
-          "Content-Type": "application/json",
-          "Access-Control-Allow-Origin": "*",
-          "Retry-After": "60",
-        },
-      }
-    );
-  }
-
   try {
     const body: ChampionSuggestionRequest = await request.json();
     const {
