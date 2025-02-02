@@ -14,6 +14,13 @@ import {
   navigationMenuTriggerStyle,
 } from "@draftking/ui/components/ui/navigation-menu";
 import { ClarityProvider } from "@/components/clarity-provider";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@draftking/ui/components/ui/dropdown-menu";
+import { Menu } from "lucide-react";
 
 const font = Chakra_Petch({
   subsets: ["latin"],
@@ -153,37 +160,52 @@ export default async function RootLayout({
           <ClarityProvider projectId={CLARITY_PROJECT_ID} />
           <div className="flex min-h-screen flex-col bg-background text-foreground">
             <nav className="sticky top-0 z-50 border-b border-border/40 bg-neutral-950">
-              <NavigationMenu className="mx-auto px-4 py-3">
+              {/* Desktop Navigation */}
+              <NavigationMenu className="mx-auto hidden px-4 py-3 md:block">
                 <NavigationMenuList className="flex justify-center gap-10">
                   <NavigationMenuItem>
                     <Link href="/" legacyBehavior passHref>
-                      <NavigationMenuLink
-                        className={navigationMenuTriggerStyle()}
-                      >
+                      <NavigationMenuLink className={navigationMenuTriggerStyle()}>
                         Home
                       </NavigationMenuLink>
                     </Link>
                   </NavigationMenuItem>
                   <NavigationMenuItem>
                     <Link href="/draft" legacyBehavior passHref>
-                      <NavigationMenuLink
-                        className={navigationMenuTriggerStyle()}
-                      >
+                      <NavigationMenuLink className={navigationMenuTriggerStyle()}>
                         Draft Analysis
                       </NavigationMenuLink>
                     </Link>
                   </NavigationMenuItem>
                   <NavigationMenuItem>
                     <Link href="/download" legacyBehavior passHref>
-                      <NavigationMenuLink
-                        className={navigationMenuTriggerStyle()}
-                      >
+                      <NavigationMenuLink className={navigationMenuTriggerStyle()}>
                         Download
                       </NavigationMenuLink>
                     </Link>
                   </NavigationMenuItem>
                 </NavigationMenuList>
               </NavigationMenu>
+
+              {/* Mobile Navigation */}
+              <div className="flex justify-end p-4 md:hidden">
+                <DropdownMenu>
+                  <DropdownMenuTrigger className="flex items-center">
+                    <Menu className="h-6 w-6" />
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent>
+                    <DropdownMenuItem asChild>
+                      <Link href="/">Home</Link>
+                    </DropdownMenuItem>
+                    <DropdownMenuItem asChild>
+                      <Link href="/draft">Draft Analysis</Link>
+                    </DropdownMenuItem>
+                    <DropdownMenuItem asChild>
+                      <Link href="/download">Download</Link>
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </div>
             </nav>
 
             <main className="flex-1">{children}</main>
