@@ -286,153 +286,169 @@ function App() {
   }, [bannedChampions, remainingChampions]);
 
   return (
-    <div className="container mx-auto mt-8 font-sans">
-      <h1 className="brand-text text-5xl font-extrabold tracking-tight leading-tight text-primary text-center mb-8">
-        LoLDraftAI Analysis
-      </h1>
-      <div className="mx-auto">
-        <div className="flex flex-wrap items-stretch justify-start mb-4">
-          <div className="flex w-full p-1 sm:w-auto">
-            <div className="flex-1">
-              <Button variant="outline" onClick={resetDraft}>
-                Reset Draft
-              </Button>
-            </div>
-          </div>
-          <div className="flex w-full p-1 sm:w-auto">
-            <div className="flex-1">
-              <Select
-                value={selectedDraftOrder}
-                onValueChange={(value: DraftOrderKey) =>
-                  setSelectedDraftOrder(value)
-                }
-              >
-                <SelectTrigger className="w-[180px]">
-                  <SelectValue placeholder="Select draft order" />
-                </SelectTrigger>
-                <SelectContent>
-                  {Object.keys(DRAFT_ORDERS).map((order) => (
-                    <SelectItem key={order} value={order}>
-                      {order}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-          <div className="flex w-full p-1 sm:w-auto">
-            <div className="flex-1">
-              <Button variant="outline" onClick={() => setShowHelpModal(true)}>
-                Help
-              </Button>
-            </div>
-          </div>
-          <div className="flex w-full p-1 sm:w-auto">
-            <div className="flex-1">
-              <TooltipProvider>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Button
-                      variant="outline"
-                      onClick={toggleLiveTracking}
-                      className="inline-flex items-center gap-2"
-                    >
-                      <span className="relative flex h-2 w-2">
-                        {isLiveTracking && (
-                          <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-red-400 opacity-75" />
-                        )}
-                        <span
-                          className={`relative inline-flex h-2 w-2 rounded-full ${
-                            isLiveTracking ? "bg-red-500" : "bg-gray-200"
-                          }`}
-                        />
-                      </span>
-                      {isLiveTracking
-                        ? "Stop Live Tracking"
-                        : "Start Live Tracking"}
-                    </Button>
-                  </TooltipTrigger>
-                  <TooltipContent className="max-w-[300px] whitespace-normal">
-                    Syncs with your live draft lobby. Champions are auto-placed
-                    based on their common roles, but may need manual adjustment
-                    since actual positions aren't known.
-                  </TooltipContent>
-                </Tooltip>
-              </TooltipProvider>
-            </div>
-          </div>
-        </div>
+    <>
+      {/* Mobile message */}
+      <div className="md:hidden flex h-screen w-full items-center justify-center p-4">
+        <h2 className="text-center text-xl font-semibold text-primary">
+          Sorry, <span className="brand-text">LoLDraftAI</span> is not yet
+          available on mobile devices. Please use a larger screen.
+        </h2>
+      </div>
 
-        <HelpModal
-          isOpen={showHelpModal}
-          closeHandler={() => setShowHelpModal(false)}
-        />
+      {/* Main content - hidden on mobile */}
+      <div className="hidden md:block">
+        <div className="container mx-auto mt-8 font-sans">
+          <h1 className="brand-text text-5xl font-extrabold tracking-tight leading-tight text-primary text-center mb-8">
+            LoLDraftAI Analysis
+          </h1>
+          <div className="mx-auto">
+            <div className="flex flex-wrap items-stretch justify-start mb-4">
+              <div className="flex w-full p-1 sm:w-auto">
+                <div className="flex-1">
+                  <Button variant="outline" onClick={resetDraft}>
+                    Reset Draft
+                  </Button>
+                </div>
+              </div>
+              <div className="flex w-full p-1 sm:w-auto">
+                <div className="flex-1">
+                  <Select
+                    value={selectedDraftOrder}
+                    onValueChange={(value: DraftOrderKey) =>
+                      setSelectedDraftOrder(value)
+                    }
+                  >
+                    <SelectTrigger className="w-[180px]">
+                      <SelectValue placeholder="Select draft order" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {Object.keys(DRAFT_ORDERS).map((order) => (
+                        <SelectItem key={order} value={order}>
+                          {order}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+              <div className="flex w-full p-1 sm:w-auto">
+                <div className="flex-1">
+                  <Button
+                    variant="outline"
+                    onClick={() => setShowHelpModal(true)}
+                  >
+                    Help
+                  </Button>
+                </div>
+              </div>
+              <div className="flex w-full p-1 sm:w-auto">
+                <div className="flex-1">
+                  <TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Button
+                          variant="outline"
+                          onClick={toggleLiveTracking}
+                          className="inline-flex items-center gap-2"
+                        >
+                          <span className="relative flex h-2 w-2">
+                            {isLiveTracking && (
+                              <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-red-400 opacity-75" />
+                            )}
+                            <span
+                              className={`relative inline-flex h-2 w-2 rounded-full ${
+                                isLiveTracking ? "bg-red-500" : "bg-gray-200"
+                              }`}
+                            />
+                          </span>
+                          {isLiveTracking
+                            ? "Stop Live Tracking"
+                            : "Start Live Tracking"}
+                        </Button>
+                      </TooltipTrigger>
+                      <TooltipContent className="max-w-[300px] whitespace-normal">
+                        Syncs with your live draft lobby. Champions are
+                        auto-placed based on their common roles, but may need
+                        manual adjustment since actual positions aren't known.
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
+                </div>
+              </div>
+            </div>
 
-        <div className="text-center text-lg font-semibold mb-4">
-          <StatusMessage
-            selectedSpot={selectedSpot}
-            teamOne={teamOne}
-            teamTwo={teamTwo}
-            selectedDraftOrder={selectedDraftOrder}
-          />
-        </div>
+            <HelpModal
+              isOpen={showHelpModal}
+              closeHandler={() => setShowHelpModal(false)}
+            />
 
-        <div className="flex flex-wrap items-stretch justify-evenly">
-          <div className="flex w-full justify-between">
-            <div className="flex w-auto max-w-xs p-1">
-              <TeamPanel
-                team={teamOne}
-                is_first_team={true}
+            <div className="text-center text-lg font-semibold mb-4">
+              <StatusMessage
                 selectedSpot={selectedSpot}
-                onDeleteChampion={(index) =>
-                  handleDeleteChampion(index, teamOne)
-                }
-                onSpotSelected={handleSpotSelected}
-                ImageComponent={PlainImage}
+                teamOne={teamOne}
+                teamTwo={teamTwo}
+                selectedDraftOrder={selectedDraftOrder}
               />
             </div>
 
-            <div className="grow p-1">
-              <ChampionGrid
-                champions={remainingNonBannedChampions}
-                addChampion={handleAddChampion}
+            <div className="flex flex-wrap items-stretch justify-evenly">
+              <div className="flex w-full justify-between">
+                <div className="flex w-auto max-w-xs p-1">
+                  <TeamPanel
+                    team={teamOne}
+                    is_first_team={true}
+                    selectedSpot={selectedSpot}
+                    onDeleteChampion={(index) =>
+                      handleDeleteChampion(index, teamOne)
+                    }
+                    onSpotSelected={handleSpotSelected}
+                    ImageComponent={PlainImage}
+                  />
+                </div>
+
+                <div className="grow p-1">
+                  <ChampionGrid
+                    champions={remainingNonBannedChampions}
+                    addChampion={handleAddChampion}
+                    favorites={favorites}
+                    setFavorites={setFavorites}
+                    ImageComponent={PlainImage}
+                  />
+                </div>
+
+                <div className="flex w-auto max-w-xs p-1">
+                  <TeamPanel
+                    team={teamTwo}
+                    is_first_team={false}
+                    selectedSpot={selectedSpot}
+                    onDeleteChampion={(index) =>
+                      handleDeleteChampion(index, teamTwo)
+                    }
+                    onSpotSelected={handleSpotSelected}
+                    ImageComponent={PlainImage}
+                  />
+                </div>
+              </div>
+            </div>
+
+            <div className="mt-4">
+              <AnalysisParent
+                team1={teamOne}
+                team2={teamTwo}
+                selectedSpot={selectedSpot}
                 favorites={favorites}
-                setFavorites={setFavorites}
-                ImageComponent={PlainImage}
-              />
-            </div>
-
-            <div className="flex w-auto max-w-xs p-1">
-              <TeamPanel
-                team={teamTwo}
-                is_first_team={false}
-                selectedSpot={selectedSpot}
-                onDeleteChampion={(index) =>
-                  handleDeleteChampion(index, teamTwo)
-                }
-                onSpotSelected={handleSpotSelected}
-                ImageComponent={PlainImage}
+                remainingChampions={remainingNonBannedChampions}
+                analysisTrigger={0}
+                currentPatch={currentPatch}
+                patches={patches}
+                setCurrentPatch={setCurrentPatch}
+                setPatchList={setPatchList}
               />
             </div>
           </div>
-        </div>
-
-        <div className="mt-4">
-          <AnalysisParent
-            team1={teamOne}
-            team2={teamTwo}
-            selectedSpot={selectedSpot}
-            favorites={favorites}
-            remainingChampions={remainingNonBannedChampions}
-            analysisTrigger={0}
-            currentPatch={currentPatch}
-            patches={patches}
-            setCurrentPatch={setCurrentPatch}
-            setPatchList={setPatchList}
-          />
         </div>
       </div>
-    </div>
+    </>
   );
 }
 

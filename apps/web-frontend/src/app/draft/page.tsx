@@ -111,110 +111,121 @@ export default function Draft() {
   };
 
   return (
-    <div className="flex w-full flex-col items-center mt-4">
-      <div className="container mx-auto">
-        <h1 className="brand-text text-5xl font-extrabold tracking-tight leading-tight text-primary text-center mb-8">
-          LoLDraftAI Analysis
-        </h1>
-        <div className="flex flex-wrap items-stretch justify-start mb-4">
-          <div className="flex w-full p-1 sm:w-auto">
-            <div className="flex-1">
-              <Button variant="outline" onClick={resetDraft}>
-                Reset Draft
-              </Button>
+    <>
+      {/* Mobile message */}
+      <div className="md:hidden flex h-screen w-full items-center justify-center p-4">
+        <h2 className="text-center text-xl font-semibold text-primary">
+          Sorry, <span className="brand-text">LoLDraftAI</span> is not yet
+          available on mobile devices. Please use a larger screen.
+        </h2>
+      </div>
+
+      {/* Main content - hidden on mobile */}
+      <div className="hidden md:flex w-full flex-col items-center mt-4">
+        <div className="container mx-auto">
+          <h1 className="brand-text text-5xl font-extrabold tracking-tight leading-tight text-primary text-center mb-8">
+            LoLDraftAI Analysis
+          </h1>
+          <div className="flex flex-wrap items-stretch justify-start mb-4">
+            <div className="flex w-full p-1 sm:w-auto">
+              <div className="flex-1">
+                <Button variant="outline" onClick={resetDraft}>
+                  Reset Draft
+                </Button>
+              </div>
+            </div>
+            <div className="flex w-full p-1 sm:w-auto">
+              <div className="flex-1">
+                <Select
+                  value={selectedDraftOrder}
+                  onValueChange={(value: DraftOrderKey) =>
+                    setSelectedDraftOrder(value)
+                  }
+                >
+                  <SelectTrigger className="w-[180px]">
+                    <SelectValue placeholder="Select draft order" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {Object.keys(DRAFT_ORDERS).map((order) => (
+                      <SelectItem key={order} value={order}>
+                        {order}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            <div className="flex w-full p-1 sm:w-auto">
+              <div className="flex-1">
+                <Button variant="outline" onClick={openHelpModal}>
+                  Help
+                </Button>
+              </div>
             </div>
           </div>
-          <div className="flex w-full p-1 sm:w-auto">
-            <div className="flex-1">
-              <Select
-                value={selectedDraftOrder}
-                onValueChange={(value: DraftOrderKey) =>
-                  setSelectedDraftOrder(value)
-                }
-              >
-                <SelectTrigger className="w-[180px]">
-                  <SelectValue placeholder="Select draft order" />
-                </SelectTrigger>
-                <SelectContent>
-                  {Object.keys(DRAFT_ORDERS).map((order) => (
-                    <SelectItem key={order} value={order}>
-                      {order}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+          <HelpModal isOpen={showHelpModal} closeHandler={closeHelpModal} />
+
+          <div className="text-center text-lg font-semibold mb-4">
+            <StatusMessage
+              selectedSpot={selectedSpot}
+              teamOne={teamOne}
+              teamTwo={teamTwo}
+              selectedDraftOrder={selectedDraftOrder}
+            />
+          </div>
+
+          <div className="flex flex-wrap items-stretch justify-evenly">
+            <div className="flex w-full justify-between">
+              {/* Team Panel 1 */}
+              <div className="flex w-auto max-w-xs p-1">
+                <TeamPanel
+                  team={teamOne}
+                  is_first_team={true}
+                  onDeleteChampion={(index: ChampionIndex) =>
+                    handleDeleteChampion(index, teamOne)
+                  }
+                  selectedSpot={selectedSpot}
+                  onSpotSelected={handleSpotSelection}
+                />
+              </div>
+
+              {/* Champion Grid */}
+              <div className="grow p-1">
+                <ChampionGrid
+                  champions={remainingChampions}
+                  addChampion={addChampion}
+                  favorites={favorites}
+                  setFavorites={setFavorites}
+                />
+              </div>
+
+              {/* Team Panel 2 */}
+              <div className="flex w-auto max-w-xs p-1">
+                <TeamPanel
+                  team={teamTwo}
+                  is_first_team={false}
+                  onDeleteChampion={(index: ChampionIndex) =>
+                    handleDeleteChampion(index, teamTwo)
+                  }
+                  selectedSpot={selectedSpot}
+                  onSpotSelected={handleSpotSelection}
+                />
+              </div>
             </div>
           </div>
-          <div className="flex w-full p-1 sm:w-auto">
-            <div className="flex-1">
-              <Button variant="outline" onClick={openHelpModal}>
-                Help
-              </Button>
-            </div>
+          {/* Draft Analysis */}
+          <div className="mt-4">
+            <AnalysisParent
+              team1={teamOne}
+              team2={teamTwo}
+              selectedSpot={selectedSpot}
+              favorites={favorites}
+              remainingChampions={remainingChampions}
+              analysisTrigger={analysisTrigger}
+            />
           </div>
-        </div>
-        <HelpModal isOpen={showHelpModal} closeHandler={closeHelpModal} />
-
-        <div className="text-center text-lg font-semibold mb-4">
-          <StatusMessage
-            selectedSpot={selectedSpot}
-            teamOne={teamOne}
-            teamTwo={teamTwo}
-            selectedDraftOrder={selectedDraftOrder}
-          />
-        </div>
-
-        <div className="flex flex-wrap items-stretch justify-evenly">
-          <div className="flex w-full justify-between">
-            {/* Team Panel 1 */}
-            <div className="flex w-auto max-w-xs p-1">
-              <TeamPanel
-                team={teamOne}
-                is_first_team={true}
-                onDeleteChampion={(index: ChampionIndex) =>
-                  handleDeleteChampion(index, teamOne)
-                }
-                selectedSpot={selectedSpot}
-                onSpotSelected={handleSpotSelection}
-              />
-            </div>
-
-            {/* Champion Grid */}
-            <div className="grow p-1">
-              <ChampionGrid
-                champions={remainingChampions}
-                addChampion={addChampion}
-                favorites={favorites}
-                setFavorites={setFavorites}
-              />
-            </div>
-
-            {/* Team Panel 2 */}
-            <div className="flex w-auto max-w-xs p-1">
-              <TeamPanel
-                team={teamTwo}
-                is_first_team={false}
-                onDeleteChampion={(index: ChampionIndex) =>
-                  handleDeleteChampion(index, teamTwo)
-                }
-                selectedSpot={selectedSpot}
-                onSpotSelected={handleSpotSelection}
-              />
-            </div>
-          </div>
-        </div>
-        {/* Draft Analysis */}
-        <div className="mt-4">
-          <AnalysisParent
-            team1={teamOne}
-            team2={teamTwo}
-            selectedSpot={selectedSpot}
-            favorites={favorites}
-            remainingChampions={remainingChampions}
-            analysisTrigger={analysisTrigger}
-          />
         </div>
       </div>
-    </div>
+    </>
   );
 }
