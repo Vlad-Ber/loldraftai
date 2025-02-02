@@ -23,7 +23,10 @@ export class RateLimit {
 
       // Add current request and update KV store
       recentRequests.push(now);
-      await kv.set(key, recentRequests, { ex: 60 }); // Expire after 60 seconds
+
+      // Calculate remaining time in current window and set expiration
+      const remainingMs = this.WINDOW_MS - (now % this.WINDOW_MS);
+      await kv.set(key, recentRequests, { ex: Math.ceil(remainingMs / 1000) });
 
       return true;
     } catch (error) {
