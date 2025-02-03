@@ -1,5 +1,5 @@
 import asyncio
-from fastapi import FastAPI, HTTPException, Response
+from fastapi import FastAPI, HTTPException, Response, Security, Depends
 from pydantic import BaseModel
 from typing import List, Dict, Literal
 import torch
@@ -9,6 +9,7 @@ from pathlib import Path
 from fastapi.middleware.cors import CORSMiddleware
 from datetime import datetime
 import os
+from fastapi.security import APIKeyHeader
 
 from utils.match_prediction.model import SimpleMatchModel
 from utils.match_prediction.column_definitions import COLUMNS, ColumnType
@@ -206,8 +207,20 @@ def preprocess_input(input_data: ModelInput) -> Dict[str, torch.Tensor]:
     return processed_input
 
 
+# Add near the top of the file
+API_KEY_HEADER = APIKeyHeader(name="X-API-Key")
+
+
+async def verify_api_key(api_key: str = Depends(API_KEY_HEADER)):
+    if api_key != os.getenv("API_KEY"):
+        raise HTTPException(status_code=403, detail="Could not validate API key")
+    return api_key
+
+
 @app.post("/predict")
-async def predict(api_input: APIInput):
+async def predict(
+    api_input: APIInput, api_key: str = Depends(verify_api_key)  # Add this parameter
+):
     model_input = api_input_to_model_input(api_input)
 
     # Create a future to hold the response
@@ -221,7 +234,9 @@ async def predict(api_input: APIInput):
 
 
 @app.post("/predict-in-depth")
-async def predict_in_depth(api_input: APIInput):
+async def predict_in_depth(
+    api_input: APIInput, api_key: str = Depends(verify_api_key)  # Add this parameter
+):
     base_input = api_input_to_model_input(api_input)
 
     # Get the unknown champion ID
@@ -287,7 +302,7 @@ async def predict_in_depth(api_input: APIInput):
 
 
 @app.get("/metadata")
-async def get_metadata(response: Response):
+async def get_metadata(response: Response, api_key: str = Depends(verify_api_key)):
     # Set Cache-Control header for 15 minutes (900 seconds)
     response.headers["Cache-Control"] = "public, max-age=900"
 
@@ -360,11 +375,13 @@ async def startup_event():
 
 
 @app.post("/predict-batch")
-async def predict_batch(inputs: List[APIInput]):
+async def predict_batch(
+    inputs: List[APIInput], api_key: str = Depends(verify_api_key)  # Add this parameter
+):
     # Create futures for all predictions
     loop = asyncio.get_event_loop()
     futures = []
-    
+
     for api_input in inputs:
         model_input = api_input_to_model_input(api_input)
         future = loop.create_future()
@@ -373,7 +390,10 @@ async def predict_batch(inputs: List[APIInput]):
 
     # Wait for all results
     results = await asyncio.gather(*futures)
-    return [WinratePrediction(win_probability=result["win_probability"]) for result in results]
+    return [
+        WinratePrediction(win_probability=result["win_probability"])
+        for result in results
+    ]
 
 
 # For running with uvicorn

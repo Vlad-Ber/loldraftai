@@ -30,6 +30,9 @@ RUN pip install -r requirements.txt
 # Add project root to Python path
 ENV PYTHONPATH=/app
 
+# Add API_KEY environment variable with a default value
+ENV API_KEY=""
+
 # Expose the port the app runs on
 EXPOSE 8000
 
