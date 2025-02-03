@@ -19,13 +19,24 @@ def get_optimizer_grouped_parameters(
 ) -> list[dict]:
     # Get all parameters that require gradients
     param_dict = {pn: p for pn, p in model.named_parameters() if p.requires_grad}
-
+    
     # Separate parameters into decay and no-decay groups
-    # dim >= 2 are the weight matrices, dim < 2 are biases
-    # decaying biases and normalization layers is not needed
-    # source: https://youtu.be/l8pRSuU81PU?si=f_taru0joQ5LW19e&t=8861
-    decay_params = [p for n, p in param_dict.items() if p.dim() >= 2]
-    nodecay_params = [p for n, p in param_dict.items() if p.dim() < 2]
+    decay_params = []
+    nodecay_params = []
+    
+    for name, param in param_dict.items():
+        # No weight decay for:
+        # 1. All embedding layers (embeddings.*.weight and champion_embedding.weight)
+        # 2. All bias terms
+        # 3. All normalization layers
+        # source: https://github.com/karpathy/minGPT/pull/24#issuecomment-679316025
+        if ('embeddings.' in name or 
+            'champion_embedding.' in name or 
+            'bias' in name or 
+            'norm' in name):
+            nodecay_params.append(param)
+        else:
+            decay_params.append(param)
 
     # Create optimizer groups
     optim_groups = [
@@ -37,7 +48,7 @@ def get_optimizer_grouped_parameters(
     num_decay_params = sum(p.numel() for p in decay_params)
     num_nodecay_params = sum(p.numel() for p in nodecay_params)
     print(
-        f"num decayed parameter tensors: {len(decay_params)}, with {num_decay_params:,} parameters"
+        f"\nnum decayed parameter tensors: {len(decay_params)}, with {num_decay_params:,} parameters"
     )
     print(
         f"num non-decayed parameter tensors: {len(nodecay_params)}, with {num_nodecay_params:,} parameters"

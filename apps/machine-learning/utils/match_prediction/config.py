@@ -8,9 +8,7 @@ class TrainingConfig:
     def __init__(self):
         # Default values
         self.num_epochs = 25
-        self.embed_dim = 64
-        self.num_heads = 8
-        self.num_transformer_layers = 2
+        self.embed_dim = 128
         self.dropout = 0.1
         # weight decay didn't change much when training for a short time at 0.001, but for longer trianing runs, 0.01 might be better
         self.weight_decay = 0.01

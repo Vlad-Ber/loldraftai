@@ -19,19 +19,19 @@ TEAM_STATS = [
     # "totalAssists",
     # "totalGold",
     # "towerKills",
-    #"inhibitorKills",
-    #"baronKills",
+    # "inhibitorKills",
+    # "baronKills",
     "dragonKills",
-    #"riftHeraldKills",
+    # "riftHeraldKills",
 ]
 
 INDIVIDUAL_STATS = [
     "kills",
-    #"level",
+    # "level",
     "deaths",
-    #"assists",
-    #"totalGold", #TODO: if i remove that, then can't have it in predictions...
-    #"creepScore",
+    # "assists",
+    "totalGold",
+    # "creepScore",
 ]
 
 
