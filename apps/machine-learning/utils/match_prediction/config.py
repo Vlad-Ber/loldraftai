@@ -8,7 +8,11 @@ class TrainingConfig:
     def __init__(self):
         # Default values
         self.num_epochs = 25
-        self.embed_dim = 128
+        self.embed_dim = 128  # seems optimal see experiments:
+        # 128: https://wandb.ai/loyd-team/draftking/runs/hs7ocp6d?nw=nwuserloyd
+        # 256: https://wandb.ai/loyd-team/draftking/runs/6w221kxa?nw=nwuserloyd
+        # 1024: https://wandb.ai/loyd-team/draftking/runs/5eg66qlp?nw=nwuserloyd
+
         self.dropout = 0.1
         # weight decay didn't change much when training for a short time at 0.001, but for longer trianing runs, 0.01 might be better
         self.weight_decay = 0.01
