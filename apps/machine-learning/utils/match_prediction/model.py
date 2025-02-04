@@ -13,38 +13,13 @@ from utils.match_prediction.column_definitions import (
 from utils.match_prediction.task_definitions import TASKS, TaskType
 
 
-class ResidualLinearBlock(nn.Module):
-    def __init__(self, input_dim: int, output_dim: int, dropout: float = 0.1):
-        super().__init__()
-        self.linear = nn.Linear(input_dim, output_dim, bias=False)
-        self.bn = nn.BatchNorm1d(output_dim)
-        self.activation = (
-            nn.SiLU()
-        )  # Keeping SiLU instead of GELU to match existing code
-        self.dropout = nn.Dropout(dropout)
-        # Projection layer for dimension matching if needed
-        self.proj = (
-            nn.Linear(input_dim, output_dim, bias=False)
-            if input_dim != output_dim
-            else nn.Identity()
-        )
-
-    def forward(self, x: torch.Tensor) -> torch.Tensor:
-        residual = self.proj(x)
-        x = self.linear(x)
-        x = self.bn(x)
-        x = self.activation(x)
-        x = self.dropout(x)
-        return x + residual
-
-
 class SimpleMatchModel(nn.Module):
     def __init__(
         self,
         num_categories,
         num_champions,
-        embed_dim=128,
-        hidden_dims=[192, 96],
+        embed_dim=64,
+        hidden_dims=[256, 128],
         dropout=0.1,
     ):
         super(SimpleMatchModel, self).__init__()
@@ -74,7 +49,7 @@ class SimpleMatchModel(nn.Module):
         total_embed_features = (
             num_categorical + num_champions + num_numerical_projections
         )
-        self.mlp_input_dim = total_embed_features * embed_dim  # Store as instance variable
+        mlp_input_dim = total_embed_features * embed_dim
 
         print(f"Model dimensions:")
         print(f"- Categorical features: {num_categorical}")
@@ -82,18 +57,24 @@ class SimpleMatchModel(nn.Module):
         print(f"- Numerical features projection: {num_numerical_projections}")
         print(f"- Total embedded features: {total_embed_features}")
         print(f"- Embedding dimension: {embed_dim}")
-        print(f"- MLP input dimension: {self.mlp_input_dim}")
+        print(f"- MLP input dimension: {mlp_input_dim}")
 
-        # MLP layers with residual connections
+        # MLP layers
         layers = []
-        prev_dim = self.mlp_input_dim
+        prev_dim = mlp_input_dim
+
         for hidden_dim in hidden_dims:
-            layers.append(ResidualLinearBlock(prev_dim, hidden_dim, dropout))
+            layers.extend(
+                [
+                    nn.Linear(prev_dim, hidden_dim, bias=False),
+                    nn.BatchNorm1d(hidden_dim),
+                    nn.GELU(),
+                    nn.Dropout(dropout),
+                ]
+            )
             prev_dim = hidden_dim
 
-        self.mlp = nn.Sequential(
-            nn.LayerNorm(self.mlp_input_dim), *layers
-        )  # Layernorm to Stabilize training by normalizing concatenated embeddings before feeding them into the MLP
+        self.mlp = nn.Sequential(*layers)
 
         # Output layers for each task
         self.output_layers = nn.ModuleDict()
@@ -140,13 +121,13 @@ class SimpleMatchModel(nn.Module):
         combined_features = torch.cat(embeddings_list, dim=1)
 
         # Debug print dimensions
-        if combined_features.shape[1] != self.mlp_input_dim:
+        if combined_features.shape[1] != self.mlp[0].weight.shape[1]:
             print(f"\nDimension mismatch!")
             print(f"Combined features shape: {combined_features.shape}")
-            print(f"Expected MLP input dimension: {self.mlp_input_dim}")
+            print(f"First MLP layer input dim: {self.mlp[0].weight.shape[1]}")
+            print(f"First MLP layer weight shape: {self.mlp[0].weight.shape}")
             for i, embedding in enumerate(embeddings_list):
                 print(f"Embedding {i} shape: {embedding.shape}")
-            raise ValueError(f"Input dimension mismatch (got {combined_features.shape[1]}, expected {self.mlp_input_dim})")
 
         # Pass through MLP
         x = self.mlp(combined_features)
