@@ -71,7 +71,7 @@ jobs:
           VERSION=$(node -p "require('./package.json').version")
           
           # Common AWS CLI options
-          AWS_OPTS="--endpoint-url https://${{ secrets.CLOUDFLARE_ACCOUNT_ID }}.r2.cloudflarestorage.com --region auto --content-type application/octet-stream --no-verify-ssl"
+          AWS_OPTS="--endpoint-url https://${{ secrets.CLOUDFLARE_ACCOUNT_ID }}.r2.cloudflarestorage.com --region auto --content-type application/octet-stream --no-verify-ssl --checksum-algorithm CRC32"
           
           # Upload files with increased retries and timeout
           aws configure set default.s3.max_concurrent_requests 1
@@ -83,11 +83,11 @@ jobs:
           # Upload the files
           aws s3 cp dist/LoLDraftAI-${VERSION}-Setup.exe \
             s3://${{ secrets.R2_BUCKET_NAME }}/latest/LoLDraftAI-${VERSION}-Setup.exe \
-            $AWS_OPTS --checksum-algorithm CRC32
+            $AWS_OPTS
 
           aws s3 cp dist/LoLDraftAI-${VERSION}-Setup.exe.blockmap \
             s3://${{ secrets.R2_BUCKET_NAME }}/latest/LoLDraftAI-${VERSION}-Setup.exe.blockmap \
-            $AWS_OPTS --checksum-algorithm CRC32
+            $AWS_OPTS
 
           # Create and upload latest.yml
           echo "version: ${VERSION}
@@ -102,25 +102,17 @@ jobs:
           sha512: $(sha512sum dist/LoLDraftAI-${VERSION}-Setup.exe | awk '{print $1}')
           releaseDate: $(date -u +"%Y-%m-%dT%H:%M:%S.000Z")" > dist/latest.yml
 
-          # Upload latest.yml
+          # Upload latest.yml with the same AWS options
           aws s3 cp dist/latest.yml \
             s3://${{ secrets.R2_BUCKET_NAME }}/latest/latest.yml \
-            --endpoint-url https://${{ secrets.CLOUDFLARE_ACCOUNT_ID }}.r2.cloudflarestorage.com \
-            --no-verify-ssl \
-            --region auto \
+            $AWS_OPTS \
             --content-type application/yaml
 
           # Keep the "latest" copies for direct downloads
           aws s3 cp dist/LoLDraftAI-${VERSION}-Setup.exe \
             s3://${{ secrets.R2_BUCKET_NAME }}/latest/LoLDraftAI.Setup.exe \
-            --endpoint-url https://${{ secrets.CLOUDFLARE_ACCOUNT_ID }}.r2.cloudflarestorage.com \
-            --no-verify-ssl \
-            --region auto \
-            --content-type application/octet-stream
+            $AWS_OPTS
 
           aws s3 cp dist/LoLDraftAI-${VERSION}-Setup.exe.blockmap \
             s3://${{ secrets.R2_BUCKET_NAME }}/latest/LoLDraftAI.Setup.exe.blockmap \
-            --endpoint-url https://${{ secrets.CLOUDFLARE_ACCOUNT_ID }}.r2.cloudflarestorage.com \
-            --no-verify-ssl \
-            --region auto \
-            --content-type application/octet-stream
+            $AWS_OPTS
