@@ -64,6 +64,7 @@ jobs:
           AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
           AWS_EC2_METADATA_DISABLED: true
+          PYTHONWARNINGS: "ignore:Unverified HTTPS request"
         working-directory: apps/desktop
         run: |
           # Get version from package.json
@@ -82,11 +83,11 @@ jobs:
           # Upload the files
           aws s3 cp dist/LoLDraftAI-${VERSION}-Setup.exe \
             s3://${{ secrets.R2_BUCKET_NAME }}/latest/LoLDraftAI-${VERSION}-Setup.exe \
-            $AWS_OPTS
+            $AWS_OPTS --checksum-algorithm CRC32
 
           aws s3 cp dist/LoLDraftAI-${VERSION}-Setup.exe.blockmap \
             s3://${{ secrets.R2_BUCKET_NAME }}/latest/LoLDraftAI-${VERSION}-Setup.exe.blockmap \
-            $AWS_OPTS
+            $AWS_OPTS --checksum-algorithm CRC32
 
           # Create and upload latest.yml
           echo "version: ${VERSION}
