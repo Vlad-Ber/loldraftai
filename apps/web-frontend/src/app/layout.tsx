@@ -28,11 +28,6 @@ const font = Chakra_Petch({
   variable: "--font-chakra-petch",
 });
 
-// Default to the production backend, otherwise vercel builds will fail
-const backendUrl =
-  process.env.INFERENCE_BACKEND_URL ??
-  "https://leaguedraftv2inference.whiteground-3c896ca8.eastus2.azurecontainerapps.io/";
-
 // Add this near your other constants
 const CLARITY_PROJECT_ID = process.env.NEXT_PUBLIC_CLARITY_PROJECT_ID ?? "";
 
@@ -131,10 +126,12 @@ export default async function RootLayout({
   let latestPatch = "Unknown";
 
   try {
-    // TODO: this is a server component so we call the backend directly, could refactor commong code with metadata/route.ts
-    const response = await fetch(`${backendUrl}/metadata`, {
-      next: { revalidate: 900 }, // Cache for 15 minutes
-    });
+    const response = await fetch(
+      `${process.env.NEXT_PUBLIC_API_BASE_URL ?? "https://loldraftai.com"}/api/metadata`,
+      {
+        next: { revalidate: 900 }, // Cache for 15 minutes
+      }
+    );
 
     if (!response.ok) {
       throw new Error(`HTTP error! status: ${response.status}`);
@@ -165,21 +162,27 @@ export default async function RootLayout({
                 <NavigationMenuList className="flex justify-center gap-10">
                   <NavigationMenuItem>
                     <Link href="/" legacyBehavior passHref>
-                      <NavigationMenuLink className={navigationMenuTriggerStyle()}>
+                      <NavigationMenuLink
+                        className={navigationMenuTriggerStyle()}
+                      >
                         Home
                       </NavigationMenuLink>
                     </Link>
                   </NavigationMenuItem>
                   <NavigationMenuItem>
                     <Link href="/draft" legacyBehavior passHref>
-                      <NavigationMenuLink className={navigationMenuTriggerStyle()}>
+                      <NavigationMenuLink
+                        className={navigationMenuTriggerStyle()}
+                      >
                         Draft Analysis
                       </NavigationMenuLink>
                     </Link>
                   </NavigationMenuItem>
                   <NavigationMenuItem>
                     <Link href="/download" legacyBehavior passHref>
-                      <NavigationMenuLink className={navigationMenuTriggerStyle()}>
+                      <NavigationMenuLink
+                        className={navigationMenuTriggerStyle()}
+                      >
                         Download
                       </NavigationMenuLink>
                     </Link>
