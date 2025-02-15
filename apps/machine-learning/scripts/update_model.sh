@@ -70,6 +70,7 @@ az containerapp update \
   --name $CONTAINER_APP_NAME \
   --resource-group $RESOURCE_GROUP \
   --image $ACR_REGISTRY/$IMAGE_NAME:latest \
+  --set-env-vars "API_KEY=secretref:api-key" \
   --revision-suffix $(date +%Y%m%d%H%M)
 
 log "Script completed successfully"
