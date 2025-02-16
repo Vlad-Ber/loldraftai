@@ -56,14 +56,14 @@ export function FeaturesShowcase() {
           {SHOWCASE_ITEMS.map((item, index) => (
             <CarouselItem key={index}>
               <div className="p-1">
-                <div className="rounded-xl overflow-hidden flex flex-col h-[600px]">
-                  <div className="relative flex-1 flex items-center justify-center bg-black/5">
+                <div className="rounded-xl overflow-hidden flex flex-col h-full">
+                  <div className="relative aspect-video flex items-center justify-center bg-black/5">
                     <Image
                       src={item.image}
                       alt={item.title}
                       width={1920}
                       height={1080}
-                      className="w-auto h-auto max-h-full"
+                      className="w-full h-full object-contain"
                       priority
                     />
                   </div>

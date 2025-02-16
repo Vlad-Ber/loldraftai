@@ -29,10 +29,10 @@ export default function HomePage() {
       </div>
 
       {/* Main Content */}
-      <div className="container flex flex-col items-center justify-center px-4 py-12 space-y-24">
+      <div className="container flex flex-col items-center justify-center px-4 py-12 space-y-12 lg:space-y-24">
         {/* Why LoLDraftAI Section */}
         <section className="flex flex-col items-center max-w-4xl">
-          <h2 className="text-3xl font-bold mb-8">
+          <h2 className="text-3xl font-bold mb-8 text-center">
             Why is <span className="brand-text">LoLDraftAI</span> the most
             accurate draft tool?
           </h2>
@@ -71,13 +71,16 @@ export default function HomePage() {
         </section>
 
         {/* Champion Recommendations Section */}
-        <section className="w-full bg-secondary/10 rounded-2xl p-8">
+        <section className="w-full bg-secondary/10 rounded-2xl">
           <div className="flex flex-col items-center max-w-4xl mx-auto">
-            <h2 className="text-3xl font-bold mb-6">
-              Champion recommendations{" "}
-              <LightBulbIcon className="inline-block h-7 w-7 mb-2" />
+            <h2 className="text-3xl font-bold text-center mb-6">
+              Champion{" "}
+              <span className="whitespace-nowrap">
+                recommendations
+                <LightBulbIcon className="inline-block h-7 w-7 mb-2 ml-1" />
+              </span>
             </h2>
-            <p className="text-lg text-center">
+            <p className="text-lg text-jusify">
               <span className="brand-text">LoLDraftAI </span>{" "}
               <span className="font-bold">
                 {" "}
@@ -102,11 +105,14 @@ export default function HomePage() {
 
         {/* Desktop Version Section */}
         <section className="flex flex-col items-center max-w-4xl">
-          <h2 className="text-3xl font-bold mb-6">
-            Desktop version{" "}
-            <FaWindows className="inline-block h-7 w-7 mb-1 ml-1" />
+          <h2 className="text-3xl font-bold text-center mb-6">
+            Desktop{" "}
+            <span className="whitespace-nowrap">
+              version
+              <FaWindows className="inline-block h-7 w-7 mb-1 ml-1" />
+            </span>
           </h2>
-          <p className="text-lg text-center">
+          <p className="text-lg text-justify">
             <span className="brand-text">LoLDraftAI</span>{" "}
             <span className="font-bold">
               {" "}
@@ -134,16 +140,16 @@ export default function HomePage() {
           <h2 className="text-3xl font-bold text-center mb-2">
             How to win your games using{" "}
             <span className="brand-text">LoLDraftAI</span>{" "}
-            <TrophyIcon className="inline-block h-7 w-7 mb-1 ml-1" />
+            <span className="whitespace-nowrap">
+              <TrophyIcon className="inline-block h-7 w-7 mb-1 ml-1" />
+            </span>
           </h2>
           <FeaturesShowcase />
         </section>
 
         {/* Added CTA Section */}
         <section className="flex flex-col items-center">
-          <AnimatedButton href="/draft">
-            Analyse a Draft Now
-          </AnimatedButton>
+          <AnimatedButton href="/draft">Analyse a Draft Now</AnimatedButton>
         </section>
       </div>
     </main>

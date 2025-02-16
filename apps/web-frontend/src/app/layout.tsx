@@ -205,16 +205,16 @@ export default async function RootLayout({
                     <Menu className="h-6 w-6" />
                   </DropdownMenuTrigger>
                   <DropdownMenuContent>
-                    <DropdownMenuItem asChild>
+                    <DropdownMenuItem className="text-lg" asChild>
                       <Link href="/">Home</Link>
                     </DropdownMenuItem>
-                    <DropdownMenuItem asChild>
+                    <DropdownMenuItem className="text-lg" asChild>
                       <Link href="/draft">Draft Analysis</Link>
                     </DropdownMenuItem>
-                    <DropdownMenuItem asChild>
+                    <DropdownMenuItem className="text-lg" asChild>
                       <Link href="/download">Download</Link>
                     </DropdownMenuItem>
-                    <DropdownMenuItem asChild>
+                    <DropdownMenuItem className="text-lg" asChild>
                       <Link href="/blog">Blog</Link>
                     </DropdownMenuItem>
                   </DropdownMenuContent>
