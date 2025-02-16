@@ -7,7 +7,14 @@
     },
     "web-frontend#build": {
       "dependsOn": ["^build"],
-      "env": ["INFERENCE_BACKEND_URL"]
+      "env": [
+        "INFERENCE_BACKEND_URL",
+        "INFERENCE_BACKEND_API_KEY",
+        "KV_URL",
+        "KV_REST_API_READ_ONLY_TOKEN",
+        "KV_REST_API_TOKEN",
+        "KV_REST_API_URL"
+      ]
     },
     "desktop#build": {
       "dependsOn": ["^build"],
