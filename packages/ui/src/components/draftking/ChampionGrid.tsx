@@ -61,7 +61,6 @@ const SearchBar = ({
         <Tooltip open={filteredChampions.length === 1}>
           <TooltipTrigger asChild>
             <Input
-              autoFocus
               className="rounded-t ring-2 ring-neutral-950 ring-offset-2 ring-offset-white dark:ring-neutral-300 dark:ring-offset-neutral-950 focus-visible:ring-2 focus-visible:ring-neutral-950 dark:focus-visible:ring-neutral-300"
               type="text"
               placeholder="Search..."
@@ -92,8 +91,11 @@ export const ChampionGrid: React.FC<ChampionGridProps> = ({
   const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
+    // Initial focus
+    inputRef.current?.focus({ preventScroll: true });
+
     const handleGlobalClick = () => {
-      inputRef.current?.focus();
+      inputRef.current?.focus({ preventScroll: true });
     };
 
     document.addEventListener("click", handleGlobalClick);
