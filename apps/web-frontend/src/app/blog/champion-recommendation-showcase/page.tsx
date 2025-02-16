@@ -51,17 +51,18 @@ export default function ChampionRecommendationShowcase() {
           You can see below the recording of how to use LoLDraftAI champion
           suggestion in a live game.
         </p>
-        <div className="flex justify-center">
-          <iframe
-            width="560"
-            height="315"
-            src="https://www.youtube.com/embed/0VoN0DCACzE?si=ix3HwyauBjrEjIq4"
-            title="YouTube video player"
-            frameBorder="0"
-            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-            referrerPolicy="strict-origin-when-cross-origin"
-            allowFullScreen
-          ></iframe>
+        <div className="flex justify-center w-full">
+          <div className="relative w-full aspect-video">
+            <iframe
+              className="absolute top-0 left-0 w-full h-full"
+              src="https://www.youtube.com/embed/0VoN0DCACzE?si=ix3HwyauBjrEjIq4"
+              title="YouTube video player"
+              frameBorder="0"
+              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+              referrerPolicy="strict-origin-when-cross-origin"
+              allowFullScreen
+            ></iframe>
+          </div>
         </div>
         <p>
           It&apos;s often useful to start checking suggestions early in the
