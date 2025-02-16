@@ -10,6 +10,16 @@ interface BlogPost {
   slug: string;
 }
 
+// Helper component to brand the text LoLDraftAI
+const BrandedText = ({ text }: { text: string }) => {
+  return text.split("LoLDraftAI").map((part, i, arr) => (
+    <span key={i}>
+      {part}
+      {i < arr.length - 1 && <span className="brand-text">LoLDraftAI</span>}
+    </span>
+  ));
+};
+
 const blogPosts: BlogPost[] = [
   {
     title: "How to Use Champion Recommendations in LoLDraftAI",
@@ -27,7 +37,7 @@ export default function BlogPage() {
       <div className="w-full bg-gradient-to-b from-primary/10 to-background py-8">
         <div className="container flex flex-col items-center justify-center gap-4 px-4">
           <h1 className="text-4xl font-bold tracking-tight text-primary text-center">
-            LoLDraftAI Blog
+            <span className="brand-text">LoLDraftAI</span> Blog
           </h1>
           <p className="text-xl text-center text-muted-foreground">
             Insights and guides to help you master League drafting
@@ -46,7 +56,7 @@ export default function BlogPage() {
             >
               <article className="p-6 rounded-lg border border-border hover:border-primary transition-colors duration-200">
                 <h2 className="text-2xl font-bold group-hover:text-primary transition-colors duration-200">
-                  {post.title}
+                  <BrandedText text={post.title} />
                 </h2>
                 <div className="flex items-center gap-2 mt-2 text-sm text-muted-foreground">
                   <CalendarIcon className="h-4 w-4" />
@@ -58,7 +68,9 @@ export default function BlogPage() {
                     })}
                   </time>
                 </div>
-                <p className="mt-4 text-muted-foreground">{post.description}</p>
+                <p className="mt-4 text-muted-foreground">
+                  <BrandedText text={post.description} />
+                </p>
               </article>
             </Link>
           ))}
