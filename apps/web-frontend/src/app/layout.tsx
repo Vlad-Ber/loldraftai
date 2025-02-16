@@ -214,6 +214,9 @@ export default async function RootLayout({
                     <DropdownMenuItem asChild>
                       <Link href="/download">Download</Link>
                     </DropdownMenuItem>
+                    <DropdownMenuItem asChild>
+                      <Link href="/blog">Blog</Link>
+                    </DropdownMenuItem>
                   </DropdownMenuContent>
                 </DropdownMenu>
               </div>
