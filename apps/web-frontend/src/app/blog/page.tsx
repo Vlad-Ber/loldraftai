@@ -15,7 +15,7 @@ const blogPosts: BlogPost[] = [
     title: "How to Use Champion Recommendations in LoLDraftAI",
     description:
       "Learn how to leverage LoLDraftAI's powerful champion recommendation system to improve your drafting strategy and win more games.",
-    date: "2024-03-21",
+    date: "2025-02-16",
     slug: "champion-recommendation-showcase",
   },
 ];

@@ -10,10 +10,11 @@ export default function ChampionRecommendationShowcase() {
       <div className="w-full bg-gradient-to-b from-primary/10 to-background py-8">
         <div className="container flex flex-col items-center justify-center gap-4 px-4">
           <h1 className="text-4xl font-bold tracking-tight text-primary text-center">
-            How to Use Champion Recommendations in LoLDraftAI
+            How to Use Champion Recommendations in{" "}
+            <span className="brand-text">LoLDraftAI</span>
           </h1>
           <div className="flex items-center gap-2 text-sm text-muted-foreground">
-            <time dateTime="2024-03-21">March 21, 2024</time>
+            <time dateTime="2025-02-16">February 16, 2025</time>
           </div>
         </div>
       </div>
@@ -21,11 +22,12 @@ export default function ChampionRecommendationShowcase() {
       {/* Article Content */}
       <article className="container px-4 py-12 prose prose-invert max-w-3xl">
         <p>
-          LoLDraftAI&apos;s champion recommendation system is a powerful tool
-          that can help you make better champion selections during draft. In
-          this post, we&apos;ll look at a real game that showcases how to
-          effectively use these recommendations, and discuss the advantages of
-          using our desktop application for live draft tracking.
+          <span className="brand-text">LoLDraftAI</span>&apos;s champion
+          recommendation system is a powerful tool that can help you make better
+          champion selections during draft. In this post, we&apos;ll look at a
+          real game that showcases how to effectively use these recommendations,
+          and discuss the advantages of using our desktop application for live
+          draft tracking.
         </p>
         <h2>Desktop App Advantages: Live Draft Tracking</h2>
         <p>
@@ -38,20 +40,12 @@ export default function ChampionRecommendationShowcase() {
           <li>Instantly updates recommendations as champions are selected</li>
           <li>Automatically greys out picked or banned champions</li>
         </ul>
-        <div className="note bg-secondary/10 p-4 rounded-lg my-6">
-          <p className="text-sm">
-            Note: The games shown were played on patch 15.03 while using a model
-            trained on patch 15.02. This demonstrates an important point:
-            LoLDraftAI remains highly effective even when slightly behind the
-            current patch, as meta shifts are minimal from patch to patch.
-          </p>
-        </div>
         <h2>Game Showcase: Perfect Taric Counter-Pick</h2>
         <p>
           In our showcase game, we&apos;ll look at a textbook example of using
-          champion recommendations to counter the enemy team composition. The
-          enemy team selected Camille, Jarvan IV, and Galio - a dive
-          composition, which was totally counter-picked by Taric.
+          {` `}
+          <span className="brand-text">LoLDraftAI</span> champion suggestion in
+          a live game.
         </p>
         <p>
           You can see below the recording of how to use LoLDraftAI champion
@@ -76,7 +70,7 @@ export default function ChampionRecommendationShowcase() {
         <ul>
           <li>Plan potential picks in advance</li>
           <li>
-            Communicate options with your team(through prepicking in champ
+            Communicate options with your team (through prepicking in champ
             select)
           </li>
         </ul>
@@ -92,16 +86,16 @@ export default function ChampionRecommendationShowcase() {
         <ul>
           <li>Strong counter to the enemy dive composition</li>
           <li>
-            Excellent synergy with our team&apos;s with taric E being a good
-            chain CC with Gragas, Xin Zhao, Yasuo
+            Excellent synergy with our team with taric E being a good chain CC
+            with Gragas, Xin Zhao, Yasuo
           </li>
           <li>
             Good lane matchup, where we can just farm and outscale the ennemy
             botlane
           </li>
         </ul>
-        Here is the final draft analysis for the game, you can see Taric remains
-        a great pick with 9% winrate impact(meaning without Taric, the team
+        Here is the final draft analysis for the game. You can see Taric remains
+        a great pick with 9% winrate impact (meaning without Taric, the team
         would on average have 9% less winrate):
         <ClickableImage
           src="/blog/champion-recommendation-showcase/game 1 final analysis.png"
@@ -120,28 +114,38 @@ export default function ChampionRecommendationShowcase() {
         >
           See game results.
         </a>
+        <div className="note bg-secondary/10 p-4 rounded-lg my-6">
+          <p className="text-sm">
+            Note: The game was played on patch 15.03 while using a model trained
+            on patch 15.02. This demonstrates an important point:
+            {` `}
+            <span className="brand-text">LoLDraftAI</span> remains relevant even
+            when slightly behind the current patch, as meta shifts are minimal
+            from patch to patch.
+          </p>
+        </div>
         <h2>Additional tips</h2>
         Here are two additional tips for using champion recommendations.
         <h3>Tip 1: Picking later is better</h3>
-        If you have a deep champion pool, you should as to pick later in the
-        draft. The model trully shines when both team comps are mostly known,
+        If you have a deep champion pool, you should ask to pick later in the
+        draft. The model truly shines when both team comps are mostly known,
         because it can help quickly find picks that totally counter the ennemy
         team.
         <h3>Tip 2: Pick champions that you can play well</h3>
         It may sound obvious, but it&apos;s always better to pick a champion
-        that is less recommended but that you can play well. Understand that the
+        that has lower winrate but that you can play well. Understand that the
         model is trained on solo queue games where most people pick champs that
         they are good at, so the predictions assume you can play the champion
         well.
         <div className="mt-8 p-4 bg-primary/10 rounded-lg">
           <h3 className="text-xl font-bold mb-2">Ready to Try It Yourself?</h3>
           <p>
-            Experience LoLDraftAI&apos;s champion recommendations in your own
-            games:
+            Experience <span className="brand-text">LoLDraftAI</span>&apos;s
+            champion recommendations in your own games:
           </p>
           <ul>
             <li>
-              Use the <Link href="/draft">web version</Link> for quick analysis
+              Use the <Link href="/draft">web version</Link> for analysis
             </li>
             <li>
               Download the <Link href="/download">desktop app</Link> for live
