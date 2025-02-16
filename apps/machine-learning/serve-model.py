@@ -302,10 +302,7 @@ async def predict_in_depth(
 
 
 @app.get("/metadata")
-async def get_metadata(response: Response, api_key: str = Depends(verify_api_key)):
-    # Set Cache-Control header for 15 minutes (900 seconds)
-    response.headers["Cache-Control"] = "public, max-age=900"
-
+async def get_metadata(api_key: str = Depends(verify_api_key)):
     # Get model file timestamp
     model_timestamp = datetime.fromtimestamp(os.path.getmtime(MODEL_PATH))
 

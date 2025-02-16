@@ -127,10 +127,9 @@ export default async function RootLayout({
 
   try {
     const response = await fetch(
-      `${process.env.NEXT_PUBLIC_API_BASE_URL ?? "https://loldraftai.com"}/api/metadata`,
-      {
-        next: { revalidate: 900 }, // Cache for 15 minutes
-      }
+      `${
+        process.env.NEXT_PUBLIC_API_BASE_URL ?? "https://loldraftai.com"
+      }/api/metadata`
     );
 
     if (!response.ok) {

@@ -38,9 +38,6 @@ export async function GET() {
 
   try {
     const response = await fetch(`${backendUrl}/metadata`, {
-      next: {
-        revalidate: 900, // Cache for 15 minutes (900 seconds)
-      },
       headers: {
         "X-API-Key": backendApiKey || "",
       },
@@ -59,8 +56,6 @@ export async function GET() {
       headers: {
         "Content-Type": "application/json",
         "Access-Control-Allow-Origin": "*",
-        "Cache-Control":
-          "public, max-age=900, s-maxage=900, stale-while-revalidate=86400",
       },
     });
   } catch (error) {
