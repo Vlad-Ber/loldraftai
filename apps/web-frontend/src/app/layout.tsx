@@ -113,7 +113,7 @@ export const metadata: Metadata = {
     ],
   },
   alternates: {
-    canonical: "https://loldraftai.com",
+    canonical: './',
   },
 };
 
