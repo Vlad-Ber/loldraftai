@@ -1,0 +1,69 @@
+"use client";
+
+import Link from "next/link";
+import { CalendarIcon } from "@heroicons/react/24/solid";
+
+interface BlogPost {
+  title: string;
+  description: string;
+  date: string;
+  slug: string;
+}
+
+const blogPosts: BlogPost[] = [
+  {
+    title: "How to Use Champion Recommendations in LoLDraftAI",
+    description:
+      "Learn how to leverage LoLDraftAI's powerful champion recommendation system to improve your drafting strategy and win more games.",
+    date: "2024-03-21",
+    slug: "champion-recommendation-showcase",
+  },
+];
+
+export default function BlogPage() {
+  return (
+    <main className="flex min-h-screen w-full flex-col items-center bg-background text-foreground">
+      {/* Header Section */}
+      <div className="w-full bg-gradient-to-b from-primary/10 to-background py-8">
+        <div className="container flex flex-col items-center justify-center gap-4 px-4">
+          <h1 className="text-4xl font-bold tracking-tight text-primary text-center">
+            LoLDraftAI Blog
+          </h1>
+          <p className="text-xl text-center text-muted-foreground">
+            Insights and guides to help you master League drafting
+          </p>
+        </div>
+      </div>
+
+      {/* Blog Posts List */}
+      <div className="container px-4 py-12">
+        <div className="max-w-3xl mx-auto space-y-8">
+          {blogPosts.map((post) => (
+            <Link
+              key={post.slug}
+              href={`/blog/${post.slug}`}
+              className="block group"
+            >
+              <article className="p-6 rounded-lg border border-border hover:border-primary transition-colors duration-200">
+                <h2 className="text-2xl font-bold group-hover:text-primary transition-colors duration-200">
+                  {post.title}
+                </h2>
+                <div className="flex items-center gap-2 mt-2 text-sm text-muted-foreground">
+                  <CalendarIcon className="h-4 w-4" />
+                  <time dateTime={post.date}>
+                    {new Date(post.date).toLocaleDateString("en-US", {
+                      year: "numeric",
+                      month: "long",
+                      day: "numeric",
+                    })}
+                  </time>
+                </div>
+                <p className="mt-4 text-muted-foreground">{post.description}</p>
+              </article>
+            </Link>
+          ))}
+        </div>
+      </div>
+    </main>
+  );
+}

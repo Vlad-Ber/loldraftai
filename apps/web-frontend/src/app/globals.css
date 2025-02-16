@@ -46,4 +46,41 @@
     -webkit-text-fill-color: transparent;
     background-clip: text;
   }
+
+  /* Blog post styles */
+  .prose {
+    @apply text-foreground;
+  }
+
+  .prose h2 {
+    @apply text-2xl font-bold mt-8 mb-4 text-primary;
+  }
+
+  .prose h3 {
+    @apply text-xl font-bold mt-6 mb-3 text-primary;
+  }
+
+  .prose p {
+    @apply mb-4 leading-relaxed;
+  }
+
+  .prose ul {
+    @apply my-4 ml-6 space-y-2;
+  }
+
+  .prose li {
+    @apply list-disc list-outside;
+  }
+
+  .prose a {
+    @apply text-primary hover:underline;
+  }
+
+  .prose img {
+    @apply my-8 rounded-lg border border-border/40;
+  }
+
+  .prose .note {
+    @apply my-6 p-4 rounded-lg bg-secondary/10 text-muted-foreground;
+  }
 }
