@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useRef } from "react";
 import { StarIcon } from "@heroicons/react/24/solid";
 import { Input } from "../ui/input";
 import {
@@ -45,6 +45,7 @@ interface SearchBarProps {
   setSearchTerm: (searchTerm: string) => void;
   handleKeyDown: (e: React.KeyboardEvent) => void;
   filteredChampions: Champion[];
+  inputRef?: React.RefObject<HTMLInputElement>;
 }
 
 const SearchBar = ({
@@ -52,6 +53,7 @@ const SearchBar = ({
   setSearchTerm,
   handleKeyDown,
   filteredChampions,
+  inputRef,
 }: SearchBarProps) => {
   return (
     <div className="w-full relative z-10">
@@ -59,12 +61,14 @@ const SearchBar = ({
         <Tooltip open={filteredChampions.length === 1}>
           <TooltipTrigger asChild>
             <Input
-              className="rounded-t"
+              autoFocus
+              className="rounded-t ring-2 ring-neutral-950 ring-offset-2 ring-offset-white dark:ring-neutral-300 dark:ring-offset-neutral-950 focus-visible:ring-2 focus-visible:ring-neutral-950 dark:focus-visible:ring-neutral-300"
               type="text"
               placeholder="Search..."
               onChange={(e) => setSearchTerm(e.target.value)}
               value={searchTerm}
               onKeyDown={(e) => handleKeyDown(e)}
+              ref={inputRef}
             />
           </TooltipTrigger>
           <TooltipContent side="top" align="start">
@@ -85,6 +89,16 @@ export const ChampionGrid: React.FC<ChampionGridProps> = ({
 }) => {
   const [searchTerm, setSearchTerm] = useState("");
   const [filteredChampions, setFilteredChampions] = useState(champions);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    const handleGlobalClick = () => {
+      inputRef.current?.focus();
+    };
+
+    document.addEventListener("click", handleGlobalClick);
+    return () => document.removeEventListener("click", handleGlobalClick);
+  }, []);
 
   const debouncedFilter = useCallback(
     (term: string) => {
@@ -149,6 +163,7 @@ export const ChampionGrid: React.FC<ChampionGridProps> = ({
         setSearchTerm={setSearchTerm}
         handleKeyDown={handleKeyDown}
         filteredChampions={filteredChampions}
+        inputRef={inputRef}
       />
       <div className="h-[505px] overflow-y-auto p-1">
         <div className="grid grid-cols-[repeat(auto-fill,80px)] justify-center gap-2">
