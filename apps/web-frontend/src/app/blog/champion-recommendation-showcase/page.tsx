@@ -1,7 +1,7 @@
 "use client";
 
-import Image from "next/image";
 import Link from "next/link";
+import { ClickableImage } from "@/components/ClickableImage";
 
 export default function ChampionRecommendationShowcase() {
   return (
@@ -103,7 +103,7 @@ export default function ChampionRecommendationShowcase() {
         Here is the final draft analysis for the game, you can see Taric remains
         a great pick with 9% winrate impact(meaning without Taric, the team
         would on average have 9% less winrate):
-        <Image
+        <ClickableImage
           src="/blog/champion-recommendation-showcase/game 1 final analysis.png"
           alt="Draft analysis showing Taric's high impact"
           width={800}
