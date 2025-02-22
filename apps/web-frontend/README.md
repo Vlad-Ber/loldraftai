@@ -112,5 +112,5 @@ yarn start
 
 ```bash
 cd public
-find . -type f \( -name "*.webp" -o -name "*.png" \) -exec yarn wrangler r2 object put loldraftai-web-media-files/{} --file "$(pwd)/{}" \;
+find . -type f \( -name "*.webp" -o -name "*.png" -o -name "*.svg" -o -name "*.ico" \) -exec yarn wrangler r2 object put loldraftai-web-media-files/{} --file "$(pwd)/{}" \;
 ```

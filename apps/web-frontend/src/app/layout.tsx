@@ -67,7 +67,7 @@ export const metadata: Metadata = {
     siteName: "LoLDraftAI",
     images: [
       {
-        url: "https://loldraftai.com/og-image.png",
+        url: "https://media.loldraftai.com/og-image.png",
         width: 1200,
         height: 630,
         alt: "LoLDraftAI - League of Legends Draft Analysis Tool",
@@ -81,7 +81,7 @@ export const metadata: Metadata = {
       "AI-powered League of Legends draft analysis tool to win your games",
     images: [
       {
-        url: "https://loldraftai.com/og-image.png",
+        url: "https://media.loldraftai.com/og-image.png",
         width: 1200,
         height: 630,
         alt: "LoLDraftAI - League of Legends Draft Analysis Tool",
@@ -90,30 +90,42 @@ export const metadata: Metadata = {
   },
   icons: {
     icon: [
-      { url: "/favicon.ico" },
-      { url: "/favicon-16x16.png", sizes: "16x16", type: "image/png" },
-      { url: "/favicon-32x32.png", sizes: "32x32", type: "image/png" },
+      { url: "https://media.loldraftai.com/favicon.ico" },
+      {
+        url: "https://media.loldraftai.com/favicon-16x16.png",
+        sizes: "16x16",
+        type: "image/png",
+      },
+      {
+        url: "https://media.loldraftai.com/favicon-32x32.png",
+        sizes: "32x32",
+        type: "image/png",
+      },
     ],
     apple: [
-      { url: "/apple-touch-icon.png", sizes: "180x180", type: "image/png" },
+      {
+        url: "https://media.loldraftai.com/apple-touch-icon.png",
+        sizes: "180x180",
+        type: "image/png",
+      },
     ],
     other: [
       {
         rel: "icon",
         type: "image/png",
         sizes: "192x192",
-        url: "/logo192.png",
+        url: "https://media.loldraftai.com/logo192.png",
       },
       {
         rel: "icon",
         type: "image/png",
         sizes: "512x512",
-        url: "/logo512.png",
+        url: "https://media.loldraftai.com/logo512.png",
       },
     ],
   },
   alternates: {
-    canonical: './',
+    canonical: "./",
   },
 };
 
