@@ -1,8 +1,6 @@
-import Image from "next/image";
 import { DraftAnalysisShowcase as SharedDraftAnalysisShowcase } from "@draftking/ui/components/draftking/DraftAnalysisShowcase";
-import type { Team } from "@draftking/ui/lib/types";
-import type { ImageComponent } from "@draftking/ui/lib/types";
-
+import type { ImageComponent, Team } from "@draftking/ui/lib/types";
+import CloudFlareImage from "@/components/CloudFlareImage";
 interface DraftAnalysisShowcaseProps {
   prediction: {
     win_probability: number;
@@ -17,7 +15,7 @@ export const DraftAnalysisShowcase = (props: DraftAnalysisShowcaseProps) => {
   return (
     <SharedDraftAnalysisShowcase
       {...props}
-      ImageComponent={Image as ImageComponent}
+      ImageComponent={CloudFlareImage as ImageComponent}
     />
   );
 };

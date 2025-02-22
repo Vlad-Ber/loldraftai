@@ -1,10 +1,10 @@
 import Link from "next/link";
-import Image from "next/image";
+import CloudFlareImage from "@/components/CloudFlareImage";
 
 export default function NotFound() {
   return (
     <main className="flex min-h-screen w-full flex-col items-center bg-gradient-to-b from-gray-700 to-gray-900 text-white">
-      <Image
+      <CloudFlareImage
         src="/icons/confused_blitz.webp"
         alt="Confused Blitzcrank"
         width={400}

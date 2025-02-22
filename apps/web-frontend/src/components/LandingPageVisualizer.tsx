@@ -2,7 +2,7 @@
 
 import React, { forwardRef, useRef, useEffect, useState } from "react";
 import { cn } from "@draftking/ui/lib/utils";
-import Image from "next/image";
+import CloudFlareImage from "@/components/CloudFlareImage";
 import { AnimatedBeam } from "@draftking/ui/components/ui/animated-beam";
 import {
   champions,
@@ -29,7 +29,7 @@ const AnimatedChampionIcon = ({
       transition={{ duration: 0.2, ease: "easeOut" }} // Faster, simpler easing
       className="relative size-12"
     >
-      <Image
+      <CloudFlareImage
         src={`/icons/champions/${champion.icon}`}
         alt={champion.name}
         fill

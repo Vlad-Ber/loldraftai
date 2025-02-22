@@ -1,4 +1,3 @@
-import Image from "next/image";
 import { TeamPanel as SharedTeamPanel } from "@draftking/ui/components/draftking/TeamPanel";
 import type {
   Team,
@@ -7,6 +6,7 @@ import type {
   SelectedSpot,
 } from "@draftking/ui/lib/types";
 import type { ImageComponent } from "@draftking/ui/lib/types";
+import CloudFlareImage from "@/components/CloudFlareImage";
 interface TeamPanelProps {
   team: Team;
   is_first_team: boolean;
@@ -17,7 +17,10 @@ interface TeamPanelProps {
 
 const TeamPanel: React.FC<TeamPanelProps> = (props) => {
   return (
-    <SharedTeamPanel {...props} ImageComponent={Image as ImageComponent} />
+    <SharedTeamPanel
+      {...props}
+      ImageComponent={CloudFlareImage as ImageComponent}
+    />
   );
 };
 

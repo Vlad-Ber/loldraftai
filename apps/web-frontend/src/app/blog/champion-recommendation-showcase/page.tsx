@@ -99,7 +99,7 @@ export default function ChampionRecommendationShowcase() {
         a great pick with 9% winrate impact (meaning without Taric, the team
         would on average have 9% less winrate):
         <ClickableImage
-          src="/blog/champion-recommendation-showcase/game 1 final analysis.png"
+          src="/blog/champion-recommendation-showcase/game_1_final_analysis.png"
           alt="Draft analysis showing Taric's high impact"
           width={800}
           height={450}

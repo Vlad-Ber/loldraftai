@@ -1,4 +1,3 @@
-import Image from "next/image";
 import { BestChampionSuggestion as SharedBestChampionSuggestion } from "@draftking/ui/components/draftking/BestChampionSuggestion";
 import type {
   Champion,
@@ -8,7 +7,7 @@ import type {
   Elo,
 } from "@draftking/ui/lib/types";
 import type { ImageComponent } from "@draftking/ui/lib/types";
-
+import CloudFlareImage from "@/components/CloudFlareImage";
 interface BestChampionSuggestionProps {
   team1: Team;
   team2: Team;
@@ -25,7 +24,7 @@ export const BestChampionSuggestion = (props: BestChampionSuggestionProps) => {
     <SharedBestChampionSuggestion
       {...props}
       baseApiUrl=""
-      ImageComponent={Image as ImageComponent}
+      ImageComponent={CloudFlareImage as ImageComponent}
     />
   );
 };

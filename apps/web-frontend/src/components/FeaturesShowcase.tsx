@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import Image from "next/image";
+import CloudFlareImage from "@/components/CloudFlareImage";
 import {
   Carousel,
   CarouselContent,
@@ -58,7 +58,7 @@ export function FeaturesShowcase() {
               <div className="p-1">
                 <div className="rounded-xl overflow-hidden flex flex-col h-full">
                   <div className="relative aspect-video flex items-center justify-center bg-black/5">
-                    <Image
+                    <CloudFlareImage
                       src={item.image}
                       alt={item.title}
                       width={1920}

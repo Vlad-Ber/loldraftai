@@ -107,3 +107,10 @@ yarn build
 # Start production server
 yarn start
 ```
+
+## Upload images to cloudflare
+
+```bash
+cd public
+find . -type f \( -name "*.webp" -o -name "*.png" \) -exec yarn wrangler r2 object put loldraftai-web-media-files/{} --file "$(pwd)/{}" \;
+```

@@ -1,6 +1,6 @@
 "use client";
 
-import Image from "next/image";
+import CloudFlareImage from "@/components/CloudFlareImage";
 import { useState } from "react";
 
 interface ClickableImageProps {
@@ -22,7 +22,7 @@ export function ClickableImage({
 
   return (
     <>
-      <Image
+      <CloudFlareImage
         src={src}
         alt={alt}
         width={width}
@@ -36,7 +36,7 @@ export function ClickableImage({
           onClick={() => setIsOpen(false)}
         >
           <div className="relative max-w-[90vw] max-h-[90vh]">
-            <Image
+            <CloudFlareImage
               src={src}
               alt={alt}
               width={1920}
