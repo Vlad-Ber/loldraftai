@@ -24,7 +24,7 @@ import argparse
 from torch.optim.lr_scheduler import OneCycleLR
 
 from utils.match_prediction.match_dataset import MatchDataset
-from utils.match_prediction.model import SimpleMatchModel
+from utils.match_prediction.model import Model
 from utils import DATA_DIR
 from utils.match_prediction import (
     get_best_device,
@@ -91,7 +91,7 @@ def get_dataloader_config():
 dataloader_config = get_dataloader_config()
 
 
-def save_model(model: SimpleMatchModel, timestamp: Optional[str] = None) -> str:
+def save_model(model: Model, timestamp: Optional[str] = None) -> str:
     if timestamp is None:
         timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
     model_timestamp_path = f"{MODEL_PATH.rsplit('.', 1)[0]}_{timestamp}.pth"
@@ -126,14 +126,12 @@ def init_model(
     num_categories = {
         col: len(label_encoders[col].classes_) for col in CATEGORICAL_COLUMNS
     }
-    if len(num_categories) > 0:
-        print(num_categories)
-        print("CATEGORIES ARE NOT HANDLED RIGHT NOW BY THE MODEL")
-        exit(1)
     # Initialize the model
-    model = SimpleMatchModel(
+    model = Model(
+        num_categories=num_categories,
         num_champions=num_champions,
         embed_dim=config.embed_dim,
+        hidden_dims=config.hidden_dims,
         dropout=config.dropout,
     )
 
@@ -174,7 +172,7 @@ def apply_label_smoothing(labels: torch.Tensor, smoothing: float = 0.2) -> torch
 
 
 def train_epoch(
-    model: SimpleMatchModel,
+    model: Model,
     train_loader: DataLoader,
     optimizer: optim.Optimizer,
     scheduler: Optional[OneCycleLR],
@@ -241,22 +239,17 @@ def train_epoch(
 
 
 def validate(
-    model: SimpleMatchModel,
+    model: Model,
     test_loader: DataLoader,
     criterion: Dict[str, nn.Module],
     config: TrainingConfig,
     device: torch.device,
 ) -> Tuple[Optional[float], Dict[str, float]]:
-    if device.type == "mps":
-        torch.mps.empty_cache()
     model.eval()
-    enabled_tasks = get_enabled_tasks(config)
-    
-    # Move accumulators to CPU to save GPU memory
+    enabled_tasks = get_enabled_tasks(config)  # Get only enabled tasks
     metric_accumulators = {
-        task_name: torch.zeros(2) for task_name in enabled_tasks.keys()
+        task_name: torch.zeros(2).cpu() for task_name in enabled_tasks.keys()
     }
-    
     num_samples = 0
     total_loss = 0.0
     total_steps = 0
@@ -333,11 +326,11 @@ def update_metric_accumulators(
         if task_def.task_type == TaskType.BINARY_CLASSIFICATION:
             probs = torch.sigmoid(task_output)
             preds = (probs >= 0.5).float()
-            correct = (preds == task_label).float().sum().cpu()  # Move to CPU, to save vram
+            correct = (preds == task_label).float().sum().cpu()
             metric_accumulators[task_name][0] += correct
             metric_accumulators[task_name][1] += batch_size
         elif task_def.task_type == TaskType.REGRESSION:
-            mse = nn.functional.mse_loss(task_output, task_label, reduction="sum").cpu()  # Move to CPU, to save vram
+            mse = nn.functional.mse_loss(task_output, task_label, reduction="sum").cpu()
             metric_accumulators[task_name][0] += mse
             metric_accumulators[task_name][1] += batch_size
 

@@ -24,11 +24,8 @@ from utils.match_prediction.task_definitions import TASKS, TaskType
 from typing import List, Dict
 from collections import defaultdict
 
-# Configuration parameters
-NUM_RECENT_PATCHES = 10  # Number of most recent patches to use
-MIN_GAMES_PER_PATCH = (
-    200000  # Minimum number of games required for a patch to be considered significant
-)
+# Constants
+NUM_RECENT_PATCHES = 5  # Number of most recent patches to use for training
 
 
 def load_data(file_path):
@@ -106,7 +103,7 @@ def compute_stats(data_files):
 def compute_patch_mapping(input_files: List[str]) -> Dict[float, int]:
     """
     Analyze all files to create a mapping for patch numbers.
-    Takes the NUM_RECENT_PATCHES most recent patches, mapping any patch with <MIN_GAMES_PER_PATCH games to the previous patch.
+    Takes the NUM_RECENT_PATCHES most recent patches, mapping any patch with <200k games to the previous patch.
     Returns a dictionary mapping original patch numbers to normalized ones (1-NUM_RECENT_PATCHES).
     """
     patch_counts = defaultdict(int)
@@ -120,7 +117,7 @@ def compute_patch_mapping(input_files: List[str]) -> Dict[float, int]:
 
     all_patches = sorted(patch_counts.keys())  # All patches in chronological order
 
-    # Get the last N patches
+    # Get the last NUM_RECENT_PATCHES patches
     recent_patches = all_patches[-NUM_RECENT_PATCHES:]
     if len(recent_patches) < NUM_RECENT_PATCHES:
         raise ValueError(
@@ -132,9 +129,9 @@ def compute_patch_mapping(input_files: List[str]) -> Dict[float, int]:
     normalized_value = 1
     previous_significant_patch = None
 
-    # Process patches from oldest to newest of the last N patches
+    # Process patches from oldest to newest of the last NUM_RECENT_PATCHES
     for patch in recent_patches:
-        if patch_counts[patch] > MIN_GAMES_PER_PATCH:
+        if patch_counts[patch] > 200000:
             # This is a significant patch
             patch_mapping[patch] = normalized_value
             previous_significant_patch = patch
@@ -147,7 +144,7 @@ def compute_patch_mapping(input_files: List[str]) -> Dict[float, int]:
             raise ValueError(f"First patch {patch} has insufficient data!")
 
     # Log the mapping for transparency
-    print(f"\nPatch mapping (last {NUM_RECENT_PATCHES} patches):")
+    print("\nPatch mapping (last NUM_RECENT_PATCHES patches):")
     for patch in sorted(patch_mapping.keys()):
         mapped_value = patch_mapping[patch]
         print(f"Patch {patch:.2f} -> {mapped_value} ({patch_counts[patch]} games)")
@@ -239,7 +236,7 @@ def prepare_data(
 def add_computed_columns(input_files: List[str], output_dir: str) -> List[str]:
     """
     Add computed columns to parquet files and save them to a new directory.
-    Only includes games from the last 5 patches.
+    Only includes games from the last NUM_RECENT_PATCHES patches.
     Returns the list of new file paths.
     """
     os.makedirs(output_dir, exist_ok=True)
@@ -258,7 +255,7 @@ def add_computed_columns(input_files: List[str], output_dir: str) -> List[str]:
         # Calculate raw patch numbers
         raw_patches = df["gameVersionMajorPatch"] * 50 + df["gameVersionMinorPatch"]
 
-        # Filter for games only in the patch mapping (last 5 patches)
+        # Filter for games only in the patch mapping (last NUM_RECENT_PATCHES patches)
         df["numerical_patch"] = raw_patches.map(lambda x: patch_mapping.get(x, 0))
         df = df[df["numerical_patch"] > 0]  # Remove games from old patches
 
