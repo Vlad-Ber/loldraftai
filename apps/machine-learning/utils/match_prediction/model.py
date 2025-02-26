@@ -1,8 +1,7 @@
-# utils/match_prediction/model.py
-
 import torch
 import torch.nn as nn
 import pickle
+import math
 
 from utils.match_prediction import ENCODERS_PATH
 from utils.match_prediction.column_definitions import (
@@ -14,14 +13,64 @@ from utils.match_prediction.task_definitions import TASKS, TaskType
 from utils.match_prediction.config import TrainingConfig
 
 
+# Define SwiGLU activation
+class SwiGLU(nn.Module):
+    def __init__(self, dim):
+        super().__init__()
+        # SwiGLU splits the input dimension into two parts
+        self.linear = nn.Linear(dim, dim * 2)  # Double the dimension for gate and value
+
+    def forward(self, x):
+        # Split the doubled dimension into value and gate
+        x = self.linear(x)
+        v, g = x.chunk(2, dim=-1)
+        # Swish activation: x * sigmoid(x)
+        gate = g * torch.sigmoid(g)
+        return v * gate
+
+
+# Residual connection module
+class ResidualConnection(nn.Module):
+    def forward(self, x):
+        return x + self.prev_x if hasattr(self, "prev_x") else x
+
+    def forward_pre(self, x):
+        self.prev_x = x
+        return x
+
+
+# MLP Block with normalization, activation, and residual connection
+class MLPBlock(nn.Module):
+    def __init__(self, input_dim, output_dim, dropout, use_residual=False):
+        super().__init__()
+        self.use_residual = use_residual and input_dim == output_dim
+
+        self.norm = nn.LayerNorm(input_dim)
+        self.linear = nn.Linear(input_dim, output_dim)
+        self.activation = SwiGLU(output_dim)
+        self.dropout = nn.Dropout(dropout)
+
+    def forward(self, x):
+        residual = x if self.use_residual else None
+        x = self.norm(x)
+        x = self.linear(x)
+        x = self.activation(x)
+        x = self.dropout(x)
+
+        if self.use_residual:
+            x = x + residual
+
+        return x
+
+
 class Model(nn.Module):
     def __init__(
         self,
         num_categories,
         num_champions,
-        embed_dim,
-        hidden_dims,
-        dropout,
+        embed_dim=64,
+        hidden_dims=[256, 128, 64],
+        dropout=0.2,
     ):
         super(Model, self).__init__()
 
@@ -57,24 +106,24 @@ class Model(nn.Module):
         print(f"- Embedding dimension: {embed_dim}")
         print(f"- MLP input dimension: {mlp_input_dim}")
 
-        # Lightweight attention layer for feature interaction
-        self.attention = nn.MultiheadAttention(embed_dim, num_heads=4, batch_first=True)
-        self.attn_norm = nn.LayerNorm(embed_dim)
-
-        # MLP with residual connections
+        # Simple but effective MLP with modern components
         layers = []
         prev_dim = mlp_input_dim
+
         for i, hidden_dim in enumerate(hidden_dims):
-            linear = nn.Linear(prev_dim, hidden_dim)
-            layers.append(linear)
-            layers.append(nn.LayerNorm(hidden_dim))
+            # Linear layer (no bias when followed by BatchNorm)
+            layers.append(nn.Linear(prev_dim, hidden_dim, bias=False))
+
+            # BatchNorm - more stable than LayerNorm for this architecture
+            layers.append(nn.BatchNorm1d(hidden_dim))
+
+            # GELU activation - smoother than ReLU but still stable
             layers.append(nn.GELU())
-            layers.append(
-                nn.Dropout(dropout if i < len(hidden_dims) - 1 else 0.1)
-            )  # Lower dropout for final layer
-            # Add skip connection if dimensions match
-            if i > 0 and hidden_dims[i - 1] == hidden_dim:
-                layers.append(ResidualConnection())
+
+            # Dropout - reduced for later layers
+            dropout_rate = dropout if i < len(hidden_dims) - 1 else dropout * 0.5
+            layers.append(nn.Dropout(dropout_rate))
+
             prev_dim = hidden_dim
 
         self.mlp = nn.Sequential(*layers)
@@ -99,11 +148,11 @@ class Model(nn.Module):
 
         # Process champion features
         champion_ids = features["champion_ids"]
-        champion_embeds = self.champion_embedding(
-            champion_ids
-        )  # [batch_size, num_champions, embed_dim]
-        champion_features = champion_embeds  # Placeholder for future role features
-        embeddings_list.append(champion_features.view(batch_size, -1))
+        champion_embeds = self.champion_embedding(champion_ids)
+
+        # Flatten champion embeddings
+        champion_features = champion_embeds.view(batch_size, -1)
+        embeddings_list.append(champion_features)
 
         # Process numerical features
         if self.numerical_projection is not None and NUMERICAL_COLUMNS:
@@ -113,18 +162,8 @@ class Model(nn.Module):
             numerical_embed = self.numerical_projection(numerical_features)
             embeddings_list.append(numerical_embed)
 
-        # Concatenate embeddings and apply attention
-        combined_features = torch.cat(
-            embeddings_list, dim=1
-        )  # [batch_size, total_embed_features * embed_dim]
-        combined_features = combined_features.view(
-            batch_size, -1, self.embed_dim
-        )  # [batch_size, seq_len, embed_dim]
-        attn_output, _ = self.attention(
-            combined_features, combined_features, combined_features
-        )
-        attn_output = self.attn_norm(attn_output)
-        combined_features = attn_output.view(batch_size, -1)  # Flatten back
+        # Concatenate all features
+        combined_features = torch.cat(embeddings_list, dim=1)
 
         # Pass through MLP
         x = self.mlp(combined_features)
@@ -135,40 +174,3 @@ class Model(nn.Module):
             outputs[task_name] = output_layer(x).squeeze(-1)
 
         return outputs
-
-
-class ResidualConnection(nn.Module):
-    def forward(self, x):
-        return x + self.prev_x if hasattr(self, "prev_x") else x
-
-    def forward_pre(self, x):
-        self.prev_x = x
-        return x
-
-
-if __name__ == "__main__":
-    config = TrainingConfig()
-
-    with open(ENCODERS_PATH, "rb") as f:
-        label_encoders = pickle.load(f)
-    num_categories = {
-        col: len(label_encoders[col].classes_) for col in CATEGORICAL_COLUMNS
-    }
-    num_champions = 200
-
-    model = Model(
-        num_categories=num_categories,
-        num_champions=num_champions,
-        embed_dim=config.embed_dim,
-        hidden_dims=config.hidden_dims,
-        dropout=config.dropout,
-    )
-    print(model)
-
-    param_size = (
-        sum(param.nelement() * param.element_size() for param in model.parameters())
-        / 1024**2
-    )
-    print(f"\nModel Size: {param_size:.3f} MB")
-    trainable_params = sum(p.numel() for p in model.parameters() if p.requires_grad)
-    print(f"Trainable parameters: {trainable_params:,}")

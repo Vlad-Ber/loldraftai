@@ -35,6 +35,8 @@ from utils.match_prediction import (
 )
 from utils.match_prediction.column_definitions import (
     CATEGORICAL_COLUMNS,
+    NUMERICAL_COLUMNS,
+    POSITIONS,
 )
 from utils.match_prediction.task_definitions import TASKS, TaskType, get_enabled_tasks
 from utils.match_prediction.config import TrainingConfig
@@ -139,12 +141,10 @@ def init_model(
     champ_display_names = {str(champ.id): champ.display_name for champ in Champion}
 
     # Initialize embeddings with class-based bias
-    # Track initialization statistics
     class_counts = {class_type: 0 for class_type in ChampionClass}
     missing_classes = []
     missing_class_names = []  # To store display names for logging
 
-    # Define class means in embedding space
     class_means = {
         ChampionClass.MAGE: torch.randn(config.embed_dim) * 0.1,
         ChampionClass.TANK: torch.randn(config.embed_dim) * 0.1,
@@ -154,30 +154,24 @@ def init_model(
         ChampionClass.ENCHANTER: torch.randn(config.embed_dim) * 0.1,
     }
 
-    # Initialize embeddings with random values first
-    embeddings = torch.randn(num_champions, config.embed_dim) * 0.1  # All start random
-
-    # For each encoded index
+    # Initialize champion embeddings
+    embeddings = torch.randn(num_champions, config.embed_dim) * 0.1
     for raw_id in champion_encoder.classes_:
         try:
             raw_id_str = str(raw_id)
             encoded_idx = champion_encoder.transform([raw_id])[0]
 
-            # Skip special handling for UNKNOWN champion
             if raw_id_str == "UNKNOWN":
                 embeddings[encoded_idx] = torch.zeros(config.embed_dim)
                 continue
 
-            # Get the champion class from our mapping
             champ_class = champ_to_class.get(raw_id_str, ChampionClass.UNIQUE)
 
-            # Only override the random initialization if we have a known class
             if champ_class != ChampionClass.UNIQUE:
                 mean = class_means[champ_class]
                 noise = torch.randn(config.embed_dim) * 0.01
                 embeddings[encoded_idx] = mean + noise
 
-            # Track statistics
             class_counts[champ_class] += 1
             if champ_class == ChampionClass.UNIQUE:
                 missing_classes.append(raw_id_str)
@@ -201,7 +195,7 @@ def init_model(
         print("Champions without class:")
         for name in sorted(missing_class_names):
             print(f"  - {name}")
-    print()  # Empty line for readability
+    print()
 
     if config.log_wandb:
         wandb.log(
@@ -224,7 +218,7 @@ def init_model(
         dropout=config.dropout,
     )
 
-    # Apply the biased initialization
+    # Apply the champion embeddings
     model.champion_embedding.weight.data = embeddings
 
     if continue_training:
