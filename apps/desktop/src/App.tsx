@@ -436,6 +436,7 @@ function App() {
                 team1={teamOne}
                 team2={teamTwo}
                 selectedSpot={selectedSpot}
+                setSelectedSpot={setSelectedSpot}
                 favorites={favorites}
                 remainingChampions={remainingNonBannedChampions}
                 analysisTrigger={0}

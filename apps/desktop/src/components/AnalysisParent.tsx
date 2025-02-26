@@ -14,6 +14,7 @@ interface AnalysisParentProps {
   team1: Team;
   team2: Team;
   selectedSpot: SelectedSpot | null;
+  setSelectedSpot: (spot: SelectedSpot | null) => void;
   favorites: FavoriteChampions;
   remainingChampions: Champion[];
   analysisTrigger: number;

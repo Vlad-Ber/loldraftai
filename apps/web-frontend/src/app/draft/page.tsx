@@ -219,6 +219,7 @@ export default function Draft() {
               team1={teamOne}
               team2={teamTwo}
               selectedSpot={selectedSpot}
+              setSelectedSpot={setSelectedSpot}
               favorites={favorites}
               remainingChampions={remainingChampions}
               analysisTrigger={analysisTrigger}

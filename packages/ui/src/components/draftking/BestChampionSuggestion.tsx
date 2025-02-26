@@ -49,6 +49,14 @@ const roleIndexToKey = {
   4: "UTILITY",
 } as const;
 
+const roleToDisplayName = {
+  TOP: "Toplane",
+  JUNGLE: "Jungle",
+  MIDDLE: "Midlane",
+  BOTTOM: "Botlane",
+  UTILITY: "Support",
+} as const;
+
 export const BestChampionSuggestion = ({
   team1,
   team2,
@@ -165,8 +173,16 @@ export const BestChampionSuggestion = ({
   return (
     <div className="mt-5 rounded-lg border border-gray-200 bg-gradient-to-b from-white to-gray-50 dark:from-gray-900 dark:to-gray-950 p-6 shadow-sm">
       <div>
-        <h6 className="text-xl font-semibold brand-text mb-4">
-          LoLDraftAI Champion Suggestions
+        <h6 className="text-xl font-semibold  mb-4">
+          Champion Suggestions for{" "}
+          <span
+            className={
+              selectedSpot.teamIndex === 1 ? "text-blue-500" : "text-red-500"
+            }
+          >
+            {selectedSpot.teamIndex === 1 ? "BLUE" : "RED"}
+          </span>{" "}
+          {roleToDisplayName[roleIndexToKey[selectedSpot.championIndex]]}
         </h6>
 
         <div className="space-y-1">

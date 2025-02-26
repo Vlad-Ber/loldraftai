@@ -34,6 +34,7 @@ interface AnalysisParentProps {
   team1: Team;
   team2: Team;
   selectedSpot: SelectedSpot | null;
+  setSelectedSpot: (spot: SelectedSpot | null) => void;
   favorites: FavoriteChampions;
   remainingChampions: Champion[];
   analysisTrigger: number;
@@ -122,6 +123,7 @@ export const AnalysisParent = ({
   team1,
   team2,
   selectedSpot,
+  setSelectedSpot,
   favorites,
   remainingChampions,
   analysisTrigger,
@@ -142,9 +144,8 @@ export const AnalysisParent = ({
     "meta"
   );
 
-  useEffect(() => {
-    setShowChampionSuggestion(false);
-  }, [selectedSpot]);
+  const [suggestionSelectedSpot, setSuggestionSelectedSpot] =
+    useState<SelectedSpot | null>(null);
 
   /*
   Trying without reset on team change
@@ -186,7 +187,18 @@ export const AnalysisParent = ({
     }
 
     return true;
-  }, [selectedSpot, favorites, suggestionMode]);
+  }, [favorites, suggestionMode, selectedSpot]);
+
+  const isSameSpot = (
+    spot1: SelectedSpot | null,
+    spot2: SelectedSpot | null
+  ): boolean => {
+    if (!spot1 || !spot2) return false;
+    return (
+      spot1.teamIndex === spot2.teamIndex &&
+      spot1.championIndex === spot2.championIndex
+    );
+  };
 
   return (
     <div className="draft-analysis p-5">
@@ -267,10 +279,23 @@ export const AnalysisParent = ({
               <div className="inline-block">
                 <Button
                   variant="outline"
-                  onClick={() =>
-                    setShowChampionSuggestion(!showChampionSuggestion)
+                  onClick={() => {
+                    if (
+                      showChampionSuggestion &&
+                      (selectedSpot === null ||
+                        isSameSpot(selectedSpot, suggestionSelectedSpot))
+                    ) {
+                      setShowChampionSuggestion(false);
+                      setSuggestionSelectedSpot(null);
+                    } else {
+                      setShowChampionSuggestion(true);
+                      setSuggestionSelectedSpot(selectedSpot);
+                      setSelectedSpot(null);
+                    }
+                  }}
+                  disabled={
+                    !showChampionSuggestion && !enableChampionSuggestion
                   }
-                  disabled={!enableChampionSuggestion}
                   className="h-[58px] text-base font-medium px-6"
                 >
                   {showChampionSuggestion
@@ -282,7 +307,9 @@ export const AnalysisParent = ({
             </TooltipTrigger>
             <TooltipContent>
               <p>
-                {!selectedSpot
+                {showChampionSuggestion
+                  ? "Click to hide champion suggestions."
+                  : !selectedSpot
                   ? "Click on a team position to select it."
                   : suggestionMode === "favorites" && !enableChampionSuggestion
                   ? "Right click a champion in the list to add to favorites."
@@ -302,11 +329,11 @@ export const AnalysisParent = ({
         />
       )}
 
-      {showChampionSuggestion && selectedSpot && (
+      {showChampionSuggestion && suggestionSelectedSpot && (
         <BestChampionSuggestion
           team1={team1}
           team2={team2}
-          selectedSpot={selectedSpot}
+          selectedSpot={suggestionSelectedSpot}
           favorites={favorites}
           remainingChampions={remainingChampions}
           elo={elo}
