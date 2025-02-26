@@ -200,6 +200,44 @@ export const AnalysisParent = ({
     );
   };
 
+  // Helper functions to make logic more readable
+  const isSuggestingForCurrentSpot = useMemo((): boolean => {
+    return (
+      showChampionSuggestion &&
+      (selectedSpot === null ||
+        isSameSpot(selectedSpot, suggestionSelectedSpot))
+    );
+  }, [showChampionSuggestion, selectedSpot, suggestionSelectedSpot]);
+
+  const canShowSuggestions = useMemo((): boolean => {
+    return enableChampionSuggestion;
+  }, [enableChampionSuggestion]);
+
+  const handleSuggestionButtonClick = (): void => {
+    if (isSuggestingForCurrentSpot) {
+      // Hide suggestions
+      setShowChampionSuggestion(false);
+      setSuggestionSelectedSpot(null);
+    } else {
+      // Show suggestions
+      setShowChampionSuggestion(true);
+      setSuggestionSelectedSpot(selectedSpot);
+      setSelectedSpot(null);
+    }
+  };
+
+  const getSuggestionButtonTooltip = (): string => {
+    if (isSuggestingForCurrentSpot) {
+      return "Click to hide champion suggestions.";
+    } else if (!selectedSpot) {
+      return "Click on a team position to select it.";
+    } else if (suggestionMode === "favorites" && !enableChampionSuggestion) {
+      return "Right click a champion in the list to add to favorites.";
+    } else {
+      return "Click to show champion suggestions.";
+    }
+  };
+
   return (
     <div className="draft-analysis p-5">
       <LowPickrateWarning
@@ -279,26 +317,11 @@ export const AnalysisParent = ({
               <div className="inline-block">
                 <Button
                   variant="outline"
-                  onClick={() => {
-                    if (
-                      showChampionSuggestion &&
-                      (selectedSpot === null ||
-                        isSameSpot(selectedSpot, suggestionSelectedSpot))
-                    ) {
-                      setShowChampionSuggestion(false);
-                      setSuggestionSelectedSpot(null);
-                    } else {
-                      setShowChampionSuggestion(true);
-                      setSuggestionSelectedSpot(selectedSpot);
-                      setSelectedSpot(null);
-                    }
-                  }}
-                  disabled={
-                    !showChampionSuggestion && !enableChampionSuggestion
-                  }
+                  onClick={handleSuggestionButtonClick}
+                  disabled={!isSuggestingForCurrentSpot && !canShowSuggestions}
                   className="h-[58px] text-base font-medium px-6"
                 >
-                  {showChampionSuggestion
+                  {isSuggestingForCurrentSpot
                     ? "Hide Suggestions"
                     : "Suggest Champion"}{" "}
                   <LightBulbIcon className="inline-block h-5 w-5 ml-1" />
@@ -306,15 +329,7 @@ export const AnalysisParent = ({
               </div>
             </TooltipTrigger>
             <TooltipContent>
-              <p>
-                {showChampionSuggestion
-                  ? "Click to hide champion suggestions."
-                  : !selectedSpot
-                  ? "Click on a team position to select it."
-                  : suggestionMode === "favorites" && !enableChampionSuggestion
-                  ? "Right click a champion in the list to add to favorites."
-                  : "Click to show champion suggestions."}
-              </p>
+              <p>{getSuggestionButtonTooltip()}</p>
             </TooltipContent>
           </Tooltip>
         </TooltipProvider>
