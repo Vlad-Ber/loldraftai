@@ -1,4 +1,4 @@
-# scripts/match-prediction/prepare-data.py
+# scripts/match-prediction/prepare_data.py
 import os
 import glob
 import pickle
@@ -21,11 +21,17 @@ from utils.match_prediction.column_definitions import (
     COLUMNS,
 )
 from utils.match_prediction.task_definitions import TASKS, TaskType
-from typing import List, Dict
+from typing import List, Dict, Tuple
 from collections import defaultdict
 
 # Constants
-NUM_RECENT_PATCHES = 10  # Number of most recent patches to use for training
+NUM_RECENT_PATCHES = 3  # Number of most recent patches to use for training
+
+# Filter constants
+MIN_GOLD_15MIN = 2400  # Minimum gold at 15 minutes
+MAX_DEATHS_15MIN = 10  # Maximum deaths at 15 minutes
+MIN_CS_15MIN_NORMAL = 25  # Minimum CS at 15 minutes for non-support roles
+MIN_LEVEL_15MIN = 4  # Minimum level at 15 minutes
 
 
 def load_data(file_path):
@@ -152,6 +158,97 @@ def compute_patch_mapping(input_files: List[str]) -> Dict[float, int]:
     return patch_mapping, patch_counts
 
 
+def filter_outliers(df: pd.DataFrame) -> Tuple[pd.DataFrame, Dict[str, int]]:
+    """
+    Filter out games with potential griefers/AFKs based on specified rules.
+    """
+    filter_counts = {
+        "original_count": len(df),
+        "gold_filter": 0,
+        "deaths_filter": 0,
+        "cs_filter_normal": 0,
+        "level_filter": 0,
+    }
+
+    original_count = len(df)
+    roles = ["TOP", "JUNGLE", "MIDDLE", "BOTTOM", "UTILITY"]
+    teams = [100, 200]
+
+    # Use tqdm.write for logging to avoid progress bar interference
+    tqdm.write(f"\nProcessing batch with {original_count} rows")
+
+    # 1. Gold filter
+    gold_filter_conditions = []
+    for role in roles:
+        for team in teams:
+            col = f"team_{team}_{role}_totalGold_at_900000"
+            if col in df.columns:
+                condition = df[col] < MIN_GOLD_15MIN
+                gold_filter_conditions.append(condition)
+
+    if gold_filter_conditions:
+        gold_filter = pd.concat(gold_filter_conditions, axis=1).any(axis=1)
+        filter_counts["gold_filter"] = gold_filter.sum()
+        df = df[~gold_filter]
+
+    # 2. Deaths filter
+    deaths_filter_conditions = []
+    for role in roles:
+        for team in teams:
+            col = f"team_{team}_{role}_deaths_at_900000"
+            if col in df.columns:
+                condition = df[col] > MAX_DEATHS_15MIN
+                deaths_filter_conditions.append(condition)
+
+    if deaths_filter_conditions:
+        deaths_filter = pd.concat(deaths_filter_conditions, axis=1).any(axis=1)
+        filter_counts["deaths_filter"] = deaths_filter.sum()
+        df = df[~deaths_filter]
+
+    # 3. CS filter
+    cs_filter_normal_conditions = []
+    for role in roles:
+        if role != "UTILITY":
+            for team in teams:
+                col = f"team_{team}_{role}_creepScore_at_900000"
+                if col in df.columns:
+                    condition = df[col] < MIN_CS_15MIN_NORMAL
+                    cs_filter_normal_conditions.append(condition)
+
+    if cs_filter_normal_conditions:
+        cs_filter_normal = pd.concat(cs_filter_normal_conditions, axis=1).any(axis=1)
+        filter_counts["cs_filter_normal"] = cs_filter_normal.sum()
+        df = df[~cs_filter_normal]
+
+    # 4. Level filter
+    level_filter_conditions = []
+    for role in roles:
+        for team in teams:
+            col = f"team_{team}_{role}_level_at_900000"
+            if col in df.columns:
+                condition = df[col] < MIN_LEVEL_15MIN
+                level_filter_conditions.append(condition)
+
+    if level_filter_conditions:
+        level_filter = pd.concat(level_filter_conditions, axis=1).any(axis=1)
+        filter_counts["level_filter"] = level_filtered_count = level_filter.sum()
+        df = df[~level_filter]
+
+    # Print summary using tqdm.write
+    total_filtered = original_count - len(df)
+    summary = [
+        f"Filtering summary:",
+        f"├─ Gold filter: {filter_counts['gold_filter']:,d} rows",
+        f"├─ Deaths filter: {filter_counts['deaths_filter']:,d} rows",
+        f"├─ CS filter: {filter_counts['cs_filter_normal']:,d} rows",
+        f"├─ Level filter: {filter_counts['level_filter']:,d} rows",
+        f"└─ Total: {total_filtered:,d} rows ({total_filtered/original_count*100:.1f}%)",
+    ]
+    tqdm.write("\n".join(summary))
+
+    return df, filter_counts
+
+
 def prepare_data(
     input_files,
     output_dir,
@@ -230,7 +327,15 @@ def prepare_data(
 
     # Save sample counts
     with open(os.path.join(output_dir, "sample_counts.pkl"), "wb") as f:
-        pickle.dump({"train": train_count, "test": test_count}, f)
+        pickle.dump(
+            {
+                "train": train_count,
+                "test": test_count,
+            },
+            f,
+        )
+
+    print(f"\nFinal sample counts: {train_count} train, {test_count} test")
 
 
 def add_computed_columns(input_files: List[str], output_dir: str) -> List[str]:
@@ -249,8 +354,23 @@ def add_computed_columns(input_files: List[str], output_dir: str) -> List[str]:
     with open(os.path.join(PREPARED_DATA_DIR, "patch_mapping.pkl"), "wb") as f:
         pickle.dump({"mapping": patch_mapping, "counts": patch_counts}, f)
 
-    for file_path in tqdm(input_files, desc="Adding computed columns"):
+    # Track cumulative stats
+    cumulative_stats = {
+        "total_raw": 0,  # Total games before patch filtering
+        "patch_filtered": 0,  # Games filtered due to old patches
+        "processed_in_patch": 0,  # Games processed after patch filtering
+        "filtered": 0,
+        "gold_filter": 0,
+        "deaths_filter": 0,
+        "cs_filter_normal": 0,
+        "level_filter": 0,
+    }
+
+    pbar = tqdm(input_files, desc="Adding computed columns")
+    for file_path in pbar:
         df = load_data(file_path)
+        original_count = len(df)
+        cumulative_stats["total_raw"] += original_count
 
         # Calculate raw patch numbers
         raw_patches = df["gameVersionMajorPatch"] * 50 + df["gameVersionMinorPatch"]
@@ -259,8 +379,45 @@ def add_computed_columns(input_files: List[str], output_dir: str) -> List[str]:
         df["numerical_patch"] = raw_patches.map(lambda x: patch_mapping.get(x, 0))
         df = df[df["numerical_patch"] > 0]  # Remove games from old patches
 
+        # Track how many games were filtered due to patches
+        cumulative_stats["patch_filtered"] += original_count - len(df)
+
         # Skip empty dataframes
         if len(df) == 0:
+            continue
+
+        # Track games that are in the valid patch range
+        games_in_patch = len(df)
+        cumulative_stats["processed_in_patch"] += games_in_patch
+
+        # Apply filtering before adding computed columns
+        print(f"\nFiltering file: {file_path}")
+        df, filter_counts = filter_outliers(df)
+
+        # Update cumulative stats (only for games within patch range)
+        cumulative_stats["filtered"] += games_in_patch - len(df)
+        for key in ["gold_filter", "deaths_filter", "cs_filter_normal", "level_filter"]:
+            cumulative_stats[key] += filter_counts[key]
+
+        # Update progress bar description with cumulative stats
+        filtered_pct = (
+            (
+                cumulative_stats["filtered"]
+                / cumulative_stats["processed_in_patch"]
+                * 100
+            )
+            if cumulative_stats["processed_in_patch"] > 0
+            else 0
+        )
+        pbar.set_description(
+            f"Processed (in patch): {cumulative_stats['processed_in_patch']:,d} | Filtered: {filtered_pct:.1f}%"
+        )
+
+        # Skip if no data left after filtering
+        if len(df) <= 1:
+            print(
+                f"Skipping file {file_path} after filtering - insufficient samples ({len(df)} rows)"
+            )
             continue
 
         # Apply all getters to create new columns
@@ -279,6 +436,23 @@ def add_computed_columns(input_files: List[str], output_dir: str) -> List[str]:
         # Clear memory
         del df
 
+    # Print final cumulative stats using tqdm.write
+    if cumulative_stats["total_raw"] > 0:
+        final_summary = [
+            f"\nFinal filtering statistics:",
+            f"├─ Total raw games: {cumulative_stats['total_raw']:,d}",
+            f"├─ Games from old patches: {cumulative_stats['patch_filtered']:,d} ({cumulative_stats['patch_filtered']/cumulative_stats['total_raw']*100:.1f}%)",
+            f"├─ Games in recent patches: {cumulative_stats['processed_in_patch']:,d}",
+            f"├─ Filtering results (for games in recent patches only):",
+            f"│  ├─ Gold filter: {cumulative_stats['gold_filter']:,d} games ({cumulative_stats['gold_filter']/cumulative_stats['processed_in_patch']*100:.1f}%)",
+            f"│  ├─ Deaths filter: {cumulative_stats['deaths_filter']:,d} games ({cumulative_stats['deaths_filter']/cumulative_stats['processed_in_patch']*100:.1f}%)",
+            f"│  ├─ CS filter: {cumulative_stats['cs_filter_normal']:,d} games ({cumulative_stats['cs_filter_normal']/cumulative_stats['processed_in_patch']*100:.1f}%)",
+            f"│  ├─ Level filter: {cumulative_stats['level_filter']:,d} games ({cumulative_stats['level_filter']/cumulative_stats['processed_in_patch']*100:.1f}%)",
+            f"│  └─ Total filtered: {cumulative_stats['filtered']:,d} games ({cumulative_stats['filtered']/cumulative_stats['processed_in_patch']*100:.1f}%)",
+            f"└─ Final games kept: {cumulative_stats['processed_in_patch'] - cumulative_stats['filtered']:,d}",
+        ]
+        tqdm.write("\n".join(final_summary))
+
     return new_files
 
 
@@ -291,6 +465,11 @@ def main():
         "--output-dir",
         default=PREPARED_DATA_DIR,
         help="Output directory for prepared data",
+    )
+    parser.add_argument(
+        "--skip-filtering",
+        action="store_true",
+        help="Skip filtering of outliers/griefers",
     )
     args = parser.parse_args()
 
