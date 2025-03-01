@@ -47,7 +47,7 @@ export default function DraftGapComparison() {
             duos within a team are used in the calculations, but the tool does
             not know about team comp identity like 'engage' or 'poke'. Damage
             composition is also not used in the calculation (but it is shown,
-            above the team winrate), so you need to keep this in mind on you
+            above the team winrate), so you need to keep this in mind on your
             own. These shortcomings result from the fact that there is not
             enough data to make a perfect prediction. And we do not want to
             incorporate opinions like 'malphite is an engage champion' into the
@@ -68,8 +68,8 @@ export default function DraftGapComparison() {
           Because DraftGap only uses champion pair statistics, it is totally
           unaware of the draft as a whole. For this reason, it will not
           understand when a draft only has AP Damage. This can be showcased by
-          creating a full AP Draft with no champions on 1 team and on the other
-          team from top to bot:
+          creating a full AP Draft with one team having the following champions
+          from top to bot:
         </p>
         <ul>
           <li>Top: Vladimir</li>
@@ -80,7 +80,7 @@ export default function DraftGapComparison() {
         </ul>
         <p>
           When inputting this draft into DraftGap, it predicts a 62.62% win
-          chance. LolDraftAI on the other hand, understands that this is a full
+          chance. LoLDraftAI on the other hand, understands that this is a full
           AP Draft, and predicts a win chance of 40.4%.
         </p>
         <p>DraftGap prediction:</p>
@@ -103,7 +103,7 @@ export default function DraftGapComparison() {
           Importantly, this not only impacts analysis but also champion
           suggestions. For example, against this full AP Draft, LoLDraftAI
           suggests Ornn as the best toplane champion. DraftGap, on the other
-          hand thinks that the team with Ornn top against a full AP Draft only
+          hand, thinks that the team with Ornn top against a full AP Draft only
           has 40% win chance. Obviously Ornn would just be unkillable against a
           full AP Draft, this is a glaring example of how DraftGap's statistical
           approach is limited.
@@ -123,12 +123,12 @@ export default function DraftGapComparison() {
         <p>
           When you add up all these small subtleties, this just makes DraftGap
           not a very accurate tool, and this is what we will see in the next
-          section that compares the accuraccy of DraftGap to LolDraftAI.
+          section that compares the accuracy of DraftGap to LoLDraftAI.
         </p>
         <h2>Statistical accuracy comparison</h2>
         <p>
-          I have assembled a dataset of 5000 games form patch 15.4 to compare
-          the accuracy of DraftGap and LolDraftAI.
+          I have assembled a dataset of 5000 games from patch 15.4 to compare
+          the accuracy of DraftGap and LoLDraftAI.
         </p>
         <h3>Dataset</h3>
         <p>
@@ -183,7 +183,7 @@ export default function DraftGapComparison() {
         </div>
         <h2>Appendix A: Dataset Verification</h2>
         <p>
-          The results for draftgap were obtained by using their source code
+          The results for DraftGap were obtained by using their source code
           available here:{" "}
           <a href="https://github.com/vigovlugt/draftgap">
             https://github.com/vigovlugt/draftgap
@@ -215,7 +215,7 @@ export default function DraftGapComparison() {
         <h2>Appendix B: Head to Head Comparison</h2>
         <p>
           It can be a fun exercise to make the 2 draft tools compete head to
-          head in a draft. I went throught this exercise twice, but didn't
+          head in a draft. I went through this exercise twice, but didn't
           include it in the main part of the article because it doesn't showcase
           the differences in such a clear cut manner as the dataset comparison.
           Both these drafts were obtained by having one tool select champions
@@ -236,7 +236,7 @@ export default function DraftGapComparison() {
         <ul>
           <li>Top: Mundo</li>
           <li>Jungle: Sejuani</li>
-          <li>Middle: Chogath</li>
+          <li>Middle: Cho'Gath</li>
           <li>Bottom: Karthus</li>
           <li>Support: Brand</li>
         </ul>
@@ -247,10 +247,10 @@ export default function DraftGapComparison() {
         <p>
           While not as clear cut as the full AP example, I think this is another
           example of how LoLDraftAI outperforms DraftGap. I think red side has
-          confortable lanes, especially with 2 tanky solo lanes that will be
+          comfortable lanes, especially with 2 tanky solo lanes that will be
           able to rush Magic Resist and be unkillable in lane. The solo lanes
           are made even worse by the presence of Karthus ult and ganks from
-          Sejuani. In my opinion this is also a showcase of how DraftGap can can
+          Sejuani. In my opinion this is also a showcase of how DraftGap can
           make picks that make sense as pairs, but don't make sense as a whole.
           Whereas LoLDraftAI has crafted an original draft that has a lot of
           tanks but still enough damage to kill the squishy enemy team and where
@@ -278,7 +278,7 @@ export default function DraftGapComparison() {
         <ul>
           <li>Top: Vayne</li>
           <li>Jungle: Nunu</li>
-          <li>Middle: Chogath</li>
+          <li>Middle: Cho'Gath</li>
           <li>Bottom: Sivir</li>
           <li>Support: Pyke</li>
         </ul>
@@ -297,11 +297,11 @@ export default function DraftGapComparison() {
         <p>
           Here again, the models disagree. But I think this reveals another
           limitation of DraftGap, it is not aware of early/late game dynamics.
-          In this game I think it is quite easy for the blue team to snowball
+          In this game, I think it is quite easy for the blue team to snowball
           hard with a pushing mid lane and early gank pressure from Pyke/Nunu.
           And if they manage to snowball and feed either Vayne/Sivir, they can
           probably close the game out quickly. This will be even easier because
-          of the objective secures granted by Nunu/Chogath.
+          of the objective secures granted by Nunu/Cho'Gath.
         </p>
         <ClickableImage
           src="/blog/draftgap-vs-loldraftai-comparison/head-to-head-2-draftgap.png"
@@ -321,7 +321,7 @@ export default function DraftGapComparison() {
         <p>
           The head to head comparison, while not as clear cut as the examples in
           the main article, still can be interpreted as a showcase of how
-          LoLDraftAI is able to understand more nuanced dynamics, rather then
+          LoLDraftAI is able to understand more nuanced dynamics, rather than
           just statistical pairings.
         </p>
       </article>
