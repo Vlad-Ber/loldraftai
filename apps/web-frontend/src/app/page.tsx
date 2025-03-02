@@ -54,6 +54,16 @@ export default function HomePage() {
                 anti-synergies, team damage distributions, late vs early game
                 dynamics, etc.
               </p>
+              <p className="text-lg mt-4">
+                <Link
+                  href="/blog/draftgap-vs-loldraftai-comparison"
+                  className="text-primary hover:underline"
+                >
+                  See how LoLDraftAI outperforms other tools like DraftGap in
+                  our detailed comparison
+                </Link>{" "}
+                (65.6% vs 56.5% prediction accuracy).
+              </p>
               <div className="mt-12 w-full flex justify-center">
                 <AnimatedButton href="/draft">
                   Analyse a Draft Now
