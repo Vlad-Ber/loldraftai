@@ -22,6 +22,13 @@ const BrandedText = ({ text }: { text: string }) => {
 
 const blogPosts: BlogPost[] = [
   {
+    title: "DraftGap vs LoLDraftAI: A Detailed Comparison",
+    description:
+      "Through statistical validation, we've found that LoLDraftAI consistently outperforms DraftGap in prediction accuracy (65.6% vs 56.5% on unseen data).",
+    date: "2025-03-02",
+    slug: "draftgap-vs-loldraftai-comparison",
+  },
+  {
     title: "How to Use Champion Recommendations in LoLDraftAI",
     description:
       "Learn how to leverage LoLDraftAI's powerful champion recommendation system to improve your drafting strategy and win more games.",
