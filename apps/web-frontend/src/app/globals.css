@@ -81,6 +81,6 @@
   }
 
   .prose .note {
-    @apply my-6 p-4 rounded-lg bg-secondary/10 text-muted-foreground;
+    @apply my-6 p-4 rounded-lg bg-secondary/20 text-secondary-foreground;
   }
 }

@@ -39,7 +39,7 @@ export default function DraftGapComparison() {
           In their own FAQ section, DraftGap explicitly acknowledges their
           limitations:
         </p>
-        <div className="note bg-secondary/10 p-4 rounded-lg my-6">
+        <div className="note border border-secondary/30">
           <p className="text-sm">
             <strong>Does DraftGap have any shortcomings?</strong> DraftGap is
             not perfect, and there are several things to keep in mind. The
@@ -80,8 +80,9 @@ export default function DraftGapComparison() {
         </ul>
         <p>
           When inputting this draft into DraftGap, it predicts a 62.62% win
-          chance. LoLDraftAI on the other hand, understands that this is a full
-          AP Draft, and predicts a win chance of 40.4%.
+          chance. <span className="brand-text">LoLDraftAI</span> on the other
+          hand, understands that this is a full AP Draft, and predicts a win
+          chance of 40.4%.
         </p>
         <p>DraftGap prediction:</p>
         <ClickableImage
@@ -91,7 +92,9 @@ export default function DraftGapComparison() {
           height={450}
           className="my-6 rounded-lg"
         />
-        <p>LoLDraftAI prediction:</p>
+        <p>
+          <span className="brand-text">LoLDraftAI</span> prediction:
+        </p>
         <ClickableImage
           src="/blog/draftgap-vs-loldraftai-comparison/full-ap-loldraftai.png"
           alt="Full AP Draft LoLDraftAI prediction"
@@ -101,12 +104,13 @@ export default function DraftGapComparison() {
         />
         <p>
           Importantly, this not only impacts analysis but also champion
-          suggestions. For example, against this full AP Draft, LoLDraftAI
-          suggests Ornn as the best toplane champion. DraftGap, on the other
-          hand, thinks that the team with Ornn top against a full AP Draft only
-          has 40% win chance. Obviously Ornn would just be unkillable against a
-          full AP Draft, this is a glaring example of how DraftGap's statistical
-          approach is limited.
+          suggestions. For example, against this full AP Draft,{" "}
+          <span className="brand-text">LoLDraftAI</span> suggests Ornn as the
+          best toplane champion. DraftGap, on the other hand, thinks that the
+          team with Ornn top against a full AP Draft only has 40% win chance.
+          Obviously Ornn would just be unkillable against a full AP Draft, this
+          is a glaring example of how DraftGap's statistical approach is
+          limited.
         </p>
         <h3>Shortcomings conclusion</h3>
         <p>
@@ -123,32 +127,38 @@ export default function DraftGapComparison() {
         <p>
           When you add up all these small subtleties, this just makes DraftGap
           not a very accurate tool, and this is what we will see in the next
-          section that compares the accuracy of DraftGap to LoLDraftAI.
+          section that compares the accuracy of DraftGap to{" "}
+          <span className="brand-text">LoLDraftAI</span>.
         </p>
         <h2>Statistical accuracy comparison</h2>
         <p>
           I have assembled a dataset of 5000 games from patch 15.4 to compare
-          the accuracy of DraftGap and LoLDraftAI.
+          the accuracy of DraftGap and{" "}
+          <span className="brand-text">LoLDraftAI</span>.
         </p>
         <h3>Dataset</h3>
         <p>
           The dataset consists of 5000 games from patch 15.4. The games are from
-          EUW ranked solo queue. These are only randomly sampled games that the
-          LoLDraftAI model has not seen during training. The dataset and full
-          results can be found in this{" "}
+          EUW ranked solo queue. These are only randomly sampled games that the{" "}
+          <span className="brand-text">LoLDraftAI</span> model has not seen
+          during training. The dataset and full results can be found in this{" "}
           <a href="https://docs.google.com/spreadsheets/d/1D7I98rvveX-msgeGkwDBcLhVE2YWhvR4V1SI6Ky5kko/edit?usp=sharing">
             google sheet.
           </a>
         </p>
         <h3>Results</h3>
         <p>
-          Note: When calculating the accuracy, a correct guess is when the
-          predicted win chance of the side that actually won was more than 50%.
+          Note: When calculating the accuracy, a correct guess is when the side
+          that actually won was predicted to have more than 50% chance of
+          winning.
         </p>
         <p>Overall accuracy:</p>
         <ul>
           <li>DraftGap: 56.46% (2823/5000 correct)</li>
-          <li>LoLDraftAI: 65.56% (3278/5000 correct)</li>
+          <li>
+            <span className="brand-text">LoLDraftAI</span>: 65.56% (3278/5000
+            correct)
+          </li>
         </ul>
         <p>Disagreement between models:</p>
         <ul>
@@ -156,14 +166,18 @@ export default function DraftGapComparison() {
           <li>Model Disagreement: 1767/5000 samples (35.34%)</li>
           <li>Accuracy when models agree: 67.03%</li>
           <li>When models disagree, DraftGap accuracy: 37.13%</li>
-          <li>When models disagree, LoLDraftAI accuracy: 62.87%</li>
+          <li>
+            When models disagree, <span className="brand-text">LoLDraftAI</span>{" "}
+            accuracy: 62.87%
+          </li>
         </ul>
         <p>
-          These results demonstrate that LoLDraftAI is significantly more
+          These results demonstrate that{" "}
+          <span className="brand-text">LoLDraftAI</span> is significantly more
           accurate than DraftGap, correctly predicting 65.56% of the games.
           While it is still impressive that with only a statistical approach,
-          DraftGap can predict 56.46% of the games, it is clear that LoLDraftAI
-          is the superior tool.
+          DraftGap can predict 56.46% of the games, it is clear that{" "}
+          <span className="brand-text">LoLDraftAI</span> is the superior tool.
         </p>
         <div className="mt-8 p-4 bg-primary/10 rounded-lg">
           <h3 className="text-xl font-bold mb-2">Try LoLDraftAI Today</h3>
@@ -204,7 +218,9 @@ export default function DraftGapComparison() {
           height={450}
           className="my-6 rounded-lg"
         />
-        <p>LoLDraftAI prediction:</p>
+        <p>
+          <span className="brand-text">LoLDraftAI</span> prediction:
+        </p>
         <ClickableImage
           src="/blog/draftgap-vs-loldraftai-comparison/verification-loldraftai.png"
           alt="LoLDraftAI prediction verification"
@@ -221,7 +237,8 @@ export default function DraftGapComparison() {
           Both these drafts were obtained by having one tool select champions
           for one team and the other tool for the other team. The champion with
           the highest predicted winrate was always picked no matter the role, in
-          the standard competitive pick order.
+          the standard competitive pick order(blue first pick, 2 picks red, 2
+          pick blue etc.).
         </p>
         <h3>First draft result</h3>
         <p>Blue side by DraftGap</p>
@@ -232,7 +249,9 @@ export default function DraftGapComparison() {
           <li>Bottom: Nilah</li>
           <li>Support: Taric</li>
         </ul>
-        <p>Red side by LoLDraftAI</p>
+        <p>
+          Red side by <span className="brand-text">LoLDraftAI</span>
+        </p>
         <ul>
           <li>Top: Mundo</li>
           <li>Jungle: Sejuani</li>
@@ -241,21 +260,25 @@ export default function DraftGapComparison() {
           <li>Support: Brand</li>
         </ul>
         <p>
-          LoLDraftAI predicts an 80% winrate for red side, while DraftGap
-          predicts a 63% winrate for blue side.
+          <span className="brand-text">LoLDraftAI</span> predicts an 80% winrate
+          for red side, while DraftGap predicts a 63% winrate for blue side.
         </p>
         <p>
           While not as clear cut as the full AP example, I think this is another
-          example of how LoLDraftAI outperforms DraftGap. I think red side has
-          comfortable lanes, especially with 2 tanky solo lanes that will be
-          able to rush Magic Resist and be unkillable in lane. The solo lanes
-          are made even worse by the presence of Karthus ult and ganks from
-          Sejuani. In my opinion this is also a showcase of how DraftGap can
-          make picks that make sense as pairs, but don't make sense as a whole.
-          Whereas LoLDraftAI has crafted an original draft that has a lot of
-          tanks but still enough damage to kill the squishy enemy team and where
-          it doesn't matter if the backline of Brand/Karthus is focused, because
-          they can deal their damage no matter what.
+          example of how <span className="brand-text">LoLDraftAI</span>{" "}
+          outperforms DraftGap. I think red side has comfortable lanes,
+          especially with 2 tanky solo lanes that will be able to rush Magic
+          Resist and be unkillable in lane. The solo lanes are made even harder
+          for blue side by the presence of Karthus ult and ganks from Sejuani.
+          <br />
+          <br />
+          In my opinion this is also a showcase of how DraftGap can make picks
+          that make sense as pairs, but don't make sense as a whole. In
+          contrast, <span className="brand-text">LoLDraftAI</span> has crafted
+          an original draft that has a lot of tanks but still enough damage to
+          kill the squishy enemy team and where it doesn't matter if the
+          backline of Brand/Karthus is focused, because they can deal their
+          damage no matter what.
         </p>
         <p>DraftGap prediction:</p>
         <ClickableImage
@@ -265,7 +288,9 @@ export default function DraftGapComparison() {
           height={450}
           className="my-6 rounded-lg"
         />
-        <p>LoLDraftAI prediction:</p>
+        <p>
+          <span className="brand-text">LoLDraftAI</span> prediction:
+        </p>
         <ClickableImage
           src="/blog/draftgap-vs-loldraftai-comparison/head-to-head-1-loldraftai.png"
           alt="Head to head draft 1 LoLDraftAI prediction"
@@ -274,7 +299,9 @@ export default function DraftGapComparison() {
           className="my-6 rounded-lg"
         />
         <h3>Second draft result</h3>
-        <p>Blue side by LoLDraftAI</p>
+        <p>
+          Blue side by <span className="brand-text">LoLDraftAI</span>
+        </p>
         <ul>
           <li>Top: Vayne</li>
           <li>Jungle: Nunu</li>
@@ -291,8 +318,8 @@ export default function DraftGapComparison() {
           <li>Support: Nami</li>
         </ul>
         <p>
-          LoLDraftAI predicts a 65% winrate for blue side, while DraftGap
-          predicts a 67% winrate for red side.
+          <span className="brand-text">LoLDraftAI</span> predicts a 65% winrate
+          for blue side, while DraftGap predicts a 67% winrate for red side.
         </p>
         <p>
           Here again, the models disagree. But I think this reveals another
@@ -320,9 +347,9 @@ export default function DraftGapComparison() {
         <h3>Conclusion</h3>
         <p>
           The head to head comparison, while not as clear cut as the examples in
-          the main article, still can be interpreted as a showcase of how
-          LoLDraftAI is able to understand more nuanced dynamics, rather than
-          just statistical pairings.
+          the main article, still can be interpreted as a showcase of how{" "}
+          <span className="brand-text">LoLDraftAI</span> is able to understand
+          more nuanced dynamics, rather than just statistical pairings.
         </p>
       </article>
     </main>
