@@ -8,6 +8,7 @@ const CloudFlareImage = (props: ImageProps) => {
     <Image
       {...props}
       src={fullSrc}
+      alt={props.alt || "Image"} // Ensure alt is always provided
       unoptimized={true} // Let Cloudflare handle optimization
     />
   );

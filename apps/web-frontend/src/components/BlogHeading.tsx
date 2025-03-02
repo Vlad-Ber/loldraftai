@@ -136,7 +136,7 @@ export function extractHeadingsFromChildren(
   React.Children.forEach(children, (child) => {
     if (React.isValidElement(child)) {
       // If the child is a heading component (h1-h6)
-      const type = child.type as any;
+      const type = child.type as string | React.JSXElementConstructor<React.ReactNode>;
       if (typeof type === "string" && type.match(/^h[1-6]$/)) {
         const level = parseInt(type.charAt(1));
         const text = React.Children.toArray(child.props.children)
