@@ -3,7 +3,7 @@ import Link from "next/link";
 import { ThemeProvider } from "@/components/theme-provider";
 import { Analytics } from "@vercel/analytics/react";
 import { SpeedInsights } from "@vercel/speed-insights/next";
-import { Chakra_Petch } from "next/font/google";
+import { Chakra_Petch, Inter } from "next/font/google";
 import type { Metadata, Viewport } from "next";
 import "./globals.css";
 import {
@@ -22,10 +22,15 @@ import {
 } from "@draftking/ui/components/ui/dropdown-menu";
 import { Menu } from "lucide-react";
 
-const font = Chakra_Petch({
+const chakraPetch = Chakra_Petch({
   subsets: ["latin"],
   weight: ["400", "500", "600", "700"],
   variable: "--font-chakra-petch",
+});
+
+const inter = Inter({
+  subsets: ["latin"],
+  variable: "--font-inter",
 });
 
 // Add this near your other constants
@@ -39,21 +44,21 @@ export const viewport: Viewport = {
 
 export const metadata: Metadata = {
   metadataBase: new URL("https://loldraftai.com"),
-  title: {
-    default: "LoLDraftAI - The Best League of Legends Draft Analysis Tool",
-    template: "%s | LoLDraftAI",
-  },
+  title: "LoLDraftAI | LoL Draft Analyzer and Helper",
   description:
-    "LoLDraftAI is an AI-powered League of Legends draft tool that helps you win more games by analyzing team compositions and suggesting the best champions.",
+    "LoLDraftAI is the most accurate League of Legends draft tool with AI-powered analysis for better draft predictions and team composition insights.",
   keywords: [
-    "League of Legends",
-    "League",
-    "LoL",
-    "Draft Tool",
-    "Champion Select",
-    "AI",
-    "Machine Learning",
-    "Draft Analysis",
+    "league of legends draft",
+    "draft league of legends",
+    "lol draft",
+    "draft lol",
+    "loldraft",
+    "lol draft tool",
+    "lol draft ai",
+    "ai draft lol",
+    "lol draft analyzer",
+    "lol draft helper",
+    "lol draft analysis",
     "LoLDraftAI",
   ],
   authors: [{ name: "looyyd" }],
@@ -163,7 +168,7 @@ export default async function RootLayout({
 
   return (
     <html lang="en" className="dark" suppressHydrationWarning>
-      <body className={`${font.variable} font-sans`}>
+      <body className={`${chakraPetch.variable} ${inter.variable} font-sans`}>
         <ThemeProvider>
           <ClarityProvider projectId={CLARITY_PROJECT_ID} />
           <div className="flex min-h-screen flex-col bg-background text-foreground">
@@ -241,7 +246,7 @@ export default async function RootLayout({
                 <div className="mb-2">
                   Last model update: {lastModified} on patch {latestPatch}.
                   After a new patch, expect a few days of delay before an
-                  update. Contact looyyd on Discord for bug reports or feature
+                  update. <Link href="https://discord.gg/MpbtNEwTT7" className="text-blue-400 hover:underline" target="_blank" rel="noopener noreferrer">Join our Discord</Link> for bug reports or feature
                   requests.
                 </div>
                 <div className="text-xs">

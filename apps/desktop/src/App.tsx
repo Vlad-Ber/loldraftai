@@ -64,6 +64,7 @@ function App() {
     useState<Champion[]>(champions);
   const [isLiveTracking, setIsLiveTracking] = useState(false);
   const [bannedChampions, setBannedChampions] = useState<Champion[]>([]);
+  const [resetAnalysisTrigger, setResetAnalysisTrigger] = useState(0);
 
   // Store
   const { currentPatch, patches, setCurrentPatch, setPatchList } =
@@ -121,6 +122,7 @@ function App() {
     setSelectedSpot(null);
     setBannedChampions([]);
     setRemainingChampions(champions);
+    setResetAnalysisTrigger((prev) => prev + 1);
   };
 
   useEffect(() => {
@@ -298,7 +300,7 @@ function App() {
       {/* Main content - hidden on mobile */}
       <div className="hidden md:block">
         <div className="container mx-auto mt-8 font-sans">
-          <h1 className="brand-text text-5xl font-extrabold tracking-tight leading-tight text-primary text-center mb-8">
+          <h1 className="text-5xl font-extrabold tracking-tight leading-tight text-primary text-center mb-8">
             LoLDraftAI Analysis
           </h1>
           <div className="mx-auto">
@@ -440,6 +442,7 @@ function App() {
                 favorites={favorites}
                 remainingChampions={remainingNonBannedChampions}
                 analysisTrigger={0}
+                resetAnalysisTrigger={resetAnalysisTrigger}
                 currentPatch={currentPatch}
                 patches={patches}
                 setCurrentPatch={setCurrentPatch}
