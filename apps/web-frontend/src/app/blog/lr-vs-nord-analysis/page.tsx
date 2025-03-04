@@ -19,7 +19,7 @@ export default function LRvsNORDAnalysis() {
         >
           NLC 2025 Winter finals
         </Link>
-        , game 1 was a little bit of a struggle for Rekkless piloting Rakan. In
+        , game 1 was a little bit of a struggle for Rekkles piloting Rakan. In
         this article we will show that Rakan was almost unplayable in the draft,
         what could have been a better pick and how{" "}
         <span className="brand-text">LoLDraftAI</span> can help prepare drafts
@@ -89,7 +89,7 @@ export default function LRvsNORDAnalysis() {
       />
 
       <p>
-        In voice comms, Rekkless was hesitating between Rell and Rakan. Here is
+        In voice comms, Rekkles was hesitating between Rell and Rakan. Here is
         the a rough transcript of the voice comms during that pick:
       </p>
       <div className="p-4 my-4 rounded">
@@ -97,14 +97,14 @@ export default function LRvsNORDAnalysis() {
           <strong>Caedrel</strong>: Rell is pretty solid, Rakan?
         </p>
         <p>
-          <strong>Rekkless</strong>: I&apos;m probably going to go Rakan
+          <strong>Rekkles</strong>: I&apos;m probably going to go Rakan
         </p>
         <p>
           <strong>Nemesis</strong>: Rakan is really good with Cho.
         </p>
         <p>[…]</p>
         <p>
-          <strong>Rekkless</strong>: The only thing is that our support jungle
+          <strong>Rekkles</strong>: The only thing is that our support jungle
           is not very good together.
         </p>
       </div>
