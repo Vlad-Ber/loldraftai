@@ -49,7 +49,15 @@ export default function LRvsNORDAnalysis() {
       </p>
       <p>
         Here is how I would interpret why the Rakan pick is hard to play in this
-        draft:
+        draft(as a{" "}
+        <Link
+          href="https://www.op.gg/summoners/euw/LoLDraftAI-loyd"
+          target="_blank"
+          className="text-blue-500 hover:underline"
+        >
+          Master tier support main
+        </Link>
+        , if that gives some credibility):
       </p>
       <ul className="list-disc pl-6 my-4">
         <li>
@@ -268,8 +276,8 @@ export default function LRvsNORDAnalysis() {
           <strong>Roaming/Hook supports</strong>: Pyke, Thresh, Bard, Blitzcrank
         </li>
         <li>
-          <strong>Melee Peeling tanks</strong>: Galio, Maokai, Tahm Kench Taric,
-          Shen
+          <strong>Melee Peeling tanks</strong>: Galio, Maokai, Tahm Kench,
+          Taric, Shen
         </li>
       </ul>
 
@@ -408,7 +416,10 @@ export default function LRvsNORDAnalysis() {
           being really hard to deal with once they are fed, and with
           Cho&apos;Gath objective control to avoid throws.
         </li>
-        <li>Ezreal can safely farm while the support is roaming</li>
+        <li>
+          Ezreal can safely farm while the support is roaming, this avoids
+          having to lane against the strong Leona Varus lane
+        </li>
       </ul>
 
       <h3>2) Why Melee peel supports work well</h3>
@@ -423,6 +434,7 @@ export default function LRvsNORDAnalysis() {
           by Ivern Q and they are super strong with Ivern E in early game
           fights.
         </li>
+        <li>Most of them are strong in lane against Leona</li>
         <li>
           They are effective at protecting the only backline carry of this team:
           Ezreal. It&apos;s important to note that Ezreal will get focused hard,
