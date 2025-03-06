@@ -26,18 +26,18 @@ def get_optimizer_grouped_parameters(
 
     for name, param in param_dict.items():
         # No weight decay for:
-        # 1. Standard embedding layers(and numerical projections) (embeddings.*.weight and champion_embedding.weight)
+        # 1. Standard embedding layers (embeddings.*.weight and champion_embedding.weight)
         # 2. All bias terms
         # 3. All normalization layers
         # source: https://github.com/karpathy/minGPT/pull/24#issuecomment-679316025
         if (
-            "embeddings." in name  # Categorical embeddings
-            or "champion_embedding." in name  # Champion embeddings
-            or "elo_projection" in name  # Elo projection
-            or "patch_mlp" in name  # Patch MLP
-            or "adjustment_layer" in name  # Patch-champion adjustment
-            or "bias" in name  # All bias terms
-            or "norm" in name  # Normalization layers
+            "embeddings." in name
+            or "champion_embedding." in name
+            or "pos_embedding" in name
+            or "bias" in name
+            or "norm" in name
+            or "pos_scale" in name
+            or "numerical_projection" in name
         ):
             nodecay_params.append(param)
         else:

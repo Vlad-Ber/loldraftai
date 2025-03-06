@@ -46,6 +46,11 @@ def get_numerical_elo(df: pd.DataFrame) -> pd.Series:
     return df.apply(map_elo, axis=1)
 
 
+def get_numerical_patch(df: pd.DataFrame) -> pd.Series:
+    """Convert patch version to numerical value."""
+    return df["gameVersionMajorPatch"] * 50 + df["gameVersionMinorPatch"]
+
+
 def get_champion_ids(df: pd.DataFrame) -> pd.Series:
     champion_ids = []
     # Blue team, then red team from top to bottom
@@ -66,6 +71,7 @@ COLUMNS: Dict[str, ColumnDefinition] = {
     "numerical_patch": ColumnDefinition(
         name="numerical_patch",
         column_type=ColumnType.NUMERICAL,
+        # getter=get_numerical_patch,
     ),
     # TODO: Could change to categorical for simplification
     "champion_ids": ColumnDefinition(
