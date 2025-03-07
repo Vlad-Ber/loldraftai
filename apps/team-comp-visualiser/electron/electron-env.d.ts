@@ -36,6 +36,9 @@ interface ElectronAPI {
     getItem: (key: string) => Promise<any>;
     setItem: (key: string, value: any) => Promise<void>;
   };
+  database: {
+    getDbInfo: () => Promise<string>;
+  };
 }
 
 declare interface Window {
