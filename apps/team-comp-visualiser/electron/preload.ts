@@ -59,5 +59,7 @@ contextBridge.exposeInMainWorld("electronAPI", {
       }
     ) =>
       ipcRenderer.invoke("get-team-comps", dbPath, filters, sort, pagination),
+    getRoleChampions: (dbPath: string) =>
+      ipcRenderer.invoke("get-role-champions", dbPath),
   },
 });

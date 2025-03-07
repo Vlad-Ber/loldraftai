@@ -36,6 +36,9 @@ const ROLE_DISPLAY_NAMES: Record<string, string> = {
   support: "Support",
 };
 
+// Add this type definition
+type RoleChampions = Record<string, Array<{ id: number; name: string }>>;
+
 export default function App() {
   // State for database
   const [dbPath, setDbPath] = useState<string | null>(null);
@@ -76,13 +79,23 @@ export default function App() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Handle file selection
+  // Add state for role-specific champions
+  const [roleChampions, setRoleChampions] = useState<RoleChampions>({});
+
+  // Update handleSelectFile to load role champions
   const handleSelectFile = async () => {
     try {
       const selectedPath = await window.electronAPI.database.selectDbFile();
       if (selectedPath) {
         setDbPath(selectedPath);
+
+        // Load champions for champion map
         await loadChampions(selectedPath);
+
+        // Load precomputed role-specific champions
+        await loadRoleChampions(selectedPath);
+
+        // Fetch initial team comps
         await fetchTeamComps(selectedPath);
       }
     } catch (error) {
@@ -107,6 +120,18 @@ export default function App() {
     } catch (error) {
       setError(`Error loading champions: ${error}`);
       return [];
+    }
+  };
+
+  // Add function to load role-specific champions
+  const loadRoleChampions = async (path: string) => {
+    try {
+      const champions = await window.electronAPI.database.getRoleChampions(
+        path
+      );
+      setRoleChampions(champions);
+    } catch (error) {
+      setError(`Error loading role-specific champions: ${error}`);
     }
   };
 
@@ -268,6 +293,8 @@ export default function App() {
               <RoleFilters
                 title="Ally Team"
                 champions={champions}
+                roleChampions={roleChampions}
+                teamPrefix="ally"
                 roles={ALLY_ROLES}
                 includeFilters={allyIncludeFilters}
                 excludeFilters={allyExcludeFilters}
@@ -279,6 +306,8 @@ export default function App() {
               <RoleFilters
                 title="Enemy Team"
                 champions={champions}
+                roleChampions={roleChampions}
+                teamPrefix="enemy"
                 roles={ENEMY_ROLES}
                 includeFilters={enemyIncludeFilters}
                 excludeFilters={enemyExcludeFilters}

@@ -77,6 +77,9 @@ interface ElectronAPI {
         avg_winrate: number;
       }>;
     }>;
+    getRoleChampions: (
+      dbPath: string
+    ) => Promise<Record<string, Array<{ id: number; name: string }>>>;
   };
 }
 

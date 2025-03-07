@@ -3,6 +3,8 @@ import ChampionFilter from "./ChampionFilter";
 type RoleFiltersProps = {
   title: string;
   champions: { id: number; name: string }[];
+  roleChampions?: Record<string, { id: number; name: string }[]>;
+  teamPrefix: string;
   roles: string[];
   includeFilters: Record<string, number[]>;
   excludeFilters: Record<string, number[]>;
@@ -14,6 +16,8 @@ type RoleFiltersProps = {
 export default function RoleFilters({
   title,
   champions,
+  roleChampions = {},
+  teamPrefix,
   roles,
   includeFilters,
   excludeFilters,
@@ -25,36 +29,42 @@ export default function RoleFilters({
     <div className="mb-4">
       <h3 className="text-lg font-bold mb-2">{title}</h3>
       <div className="flex flex-wrap">
-        {roles.map((role) => (
-          <div key={role} className="w-1/5 p-2">
-            <div className="border border-slate-600 rounded p-2 bg-slate-900">
-              <h4 className="text-base font-semibold mb-2 text-center">
-                {role}
-              </h4>
+        {roles.map((role) => {
+          const roleKey = `${teamPrefix}_${role}`;
+          console.log(roleChampions[roleKey]);
+          const champsForRole = roleChampions[roleKey] || champions;
 
-              <ChampionFilter
-                label="Include Champions:"
-                champions={champions}
-                selectedChampions={includeFilters[role] || []}
-                onSelectionChange={(ids) => onIncludeChange(role, ids)}
-              />
+          return (
+            <div key={role} className="w-1/5 p-2">
+              <div className="border border-slate-600 rounded p-2 bg-slate-900">
+                <h4 className="text-base font-semibold mb-2 text-center">
+                  {role.charAt(0).toUpperCase() + role.slice(1)}
+                </h4>
 
-              <ChampionFilter
-                label="Exclude Champions:"
-                champions={champions}
-                selectedChampions={excludeFilters[role] || []}
-                onSelectionChange={(ids) => onExcludeChange(role, ids)}
-              />
+                <ChampionFilter
+                  label="Include Champions:"
+                  champions={champsForRole}
+                  selectedChampions={includeFilters[role] || []}
+                  onSelectionChange={(ids) => onIncludeChange(role, ids)}
+                />
 
-              <button
-                onClick={() => onClearFilters(role)}
-                className="w-full mt-2 py-1 bg-slate-700 text-white rounded hover:bg-slate-600 text-sm"
-              >
-                Clear Filters
-              </button>
+                <ChampionFilter
+                  label="Exclude Champions:"
+                  champions={champsForRole}
+                  selectedChampions={excludeFilters[role] || []}
+                  onSelectionChange={(ids) => onExcludeChange(role, ids)}
+                />
+
+                <button
+                  onClick={() => onClearFilters(role)}
+                  className="w-full mt-2 py-1 bg-slate-700 text-white rounded hover:bg-slate-600 text-sm"
+                >
+                  Clear Filters
+                </button>
+              </div>
             </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
     </div>
   );

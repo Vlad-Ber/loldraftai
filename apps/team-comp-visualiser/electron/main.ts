@@ -199,6 +199,42 @@ ipcMain.handle(
   }
 );
 
+// Add this new handler to fetch precomputed role champions
+ipcMain.handle("get-role-champions", async (_event, dbPath: string) => {
+  try {
+    const db = new Database(dbPath);
+    const roleChampions: Record<
+      string,
+      Array<{ id: number; name: string }>
+    > = {};
+
+    const query = `
+      SELECT rc.role, c.id, c.name
+      FROM role_champions rc
+      JOIN champion_lookup c ON rc.champion_id = c.id
+      ORDER BY rc.role, c.name
+    `;
+
+    const rows = db.prepare(query).all() as Array<{
+      role: string;
+      id: number;
+      name: string;
+    }>;
+
+    rows.forEach(({ role, id, name }) => {
+      if (!roleChampions[role]) {
+        roleChampions[role] = [];
+      }
+      roleChampions[role].push({ id, name });
+    });
+
+    db.close();
+    return roleChampions;
+  } catch (error) {
+    throw new Error(`Failed to get role-specific champions: ${error}`);
+  }
+});
+
 function createWindow() {
   win = new BrowserWindow({
     icon: path.join(process.env.VITE_PUBLIC, "logo512.png"),
