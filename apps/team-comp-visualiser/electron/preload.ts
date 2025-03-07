@@ -39,5 +39,25 @@ contextBridge.exposeInMainWorld("electronAPI", {
   database: {
     getDbInfo: (path?: string) => ipcRenderer.invoke("get-db-info", path),
     selectDbFile: () => ipcRenderer.invoke("select-db-file"),
+    getChampions: (dbPath: string) =>
+      ipcRenderer.invoke("get-champions", dbPath),
+    getTeamComps: (
+      dbPath: string,
+      filters: {
+        allyInclude: { [role: string]: number[] };
+        allyExclude: { [role: string]: number[] };
+        enemyInclude: { [role: string]: number[] };
+        enemyExclude: { [role: string]: number[] };
+      },
+      sort: {
+        column: "avg_winrate" | "blue_winrate" | "red_winrate";
+        direction: "asc" | "desc";
+      },
+      pagination: {
+        page: number;
+        pageSize: number;
+      }
+    ) =>
+      ipcRenderer.invoke("get-team-comps", dbPath, filters, sort, pagination),
   },
 });

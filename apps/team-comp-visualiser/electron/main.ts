@@ -90,6 +90,115 @@ ipcMain.handle("get-db-info", async (_event, customPath?: string) => {
   }
 });
 
+// Get all champions from lookup table
+ipcMain.handle("get-champions", async (_event, dbPath: string) => {
+  try {
+    const db = new Database(dbPath);
+    const champions = db
+      .prepare("SELECT id, name FROM champion_lookup ORDER BY name")
+      .all();
+    db.close();
+    return champions;
+  } catch (error) {
+    throw new Error(`Failed to get champions: ${error}`);
+  }
+});
+
+// Get filtered team compositions
+ipcMain.handle(
+  "get-team-comps",
+  async (
+    _event,
+    dbPath: string,
+    filters: {
+      allyInclude: { [role: string]: number[] };
+      allyExclude: { [role: string]: number[] };
+      enemyInclude: { [role: string]: number[] };
+      enemyExclude: { [role: string]: number[] };
+    },
+    sort: {
+      column: "avg_winrate" | "blue_winrate" | "red_winrate";
+      direction: "asc" | "desc";
+    },
+    pagination: {
+      page: number;
+      pageSize: number;
+    }
+  ) => {
+    try {
+      const db = new Database(dbPath);
+
+      // Build the WHERE clause based on filters
+      const conditions: string[] = [];
+      const params: any[] = [];
+
+      // Helper function to add role conditions
+      const addRoleConditions = (
+        rolePrefix: string,
+        includeIds: number[],
+        excludeIds: number[],
+        columnSuffix: string
+      ) => {
+        if (includeIds.length > 0) {
+          conditions.push(
+            `${rolePrefix}_${columnSuffix}_id IN (${includeIds.join(",")})`
+          );
+        }
+        if (excludeIds.length > 0) {
+          conditions.push(
+            `${rolePrefix}_${columnSuffix}_id NOT IN (${excludeIds.join(",")})`
+          );
+        }
+      };
+
+      // Add conditions for ally roles
+      ["top", "jungle", "mid", "bot", "support"].forEach((role) => {
+        addRoleConditions(
+          "ally",
+          filters.allyInclude[role] || [],
+          filters.allyExclude[role] || [],
+          role
+        );
+        addRoleConditions(
+          "enemy",
+          filters.enemyInclude[role] || [],
+          filters.enemyExclude[role] || [],
+          role
+        );
+      });
+
+      // Build the complete query
+      const whereClause =
+        conditions.length > 0 ? `WHERE ${conditions.join(" AND ")}` : "";
+      const orderClause = `ORDER BY ${sort.column} ${sort.direction}`;
+      const limitClause = `LIMIT ${pagination.pageSize} OFFSET ${
+        (pagination.page - 1) * pagination.pageSize
+      }`;
+
+      // Get total count
+      const totalCount = db
+        .prepare(`SELECT COUNT(*) as count FROM team_comps ${whereClause}`)
+        .get() as { count: number };
+
+      // Get paginated results
+      const results = db
+        .prepare(
+          `SELECT * FROM team_comps ${whereClause} ${orderClause} ${limitClause}`
+        )
+        .all();
+
+      db.close();
+
+      return {
+        total: totalCount.count,
+        results,
+      };
+    } catch (error) {
+      throw new Error(`Failed to get team compositions: ${error}`);
+    }
+  }
+);
+
 function createWindow() {
   win = new BrowserWindow({
     icon: path.join(process.env.VITE_PUBLIC, "logo512.png"),

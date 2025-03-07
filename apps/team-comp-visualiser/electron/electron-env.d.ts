@@ -39,6 +39,44 @@ interface ElectronAPI {
   database: {
     getDbInfo: (path?: string) => Promise<string>;
     selectDbFile: () => Promise<string | null>;
+    getChampions: (
+      dbPath: string
+    ) => Promise<Array<{ id: number; name: string }>>;
+    getTeamComps: (
+      dbPath: string,
+      filters: {
+        allyInclude: { [role: string]: number[] };
+        allyExclude: { [role: string]: number[] };
+        enemyInclude: { [role: string]: number[] };
+        enemyExclude: { [role: string]: number[] };
+      },
+      sort: {
+        column: "avg_winrate" | "blue_winrate" | "red_winrate";
+        direction: "asc" | "desc";
+      },
+      pagination: {
+        page: number;
+        pageSize: number;
+      }
+    ) => Promise<{
+      total: number;
+      results: Array<{
+        id: number;
+        ally_top_id: number;
+        ally_jungle_id: number;
+        ally_mid_id: number;
+        ally_bot_id: number;
+        ally_support_id: number;
+        enemy_top_id: number;
+        enemy_jungle_id: number;
+        enemy_mid_id: number;
+        enemy_bot_id: number;
+        enemy_support_id: number;
+        blue_winrate: number;
+        red_winrate: number;
+        avg_winrate: number;
+      }>;
+    }>;
   };
 }
 
