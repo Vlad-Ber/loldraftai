@@ -36,8 +36,8 @@ contextBridge.exposeInMainWorld("electronAPI", {
       ipcRenderer.invoke("electron-store-set", key, value),
   },
 
-  // Add SQLite methods
   database: {
-    getDbInfo: () => ipcRenderer.invoke("get-db-info"),
+    getDbInfo: (path?: string) => ipcRenderer.invoke("get-db-info", path),
+    selectDbFile: () => ipcRenderer.invoke("select-db-file"),
   },
 });

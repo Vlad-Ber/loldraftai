@@ -37,7 +37,8 @@ interface ElectronAPI {
     setItem: (key: string, value: any) => Promise<void>;
   };
   database: {
-    getDbInfo: () => Promise<string>;
+    getDbInfo: (path?: string) => Promise<string>;
+    selectDbFile: () => Promise<string | null>;
   };
 }
 

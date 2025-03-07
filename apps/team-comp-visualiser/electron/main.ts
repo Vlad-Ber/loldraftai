@@ -46,10 +46,24 @@ ipcMain.handle("electron-store-set", (_event, key, value) => {
 const DB_PATH = path.join(app.getPath("userData"), "test.db");
 
 // Add SQLite-related IPC handlers
-ipcMain.handle("get-db-info", async () => {
+ipcMain.handle("select-db-file", async () => {
+  const { dialog } = require("electron");
+  const result = await dialog.showOpenDialog({
+    properties: ["openFile"],
+    filters: [{ name: "SQLite Database", extensions: ["db"] }],
+  });
+
+  if (!result.canceled && result.filePaths.length > 0) {
+    return result.filePaths[0];
+  }
+  return null;
+});
+
+ipcMain.handle("get-db-info", async (_event, customPath?: string) => {
   try {
-    const db = new Database(DB_PATH);
-    let dbInfo = `Database path: ${DB_PATH}\n\nTables:\n`;
+    const dbPath = customPath || DB_PATH;
+    const db = new Database(dbPath);
+    let dbInfo = `Database path: ${dbPath}\n\nTables:\n`;
 
     // Get list of tables
     const tables = db
@@ -81,7 +95,7 @@ function createWindow() {
     icon: path.join(process.env.VITE_PUBLIC, "logo512.png"),
     title: "LoLDraftAI - Team Comp Visualiser",
     webPreferences: {
-      preload: path.join(__dirname, "preload.mjs"),
+      preload: path.join(__dirname, "preload.js"),
       contextIsolation: true,
       nodeIntegration: false,
     },
