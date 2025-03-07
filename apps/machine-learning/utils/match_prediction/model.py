@@ -13,56 +13,6 @@ from utils.match_prediction.task_definitions import TASKS, TaskType
 from utils.match_prediction.config import TrainingConfig
 
 
-# Define SwiGLU activation
-class SwiGLU(nn.Module):
-    def __init__(self, dim):
-        super().__init__()
-        # SwiGLU splits the input dimension into two parts
-        self.linear = nn.Linear(dim, dim * 2)  # Double the dimension for gate and value
-
-    def forward(self, x):
-        # Split the doubled dimension into value and gate
-        x = self.linear(x)
-        v, g = x.chunk(2, dim=-1)
-        # Swish activation: x * sigmoid(x)
-        gate = g * torch.sigmoid(g)
-        return v * gate
-
-
-# Residual connection module
-class ResidualConnection(nn.Module):
-    def forward(self, x):
-        return x + self.prev_x if hasattr(self, "prev_x") else x
-
-    def forward_pre(self, x):
-        self.prev_x = x
-        return x
-
-
-# MLP Block with normalization, activation, and residual connection
-class MLPBlock(nn.Module):
-    def __init__(self, input_dim, output_dim, dropout, use_residual=False):
-        super().__init__()
-        self.use_residual = use_residual and input_dim == output_dim
-
-        self.norm = nn.LayerNorm(input_dim)
-        self.linear = nn.Linear(input_dim, output_dim)
-        self.activation = SwiGLU(output_dim)
-        self.dropout = nn.Dropout(dropout)
-
-    def forward(self, x):
-        residual = x if self.use_residual else None
-        x = self.norm(x)
-        x = self.linear(x)
-        x = self.activation(x)
-        x = self.dropout(x)
-
-        if self.use_residual:
-            x = x + residual
-
-        return x
-
-
 class Model(nn.Module):
     def __init__(
         self,
