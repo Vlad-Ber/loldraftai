@@ -54,7 +54,7 @@ ipcMain.handle("get-db-info", async () => {
     // Get list of tables
     const tables = db
       .prepare("SELECT name FROM sqlite_master WHERE type='table'")
-      .all();
+      .all() as Array<{ name: string }>;
     dbInfo += tables.map((t: { name: string }) => t.name).join("\n");
 
     // Get first row from test_table if it exists
@@ -70,7 +70,9 @@ ipcMain.handle("get-db-info", async () => {
     db.close();
     return dbInfo;
   } catch (error) {
-    return `Error accessing database: ${error.message}`;
+    return `Error accessing database: ${
+      error instanceof Error ? error.message : "Unknown error"
+    }`;
   }
 });
 
