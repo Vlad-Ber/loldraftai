@@ -176,9 +176,6 @@ def filter_outliers(df: pd.DataFrame) -> Tuple[pd.DataFrame, Dict[str, int]]:
     roles = ["TOP", "JUNGLE", "MIDDLE", "BOTTOM", "UTILITY"]
     teams = [100, 200]
 
-    # Use tqdm.write for logging to avoid progress bar interference
-    tqdm.write(f"\nProcessing batch with {original_count} rows")
-
     # 1. Gold filter
     gold_filter_conditions = []
     for role in roles:
@@ -393,8 +390,6 @@ def add_computed_columns(input_files: List[str], output_dir: str) -> List[str]:
         games_in_patch = len(df)
         cumulative_stats["processed_in_patch"] += games_in_patch
 
-        # Apply filtering before adding computed columns
-        print(f"\nFiltering file: {file_path}")
         df, filter_counts = filter_outliers(df)
 
         # Update cumulative stats (only for games within patch range)
