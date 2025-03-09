@@ -26,6 +26,8 @@ from collections import defaultdict
 
 # Constants
 NUM_RECENT_PATCHES = 3  # Number of most recent patches to use for training
+PATCH_MIN_GAMES = 200_000  # Minimum number of games in a patch to be considered standalone(otherwise merged with previous patch)
+DEBUG = False
 
 # Filter constants
 MIN_GOLD_15MIN = 2400  # Minimum gold at 15 minutes
@@ -137,7 +139,7 @@ def compute_patch_mapping(input_files: List[str]) -> Dict[float, int]:
 
     # Process patches from oldest to newest of the last NUM_RECENT_PATCHES
     for patch in recent_patches:
-        if patch_counts[patch] > 200000:
+        if patch_counts[patch] > PATCH_MIN_GAMES:
             # This is a significant patch
             patch_mapping[patch] = normalized_value
             previous_significant_patch = patch
@@ -244,7 +246,8 @@ def filter_outliers(df: pd.DataFrame) -> Tuple[pd.DataFrame, Dict[str, int]]:
         f"├─ Level filter: {filter_counts['level_filter']:,d} rows",
         f"└─ Total: {total_filtered:,d} rows ({total_filtered/original_count*100:.1f}%)",
     ]
-    tqdm.write("\n".join(summary))
+    if DEBUG:
+        tqdm.write("\n".join(summary))
 
     return df, filter_counts
 
