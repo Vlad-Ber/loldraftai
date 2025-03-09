@@ -28,15 +28,7 @@ type TeamComp = {
 // Define role mappings
 const ALLY_ROLES = ["top", "jungle", "mid", "bot", "support"];
 const ENEMY_ROLES = ["top", "jungle", "mid", "bot", "support"];
-const ROLE_DISPLAY_NAMES: Record<string, string> = {
-  top: "Top",
-  jungle: "Jungle",
-  mid: "Mid",
-  bot: "Bot",
-  support: "Support",
-};
 
-// Add this type definition
 type RoleChampions = Record<string, Array<{ id: number; name: string }>>;
 
 export default function App() {

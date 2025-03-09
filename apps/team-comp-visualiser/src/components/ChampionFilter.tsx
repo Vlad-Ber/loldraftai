@@ -1,5 +1,3 @@
-import { useState, useEffect } from "react";
-
 type ChampionFilterProps = {
   label: string;
   champions: { id: number; name: string }[];

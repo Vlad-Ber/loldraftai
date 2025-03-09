@@ -130,7 +130,6 @@ ipcMain.handle(
 
       // Build the WHERE clause based on filters
       const conditions: string[] = [];
-      const params: any[] = [];
 
       // Helper function to add role conditions
       const addRoleConditions = (
