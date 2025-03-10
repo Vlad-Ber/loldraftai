@@ -65,12 +65,12 @@ TASKS = {
         name="win_prediction",
         getter=get_win_prediction,
         task_type=TaskType.BINARY_CLASSIFICATION,
-        weight=0.93,
+        weight=0.86,
     ),
     "gameDuration": TaskDefinition(
         name="gameDuration",
         task_type=TaskType.REGRESSION,
-        weight=0.02,
+        weight=0.04,
     ),
 }
 for stat in INDIVIDUAL_STATS:
@@ -81,7 +81,7 @@ for stat in INDIVIDUAL_STATS:
                 TASKS[task_name] = TaskDefinition(
                     name=task_name,
                     task_type=TaskType.REGRESSION,
-                    weight=0.02
+                    weight=0.04
                     / (
                         len(INDIVIDUAL_STATS)
                         * len(POSITIONS)
@@ -99,7 +99,7 @@ for damage_type in DAMAGE_STATS:
                 TASKS[task_name] = TaskDefinition(
                     name=task_name,
                     task_type=TaskType.REGRESSION,
-                    weight=0.02
+                    weight=0.04
                     / (
                         len(DAMAGE_STATS)
                         * len(POSITIONS)
@@ -116,7 +116,7 @@ for timestamp in TIMESTAMPS:
             TASKS[task_name] = TaskDefinition(
                 name=task_name,
                 task_type=TaskType.REGRESSION,
-                weight=0.01 / (len(TIMESTAMPS) * len(TEAM_STATS) * len(TEAMS)),
+                weight=0.02 / (len(TIMESTAMPS) * len(TEAM_STATS) * len(TEAMS)),
             )
 
 
