@@ -582,6 +582,9 @@ def train_model(
                         f"New best model saved with validation loss: {best_metric:.4f}"
                     )
 
+                # save with timestamp anyways
+                save_model(model)
+
             log_validation_metrics(val_metrics, config)
 
         epoch_end_time = time.time()
