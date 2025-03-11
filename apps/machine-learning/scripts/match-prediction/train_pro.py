@@ -7,8 +7,9 @@ import wandb
 import pickle
 import pandas as pd
 import numpy as np
-import time
 import json
+import ast
+import time
 from pathlib import Path
 from typing import Optional, Dict, Any, List, Tuple
 from torch.utils.data import DataLoader, Dataset
@@ -29,9 +30,7 @@ from utils.match_prediction.train import (
     get_optimizer_grouped_parameters,
     set_random_seeds,
     get_num_champions,
-    collate_fn,
 )
-from utils.match_prediction.task_definitions import TASKS, TaskType
 from utils.match_prediction.column_definitions import (
     CATEGORICAL_COLUMNS,
     NUMERICAL_COLUMNS,
@@ -40,10 +39,10 @@ from utils.match_prediction.column_definitions import (
 
 
 class FineTuningConfig:
-    """Standalone configuration class for fine-tuning"""
+    """Configuration class for fine-tuning"""
 
     def __init__(self):
-        # Default fine-tuning hyperparameters
+        # Fine-tuning hyperparameters - edit these directly instead of using command line flags
         self.num_epochs = 20
         self.learning_rate = 1e-5
         self.weight_decay = 0.01
@@ -54,6 +53,8 @@ class FineTuningConfig:
         self.embed_dim = 128
         self.max_grad_norm = 1.0
         self.log_wandb = True
+        self.log_batch_interval = 5  # How often to log batch progress
+        self.save_checkpoints = True
 
     def __str__(self):
         return "\n".join(f"{key}: {value}" for key, value in vars(self).items())
@@ -75,22 +76,9 @@ class ProMatchDataset(Dataset):
         val_split: float = 0.2,
         seed: int = 42,
     ):
-        """
-        Initialize the pro match dataset
-
-        Args:
-            pro_games_df: DataFrame with professional game data
-            unknown_champion_id: ID for unknown champions
-            label_encoders: Dictionary of encoders for categorical features
-            numerical_stats: Dictionary with means and stds for numerical features
-            train_or_test: Either "train" or "test"
-            val_split: Fraction of data to use for validation
-            seed: Random seed for reproducibility
-        """
         self.unknown_champion_id = unknown_champion_id
         self.label_encoders = label_encoders
         self.numerical_stats = numerical_stats
-        self.train_or_test = train_or_test
 
         # Split data into train/test
         np.random.seed(seed)
@@ -132,7 +120,6 @@ class ProMatchDataset(Dataset):
         except Exception as e:
             print(f"ERROR processing champion IDs for row {idx}: {e}")
             print(f"Row data: {row}")
-            # Re-raise the exception to properly handle the error
             raise
 
         # Process numerical features
@@ -186,8 +173,6 @@ class ProMatchDataset(Dataset):
                     if champ_ids.startswith("[") and champ_ids.endswith("]"):
                         try:
                             # Try using ast.literal_eval which is safer than eval
-                            import ast
-
                             return ast.literal_eval(champ_ids)
                         except:
                             pass
@@ -225,40 +210,149 @@ class ProMatchDataset(Dataset):
         raise ValueError(f"Could not extract champion IDs from row: {row}")
 
 
-def fine_tune_model(
-    pretrained_model_path: str,
-    pro_games_df: pd.DataFrame,
-    config: FineTuningConfig,
-    output_model_path: str,
-    run_name: Optional[str] = None,
-):
+def filter_pro_games(pro_games_df, patch_mapping):
     """
-    Fine-tune a pre-trained model on professional game data
+    Filter professional games for compatibility with model training data
 
     Args:
-        pretrained_model_path: Path to the pre-trained model
-        pro_games_df: DataFrame containing professional game data
-        config: Fine-tuning configuration
-        output_model_path: Path to save the fine-tuned model
-        run_name: Name for the wandb run
+        pro_games_df: DataFrame with professional games
+        patch_mapping: Patch mapping dictionary from the original model
+
+    Returns:
+        Filtered DataFrame, a list of patches, and counts of filtered games
     """
-    device = get_best_device()
-    print(f"Using device: {device}")
+    original_count = len(pro_games_df)
 
-    # Load resources
-    with open(ENCODERS_PATH, "rb") as f:
-        label_encoders = pickle.load(f)
+    # Convert patch mapping keys to version strings for better readability
+    patches = sorted(
+        f"{int(float(patch)) // 50}.{int(float(patch)) % 50:02d}"
+        for patch in patch_mapping.keys()
+    )
 
-    with open(MODEL_CONFIG_PATH, "rb") as f:
-        model_config = pickle.load(f)
+    # Filter out games with no/invalid champion IDs
+    valid_champs_mask = pro_games_df.apply(has_valid_champion_ids, axis=1)
+    missing_champs_count = (~valid_champs_mask).sum()
 
-    # Load numerical stats for normalization
-    with open(NUMERICAL_STATS_PATH, "rb") as f:
-        numerical_stats = pickle.load(f)
+    if missing_champs_count > 0:
+        print(
+            f"Filtering out {missing_champs_count} games with missing or invalid champion IDs"
+        )
+        pro_games_df = pro_games_df[valid_champs_mask].reset_index(drop=True)
 
-    # Get number of champions
-    num_champions, unknown_champion_id = get_num_champions()
+    # Filter pro games to include only compatible patches
+    patch_filtered_count = 0
+    compatible_games = []
 
+    for _, row in pro_games_df.iterrows():
+        patch_str = f"{int(row['gameVersionMajorPatch'])}.{int(row['gameVersionMinorPatch']):02d}"
+        if patch_str in patches:
+            compatible_games.append(True)
+        else:
+            compatible_games.append(False)
+            patch_filtered_count += 1
+
+    pro_games_df = pro_games_df[compatible_games].reset_index(drop=True)
+
+    return (
+        pro_games_df,
+        patches,
+        {
+            "original_count": original_count,
+            "missing_champion_ids": missing_champs_count,
+            "incompatible_patches": patch_filtered_count,
+            "remaining_count": len(pro_games_df),
+        },
+    )
+
+
+def has_valid_champion_ids(row):
+    """Check if valid champion IDs can be extracted from a row"""
+    try:
+        # First check if champion_ids exists and has data
+        if "champion_ids" in row:
+            champ_ids = row["champion_ids"]
+
+            # If already a list, check if it has 10 elements
+            if isinstance(champ_ids, list):
+                return len(champ_ids) == 10
+
+            # If it's a string, try parsing it
+            elif isinstance(champ_ids, str):
+                try:
+                    # Try to parse JSON
+                    parsed = json.loads(champ_ids.replace("'", '"'))
+                    return isinstance(parsed, list) and len(parsed) == 10
+                except:
+                    # If it looks like a list in string form but isn't valid JSON
+                    if champ_ids.startswith("[") and champ_ids.endswith("]"):
+                        try:
+                            # Try using ast.literal_eval which is safer than eval
+                            parsed = ast.literal_eval(champ_ids)
+                            return isinstance(parsed, list) and len(parsed) == 10
+                        except:
+                            pass
+
+            # Additional handling for pandas Series or other types
+            else:
+                try:
+                    # Try converting to a Python list
+                    parsed = list(champ_ids)
+                    return len(parsed) == 10
+                except:
+                    pass
+
+        # Try individual columns as fallback
+        champion_ids = []
+        for team in [100, 200]:
+            for position in POSITIONS:
+                col_name = f"team_{team}_{position}_championId"
+                if col_name in row:
+                    champion_ids.append(row[col_name])
+
+        return len(champion_ids) == 10
+
+    except:
+        return False
+
+
+def pro_collate_fn(batch):
+    """
+    Custom collate function for the ProMatchDataset
+    """
+    features_batch = {}
+    labels_batch = {}
+
+    # Process each item in the batch
+    for features, labels in batch:
+        # Collect features
+        for k, v in features.items():
+            if k not in features_batch:
+                features_batch[k] = []
+            features_batch[k].append(v)
+
+        # Collect labels
+        for k, v in labels.items():
+            if k not in labels_batch:
+                labels_batch[k] = []
+            labels_batch[k].append(v)
+
+    # Convert lists to tensors
+    features_batch = {
+        k: torch.stack(v) if v[0].dim() > 0 else torch.tensor(v)
+        for k, v in features_batch.items()
+    }
+    labels_batch = {
+        k: torch.stack(v) if v[0].dim() > 0 else torch.tensor(v)
+        for k, v in labels_batch.items()
+    }
+
+    return features_batch, labels_batch
+
+
+def create_dataloaders(
+    pro_games_df, unknown_champion_id, label_encoders, numerical_stats, config
+):
+    """Create train and validation dataloaders for fine-tuning"""
     # Create datasets
     train_dataset = ProMatchDataset(
         pro_games_df=pro_games_df,
@@ -278,42 +372,7 @@ def fine_tune_model(
         val_split=config.val_split,
     )
 
-    # Define a custom collate function that works with our dataset's output format
-    def pro_collate_fn(batch):
-        """
-        Custom collate function that handles (features, labels) tuples
-        returned by the ProMatchDataset
-        """
-        features_batch = {}
-        labels_batch = {}
-
-        # Process each item in the batch
-        for features, labels in batch:
-            # Collect features
-            for k, v in features.items():
-                if k not in features_batch:
-                    features_batch[k] = []
-                features_batch[k].append(v)
-
-            # Collect labels
-            for k, v in labels.items():
-                if k not in labels_batch:
-                    labels_batch[k] = []
-                labels_batch[k].append(v)
-
-        # Convert lists to tensors
-        features_batch = {
-            k: torch.stack(v) if v[0].dim() > 0 else torch.tensor(v)
-            for k, v in features_batch.items()
-        }
-        labels_batch = {
-            k: torch.stack(v) if v[0].dim() > 0 else torch.tensor(v)
-            for k, v in labels_batch.items()
-        }
-
-        return features_batch, labels_batch
-
-    # Create data loaders
+    # Create dataloaders
     train_loader = DataLoader(
         train_dataset,
         batch_size=config.batch_size,
@@ -326,6 +385,39 @@ def fine_tune_model(
         batch_size=config.batch_size,
         shuffle=False,
         collate_fn=pro_collate_fn,
+    )
+
+    return train_loader, val_loader
+
+
+def fine_tune_model(
+    pretrained_model_path: str,
+    pro_games_df: pd.DataFrame,
+    config: FineTuningConfig,
+    output_model_path: str,
+    run_name: Optional[str] = None,
+):
+    """Fine-tune a pre-trained model on professional game data"""
+    device = get_best_device()
+    print(f"Using device: {device}")
+
+    # Load resources
+    with open(ENCODERS_PATH, "rb") as f:
+        label_encoders = pickle.load(f)
+
+    with open(MODEL_CONFIG_PATH, "rb") as f:
+        model_config = pickle.load(f)
+
+    # Load numerical stats for normalization
+    with open(NUMERICAL_STATS_PATH, "rb") as f:
+        numerical_stats = pickle.load(f)
+
+    # Get number of champions
+    num_champions, unknown_champion_id = get_num_champions()
+
+    # Create data loaders
+    train_loader, val_loader = create_dataloaders(
+        pro_games_df, unknown_champion_id, label_encoders, numerical_stats, config
     )
 
     # Initialize the model
@@ -358,14 +450,14 @@ def fine_tune_model(
     # Define loss function for win prediction only
     criterion = {"win_prediction": nn.BCEWithLogitsLoss()}
 
-    # Configure optimizer with lower learning rate for fine-tuning
+    # Configure optimizer
     optimizer = optim.AdamW(
         get_optimizer_grouped_parameters(model, config.weight_decay),
         lr=config.learning_rate,
     )
 
     # Fine-tune the model
-    best_val_metric = 0.0  # Track best accuracy for pro games
+    best_val_metric = 0.0  # Track best accuracy
     best_model_state = None
 
     for epoch in range(config.num_epochs):
@@ -401,8 +493,8 @@ def fine_tune_model(
             train_correct += (preds == labels["win_prediction"]).sum().item()
             train_total += labels["win_prediction"].size(0)
 
-            # Log batch progress
-            if batch_idx % 5 == 0:
+            # Log batch progress - minimal console output
+            if batch_idx % config.log_batch_interval == 0:
                 print(
                     f"Epoch {epoch+1}/{config.num_epochs} | Batch {batch_idx}/{len(train_loader)} | Loss: {loss.item():.4f}"
                 )
@@ -441,11 +533,10 @@ def fine_tune_model(
 
         epoch_time = time.time() - epoch_start
 
-        # Log metrics
+        # Minimal console output - let wandb handle the metrics
         print(f"Epoch {epoch+1}/{config.num_epochs} completed in {epoch_time:.2f}s")
-        print(f"Train Loss: {avg_train_loss:.4f}, Train Accuracy: {train_accuracy:.4f}")
-        print(f"Val Loss: {avg_val_loss:.4f}, Val Accuracy: {val_accuracy:.4f}")
 
+        # Log metrics to wandb
         if config.log_wandb:
             wandb.log(
                 {
@@ -464,12 +555,12 @@ def fine_tune_model(
             best_model_state = model.state_dict().copy()
 
             # Save intermediate best model
-            intermediate_path = (
-                f"{output_model_path.rsplit('.', 1)[0]}_epoch{epoch+1}.pth"
-            )
-            torch.save(best_model_state, intermediate_path)
-            print(f"New best model with validation accuracy: {best_val_metric:.4f}")
-            print(f"Saved intermediate best model to {intermediate_path}")
+            if config.save_checkpoints:
+                intermediate_path = (
+                    f"{output_model_path.rsplit('.', 1)[0]}_epoch{epoch+1}.pth"
+                )
+                torch.save(best_model_state, intermediate_path)
+                print(f"New best model with validation accuracy: {best_val_metric:.4f}")
 
     # Save the final best model
     if best_model_state is not None:
@@ -494,6 +585,7 @@ def main():
         description="Fine-tune model on professional game data"
     )
 
+    # Keep only essential path-related arguments
     parser.add_argument(
         "--model-path",
         type=str,
@@ -522,47 +614,6 @@ def main():
         help="Name for the wandb run",
     )
 
-    parser.add_argument(
-        "--val-split",
-        type=float,
-        default=0.2,
-        help="Percentage of data to use for validation",
-    )
-
-    parser.add_argument(
-        "--learning-rate",
-        type=float,
-        default=1e-5,
-        help="Learning rate for fine-tuning",
-    )
-
-    parser.add_argument(
-        "--epochs",
-        type=int,
-        default=20,
-        help="Number of epochs for fine-tuning",
-    )
-
-    parser.add_argument(
-        "--batch-size",
-        type=int,
-        default=16,
-        help="Batch size for fine-tuning",
-    )
-
-    parser.add_argument(
-        "--weight-decay",
-        type=float,
-        default=0.01,
-        help="Weight decay for fine-tuning",
-    )
-
-    parser.add_argument(
-        "--no-wandb",
-        action="store_true",
-        help="Disable wandb logging",
-    )
-
     args = parser.parse_args()
 
     # Set up output path if not specified
@@ -575,113 +626,33 @@ def main():
             f"{name_parts[0]}_pro_finetuned.{name_parts[1] if len(name_parts) > 1 else 'pth'}",
         )
 
-    # Define a function to check if champion IDs can be extracted
-    def has_valid_champion_ids(row):
-        """Check if valid champion IDs can be extracted from a row"""
-        try:
-            # First check if champion_ids exists and has data
-            if "champion_ids" in row:
-                champ_ids = row["champion_ids"]
-
-                # If already a list, check if it has 10 elements
-                if isinstance(champ_ids, list):
-                    return len(champ_ids) == 10
-
-                # If it's a string, try parsing it
-                elif isinstance(champ_ids, str):
-                    try:
-                        # Try to parse JSON
-                        parsed = json.loads(champ_ids.replace("'", '"'))
-                        return isinstance(parsed, list) and len(parsed) == 10
-                    except:
-                        # If it looks like a list in string form but isn't valid JSON
-                        if champ_ids.startswith("[") and champ_ids.endswith("]"):
-                            try:
-                                # Try using ast.literal_eval which is safer than eval
-                                import ast
-
-                                parsed = ast.literal_eval(champ_ids)
-                                return isinstance(parsed, list) and len(parsed) == 10
-                            except:
-                                pass
-
-                # Additional handling for pandas Series or other types
-                else:
-                    try:
-                        # Try converting to a Python list
-                        parsed = list(champ_ids)
-                        return len(parsed) == 10
-                    except:
-                        pass
-
-            # Try individual columns as fallback
-            champion_ids = []
-            for team in [100, 200]:
-                for position in POSITIONS:
-                    col_name = f"team_{team}_{position}_championId"
-                    if col_name in row:
-                        champion_ids.append(row[col_name])
-
-            return len(champion_ids) == 10
-
-        except:
-            return False
-
     # Load pro game data
     pro_games_df = pd.read_parquet(args.pro_data_path)
-    original_count = len(pro_games_df)
-    print(f"Loaded {original_count} professional games from {args.pro_data_path}")
+    print(f"Loaded {len(pro_games_df)} professional games from {args.pro_data_path}")
 
     # Load patch mapping to filter for compatible patches
     patch_mapping_path = Path(PREPARED_DATA_DIR) / "patch_mapping.pkl"
     with open(patch_mapping_path, "rb") as f:
         patch_mapping = pickle.load(f)["mapping"]
 
-    # Convert patch mapping keys to version strings for better readability
-    patches = sorted(
-        f"{int(float(patch)) // 50}.{int(float(patch)) % 50:02d}"
-        for patch in patch_mapping.keys()
-    )
+    # Filter games
+    pro_games_df, patches, filter_stats = filter_pro_games(pro_games_df, patch_mapping)
+
     print(f"Original model was trained on {len(patches)} patches: {', '.join(patches)}")
-
-    # Filter out games with no/invalid champion IDs
-    valid_champs_mask = pro_games_df.apply(has_valid_champion_ids, axis=1)
-    missing_champs_count = (~valid_champs_mask).sum()
-
-    if missing_champs_count > 0:
-        print(
-            f"Filtering out {missing_champs_count} games with missing or invalid champion IDs"
-        )
-        pro_games_df = pro_games_df[valid_champs_mask].reset_index(drop=True)
-
-    # Filter pro games to include only compatible patches
-    patch_filtered_count = 0
-    compatible_games = []
-
-    for _, row in pro_games_df.iterrows():
-        patch_str = f"{int(row['gameVersionMajorPatch'])}.{int(row['gameVersionMinorPatch']):02d}"
-        if patch_str in patches:
-            compatible_games.append(True)
-        else:
-            compatible_games.append(False)
-            patch_filtered_count += 1
-
-    pro_games_df = pro_games_df[compatible_games].reset_index(drop=True)
-    print(f"Filtered out {patch_filtered_count} games with incompatible patches")
-    print(f"Remaining pro games for fine-tuning: {len(pro_games_df)}")
+    print(
+        f"Filtered out {filter_stats['missing_champion_ids']} games with missing or invalid champion IDs"
+    )
+    print(
+        f"Filtered out {filter_stats['incompatible_patches']} games with incompatible patches"
+    )
+    print(f"Remaining pro games for fine-tuning: {filter_stats['remaining_count']}")
 
     if len(pro_games_df) == 0:
         print("Error: No compatible pro games found. Cannot proceed with fine-tuning.")
         return
 
-    # Create configuration for fine-tuning
+    # Create configuration for fine-tuning - edit this object directly in the code
     config = FineTuningConfig()
-    config.num_epochs = args.epochs
-    config.learning_rate = args.learning_rate
-    config.weight_decay = args.weight_decay
-    config.batch_size = args.batch_size
-    config.val_split = args.val_split
-    config.log_wandb = not args.no_wandb
 
     print(f"Fine-tuning configuration:")
     print(config)
