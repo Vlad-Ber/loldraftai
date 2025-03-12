@@ -44,10 +44,10 @@ class FineTuningConfig:
     def __init__(self):
         # Fine-tuning hyperparameters - edit these directly instead of using command line flags
         self.num_epochs = 20
-        self.learning_rate = 1e-5
-        self.weight_decay = 0.01
-        self.dropout = 0.1
-        self.batch_size = 16
+        self.learning_rate = 5e-6  # Lower learning rate for fine-tuning
+        self.weight_decay = 0.05  # Much stronger regularization
+        self.dropout = 0.3  # Higher dropout to prevent overfitting
+        self.batch_size = 32
         self.val_split = 0.2
         self.hidden_dims = [768, 384, 192, 96]
         self.embed_dim = 128
@@ -434,6 +434,24 @@ def fine_tune_model(
     model.load_state_dict(torch.load(pretrained_model_path, map_location=device))
     model.to(device)
 
+    # Freeze embeddings - they contain semantic information that's already well-learned
+    print("Freezing embedding layers to prevent overfitting...")
+    model.champion_embedding.requires_grad_(False)
+    for embedding in model.embeddings.values():
+        embedding.requires_grad_(False)
+
+    # Freeze early MLP layers
+    mlp_layers = list(model.mlp)
+    for layer in mlp_layers[:4]:  # First two linear + batchnorm layers
+        layer.requires_grad_(False)
+
+    # Count trainable parameters
+    trainable_params = sum(p.numel() for p in model.parameters() if p.requires_grad)
+    total_params = sum(p.numel() for p in model.parameters())
+    print(
+        f"Trainable parameters: {trainable_params:,} / {total_params:,} ({trainable_params/total_params:.2%})"
+    )
+
     # Initialize wandb
     if config.log_wandb:
         wandb.init(
@@ -443,6 +461,8 @@ def fine_tune_model(
                 **config.to_dict(),
                 "pretrained_model": pretrained_model_path,
                 "pro_games_count": len(pro_games_df),
+                "trainable_params": trainable_params,
+                "total_params": total_params,
             },
         )
         wandb.watch(model, log_freq=100)
@@ -450,10 +470,11 @@ def fine_tune_model(
     # Define loss function for win prediction only
     criterion = {"win_prediction": nn.BCEWithLogitsLoss()}
 
-    # Configure optimizer
+    # Configure optimizer - only use trainable parameters
     optimizer = optim.AdamW(
-        get_optimizer_grouped_parameters(model, config.weight_decay),
+        [p for p in model.parameters() if p.requires_grad],
         lr=config.learning_rate,
+        weight_decay=config.weight_decay,
     )
 
     # Fine-tune the model
