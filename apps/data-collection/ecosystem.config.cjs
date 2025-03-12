@@ -26,6 +26,15 @@ module.exports = {
           autorestart: true,
           max_restarts: 10,
           restart_delay: 4000,
+          // Add these settings for processMatches scripts
+          ...(script === "processMatches"
+            ? {
+                // Increase kill timeout to allow for longer sleep periods
+                kill_timeout: 120000,
+                // Add a watch option to prevent considering the process dead during sleep
+                watch: false,
+              }
+            : {}),
           log_date_format: "YYYY-MM-DD HH:mm:ss",
           error_file: `./logs/${script}_${region}_error.log`,
           out_file: `./logs/${script}_${region}_out.log`,
