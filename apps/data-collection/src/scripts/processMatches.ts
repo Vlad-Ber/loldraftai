@@ -105,10 +105,13 @@ async function processMatches() {
               }`
             );
 
-            // Skip non-ranked solo queue games
+            // Skip non-ranked solo queue, or summoner's rift clash games
             // This shouldn't happen because we filter for ranked solo queue games in collectMatchIds.ts
             // but there was a 2 week period where the filter was not working, and so there are some non-ranked solo queue games in the db
-            if (processedData.queueId !== 420) {
+            if (
+              processedData.queueId !== 420 &&
+              processedData.queueId !== 700
+            ) {
               log(
                 `Match ${match.matchId} is not a ranked solo queue game (queueId: ${processedData.queueId}), marking as processed`
               );
