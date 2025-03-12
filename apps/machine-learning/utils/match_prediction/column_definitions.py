@@ -61,6 +61,20 @@ def get_champion_ids(df: pd.DataFrame) -> pd.Series:
     return pd.concat(champion_ids, axis=1).apply(lambda x: x.tolist(), axis=1)
 
 
+def get_queue_type(df: pd.DataFrame) -> pd.Series:
+    """Convert queueId to categorical value.
+    420: Ranked Solo/Duo
+    700: Clash
+    """
+    # Verify the queueId is one of the expected values
+    valid_queues = {420, 700}
+    invalid_queues = set(df["queueId"].unique()) - valid_queues
+    if invalid_queues:
+        raise ValueError(f"Unexpected queueId values found: {invalid_queues}")
+
+    return df["queueId"]
+
+
 # Define all columns
 COLUMNS: Dict[str, ColumnDefinition] = {
     # Computed columns
@@ -76,6 +90,10 @@ COLUMNS: Dict[str, ColumnDefinition] = {
     # TODO: Could change to categorical for simplification
     "champion_ids": ColumnDefinition(
         name="champion_ids", column_type=ColumnType.LIST, getter=get_champion_ids
+    ),
+    # Add the new queueId column with its getter
+    "queueId": ColumnDefinition(
+        name="queueId", column_type=ColumnType.CATEGORICAL, getter=get_queue_type
     ),
 }
 

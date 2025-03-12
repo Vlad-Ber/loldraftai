@@ -380,9 +380,19 @@ def validate(
         patch_mean = None
         patch_std = None
 
+    # Load encoders for metric names
+    try:
+        with open(ENCODERS_PATH, "rb") as f:
+            encoders = pickle.load(f)
+            queue_inverse_transform = encoders["queueId"].inverse_transform
+    except (FileNotFoundError, KeyError) as e:
+        print(f"Warning: Could not load queue encoders: {e}")
+        queue_inverse_transform = lambda x: x  # fallback to original encoded values
+
     # New: Add subset accumulators for win prediction
     patch_metrics = {}  # {patch_val: [loss_sum, count]}
     elo_metrics = {}  # {elo_val: [loss_sum, count]}
+    queue_metrics = {}  # {queue_id: [loss_sum, count]}
 
     # Create a separate criterion for per-sample losses
     per_sample_criterion = nn.BCEWithLogitsLoss(reduction="none")
@@ -444,6 +454,18 @@ def validate(
                             )
                             elo_metrics[elo_val.item()][1] += mask.sum().item()
 
+                        # New: Track by queue type
+                        queue_values = features["queueId"].cpu()
+                        unique_queues = torch.unique(queue_values)
+                        for queue_val in unique_queues:
+                            mask = queue_values == queue_val
+                            if queue_val.item() not in queue_metrics:
+                                queue_metrics[queue_val.item()] = [0.0, 0]
+                            queue_metrics[queue_val.item()][0] += (
+                                sample_losses[mask].sum().item()
+                            )
+                            queue_metrics[queue_val.item()][1] += mask.sum().item()
+
             batch_size = next(iter(labels.values())).size(0)
             num_samples += batch_size
             total_steps += 1
@@ -479,6 +501,11 @@ def validate(
 
         for elo_val, (loss_sum, count) in elo_metrics.items():
             metrics[f"win_prediction_elo_{elo_val}"] = loss_sum / count
+
+        # Add queue metrics using original queueId values
+        for queue_val, (loss_sum, count) in queue_metrics.items():
+            original_queue_id = queue_inverse_transform([queue_val])[0]
+            metrics[f"win_prediction_queue_{original_queue_id}"] = loss_sum / count
 
     return avg_loss, metrics
 
