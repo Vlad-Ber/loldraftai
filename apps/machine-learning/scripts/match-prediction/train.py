@@ -274,7 +274,6 @@ def train_epoch(
     epoch_loss = 0.0
     epoch_steps = 0
     enabled_tasks = get_enabled_tasks(config, epoch)
-    print(f"Enabled tasks length for epoch {epoch}: {len(enabled_tasks)}")
     task_names = list(enabled_tasks.keys())
     task_weights = torch.tensor(
         [task_def.weight for task_def in enabled_tasks.values()], device=device
@@ -298,14 +297,28 @@ def train_epoch(
                     for task_name in task_names
                 ]
             )
-            total_loss = (losses * task_weights).sum() / config.accumulation_steps
+            task_loss = (losses * task_weights).sum()
+
+            # Add patch regularization
+            patch_reg_loss = 0.0
+            for i in range(model.num_patches - 1):
+                diff = (
+                    model.patch_embedding.weight[i]
+                    - model.patch_embedding.weight[i + 1]
+                )
+                patch_reg_loss += torch.norm(diff, p=2)
+            patch_reg_loss = patch_reg_loss / (model.num_patches - 1)  # Normalize
+
+            # Combine losses with regularization weight
+            total_loss = (
+                task_loss + config.patch_reg_lambda * patch_reg_loss
+            ) / config.accumulation_steps
 
         total_loss.backward()
 
         if (batch_idx + 1) % config.accumulation_steps == 0:
             grad_norm = clip_grad_norm_(model.parameters(), config.max_grad_norm)
             optimizer.step()
-            # TODO: not sure why but had an error on remote machine where it tried to do an extra step.
             if scheduler is not None and batch_idx < len(train_loader) - 1:
                 scheduler.step()
             optimizer.zero_grad()
@@ -318,8 +331,16 @@ def train_epoch(
                     if scheduler
                     else optimizer.param_groups[0]["lr"]
                 )
+                # Add patch regularization loss to logging
                 log_training_step(
-                    epoch, batch_idx, grad_norm, losses, task_names, config, current_lr
+                    epoch,
+                    batch_idx,
+                    grad_norm,
+                    losses,
+                    task_names,
+                    config,
+                    current_lr,
+                    patch_reg_loss.item(),  # Add patch regularization loss
                 )
 
         epoch_loss += total_loss.item()
@@ -336,6 +357,7 @@ def log_training_step(
     task_names: List[str],
     config: TrainingConfig,
     current_lr: float,
+    patch_reg_loss: float,
 ) -> None:
     if config.log_wandb:
         log_data = {
@@ -343,6 +365,7 @@ def log_training_step(
             "batch": (batch_idx + 1) // config.accumulation_steps,
             "grad_norm": grad_norm,
             "learning_rate": current_lr,
+            "patch_reg_loss": patch_reg_loss,
         }
         log_data.update(
             {f"train_loss_{k}": v.item() for k, v in zip(task_names, losses)}

@@ -20,6 +20,7 @@ class TrainingConfig:
 
         # weight decay didn't change much when training for a short time at 0.001, but for longer trianing runs, 0.01 might be better
         self.weight_decay = 0.001
+        self.patch_reg_lambda = 0.01  # Weight for patch regularization loss
         self.max_grad_norm = 1.0  # because has loss spikes after adding pos embeddings
         self.accumulation_steps = 1
         self.masking_strategy = {
