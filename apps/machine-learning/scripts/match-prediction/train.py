@@ -325,6 +325,28 @@ def train_epoch(
     return epoch_loss, epoch_steps
 
 
+def log_training_step(
+    epoch: int,
+    batch_idx: int,
+    grad_norm: float,
+    losses: torch.Tensor,
+    task_names: List[str],
+    config: TrainingConfig,
+    current_lr: float,
+) -> None:
+    if config.log_wandb:
+        log_data = {
+            "epoch": epoch + 1,
+            "batch": (batch_idx + 1) // config.accumulation_steps,
+            "grad_norm": grad_norm,
+            "learning_rate": current_lr,
+        }
+        log_data.update(
+            {f"train_loss_{k}": v.item() for k, v in zip(task_names, losses)}
+        )
+        wandb.log(log_data)
+
+
 def validate(
     model: Model,
     test_loader: DataLoader,
@@ -374,28 +396,6 @@ def validate(
     avg_loss = total_loss / total_steps if config.calculate_val_loss else None
 
     return avg_loss, metrics
-
-
-def log_training_step(
-    epoch: int,
-    batch_idx: int,
-    grad_norm: float,
-    losses: torch.Tensor,
-    task_names: List[str],
-    config: TrainingConfig,
-    current_lr: float,
-) -> None:
-    if config.log_wandb:
-        log_data = {
-            "epoch": epoch + 1,
-            "batch": (batch_idx + 1) // config.accumulation_steps,
-            "grad_norm": grad_norm,
-            "learning_rate": current_lr,
-        }
-        log_data.update(
-            {f"train_loss_{k}": v.item() for k, v in zip(task_names, losses)}
-        )
-        wandb.log(log_data)
 
 
 def update_metric_accumulators(
