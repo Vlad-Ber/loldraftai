@@ -11,6 +11,7 @@ import pstats
 import io
 from typing import Any, Dict, List, Optional, Tuple
 from pstats import SortKey
+from pathlib import Path
 
 import torch
 import torch.optim as optim
@@ -32,11 +33,11 @@ from utils.match_prediction import (
     MODEL_PATH,
     MODEL_CONFIG_PATH,
     TRAIN_BATCH_SIZE,
+    PREPARED_DATA_DIR,
+    NUMERICAL_STATS_PATH,
 )
 from utils.match_prediction.column_definitions import (
     CATEGORICAL_COLUMNS,
-    NUMERICAL_COLUMNS,
-    POSITIONS,
 )
 from utils.match_prediction.task_definitions import TASKS, TaskType, get_enabled_tasks
 from utils.match_prediction.config import TrainingConfig
@@ -56,6 +57,8 @@ torch.set_float32_matmul_precision("high")
 
 
 device = get_best_device()
+
+TRACK_SUBSET_METRICS = True  # Track validation metrics by patch, ELO, and champion ID
 
 
 def get_dataloader_config():
@@ -356,10 +359,34 @@ def validate(
     epoch: int,
 ) -> Tuple[Optional[float], Dict[str, float]]:
     model.eval()
-    enabled_tasks = get_enabled_tasks(config, epoch)  # Get only enabled tasks
+    enabled_tasks = get_enabled_tasks(config, epoch)
     metric_accumulators = {
         task_name: torch.zeros(2).cpu() for task_name in enabled_tasks.keys()
     }
+
+    # Load both patch mapping and numerical stats for denormalization
+    try:
+        with open(Path(PREPARED_DATA_DIR) / "patch_mapping.pkl", "rb") as f:
+            patch_data = pickle.load(f)
+            reverse_patch_mapping = {v: k for k, v in patch_data["mapping"].items()}
+
+        with open(Path(NUMERICAL_STATS_PATH), "rb") as f:
+            numerical_stats = pickle.load(f)
+            patch_mean = numerical_stats["means"]["numerical_patch"]
+            patch_std = numerical_stats["stds"]["numerical_patch"]
+    except (FileNotFoundError, KeyError) as e:
+        print(f"Warning: Could not load patch mapping or stats: {e}")
+        reverse_patch_mapping = None
+        patch_mean = None
+        patch_std = None
+
+    # New: Add subset accumulators for win prediction
+    patch_metrics = {}  # {patch_val: [loss_sum, count]}
+    elo_metrics = {}  # {elo_val: [loss_sum, count]}
+
+    # Create a separate criterion for per-sample losses
+    per_sample_criterion = nn.BCEWithLogitsLoss(reduction="none")
+
     num_samples = 0
     total_loss = 0.0
     total_steps = 0
@@ -384,6 +411,39 @@ def validate(
                     )
                     total_loss += (losses * task_weights).sum()
 
+                    # New: Track win prediction loss by subsets
+                    if TRACK_SUBSET_METRICS and "win_prediction" in enabled_tasks:
+                        # Calculate all sample losses at once using the per-sample criterion
+                        sample_losses = per_sample_criterion(
+                            outputs["win_prediction"], labels["win_prediction"]
+                        ).cpu()
+
+                        # Get all patch and elo values
+                        patch_values = features["numerical_patch"].cpu()
+                        elo_values = features["numerical_elo"].cpu().int()
+
+                        # Track by patch
+                        unique_patches = torch.unique(patch_values)
+                        for patch_val in unique_patches:
+                            mask = patch_values == patch_val
+                            if patch_val.item() not in patch_metrics:
+                                patch_metrics[patch_val.item()] = [0.0, 0]
+                            patch_metrics[patch_val.item()][0] += (
+                                sample_losses[mask].sum().item()
+                            )
+                            patch_metrics[patch_val.item()][1] += mask.sum().item()
+
+                        # Track by ELO
+                        unique_elos = torch.unique(elo_values)
+                        for elo_val in unique_elos:
+                            mask = elo_values == elo_val
+                            if elo_val.item() not in elo_metrics:
+                                elo_metrics[elo_val.item()] = [0.0, 0]
+                            elo_metrics[elo_val.item()][0] += (
+                                sample_losses[mask].sum().item()
+                            )
+                            elo_metrics[elo_val.item()][1] += mask.sum().item()
+
             batch_size = next(iter(labels.values())).size(0)
             num_samples += batch_size
             total_steps += 1
@@ -394,6 +454,31 @@ def validate(
 
     metrics = calculate_final_metrics(metric_accumulators)
     avg_loss = total_loss / total_steps if config.calculate_val_loss else None
+
+    # New: Add subset metrics to the metrics dictionary
+    if TRACK_SUBSET_METRICS:
+        for patch_val, (loss_sum, count) in patch_metrics.items():
+            if reverse_patch_mapping is not None and patch_mean is not None:
+                # First denormalize the patch value
+                denormalized_patch = (patch_val * patch_std) + patch_mean
+                # Round to nearest integer since patch mapping uses integers
+                denormalized_patch = round(denormalized_patch)
+
+                # Convert to original format (e.g., "13.10")
+                original_patch = reverse_patch_mapping.get(denormalized_patch)
+                if original_patch is not None:
+                    major = int(original_patch) // 50
+                    minor = int(original_patch) % 50
+                    patch_key = f"{major}.{minor:02d}"
+                else:
+                    patch_key = f"unknown_{patch_val:.2f}"
+            else:
+                patch_key = f"{patch_val:.2f}"
+
+            metrics[f"win_prediction_patch_{patch_key}"] = loss_sum / count
+
+        for elo_val, (loss_sum, count) in elo_metrics.items():
+            metrics[f"win_prediction_elo_{elo_val}"] = loss_sum / count
 
     return avg_loss, metrics
 
