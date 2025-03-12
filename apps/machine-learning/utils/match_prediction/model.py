@@ -1,16 +1,14 @@
 import torch
 import torch.nn as nn
 import pickle
-import math
-
-from utils.match_prediction import ENCODERS_PATH
+from pathlib import Path
+from utils.match_prediction import NUMERICAL_STATS_PATH, PREPARED_DATA_DIR
 from utils.match_prediction.column_definitions import (
     NUMERICAL_COLUMNS,
     CATEGORICAL_COLUMNS,
     POSITIONS,
 )
 from utils.match_prediction.task_definitions import TASKS, TaskType
-from utils.match_prediction.config import TrainingConfig
 
 
 class Model(nn.Module):
@@ -23,29 +21,52 @@ class Model(nn.Module):
         dropout=0.2,
     ):
         super(Model, self).__init__()
-
         self.embed_dim = embed_dim
+
+        # Load patch mapping and stats
+        with open(Path(PREPARED_DATA_DIR) / "patch_mapping.pkl", "rb") as f:
+            self.patch_mapping = pickle.load(f)["mapping"]
+        with open(NUMERICAL_STATS_PATH, "rb") as f:
+            numerical_stats = pickle.load(f)
+            self.patch_mean = numerical_stats["means"]["numerical_patch"]
+            self.patch_std = numerical_stats["stds"]["numerical_patch"]
+
+        # Determine number of unique patches
+        self.num_patches = len(self.patch_mapping)
+        self.patch_values = torch.tensor(
+            list(self.patch_mapping.keys()), dtype=torch.float32
+        )  # Raw patch values
 
         # Embeddings for categorical features
         self.embeddings = nn.ModuleDict()
         for col in CATEGORICAL_COLUMNS:
             self.embeddings[col] = nn.Embedding(num_categories[col], embed_dim)
 
+        # Patch embedding (categorical)
+        self.patch_embedding = nn.Embedding(self.num_patches, embed_dim)
+
         # Champion embeddings
         self.champion_embedding = nn.Embedding(num_champions, embed_dim)
 
-        # Project numerical features
-        self.numerical_projection = (
-            nn.Linear(len(NUMERICAL_COLUMNS), embed_dim) if NUMERICAL_COLUMNS else None
+        # Adjustment MLP for champion embeddings
+        self.adjustment_mlp = nn.Sequential(
+            nn.Linear(2 * embed_dim, embed_dim),
+            nn.GELU(),
+            nn.Linear(embed_dim, embed_dim),
         )
 
-        # Calculate total input dimension
-        num_categorical = len(CATEGORICAL_COLUMNS)
-        num_champions = len(POSITIONS) * 2
-        num_numerical_projections = 1 if NUMERICAL_COLUMNS else 0
-        total_embed_features = (
-            num_categorical + num_champions + num_numerical_projections
+        # Project numerical features (only elo now)
+        self.numerical_projection = (
+            nn.Linear(1, embed_dim) if "numerical_elo" in NUMERICAL_COLUMNS else None
         )
+
+        # Update total input dimension
+        num_categorical = len(CATEGORICAL_COLUMNS)
+        num_champions = len(POSITIONS) * 2  # 10 champions
+        num_numerical_projections = 1 if "numerical_elo" in NUMERICAL_COLUMNS else 0
+        total_embed_features = (
+            num_categorical + num_champions + num_numerical_projections + 1
+        )  # +1 for patch
         mlp_input_dim = total_embed_features * embed_dim
 
         print(f"Model dimensions:")
@@ -56,29 +77,19 @@ class Model(nn.Module):
         print(f"- Embedding dimension: {embed_dim}")
         print(f"- MLP input dimension: {mlp_input_dim}")
 
-        # Simple but effective MLP with modern components
+        # MLP
         layers = []
         prev_dim = mlp_input_dim
-
         for i, hidden_dim in enumerate(hidden_dims):
-            # Linear layer (no bias when followed by BatchNorm)
             layers.append(nn.Linear(prev_dim, hidden_dim, bias=False))
-
-            # BatchNorm - more stable than LayerNorm for this architecture
             layers.append(nn.BatchNorm1d(hidden_dim))
-
-            # GELU activation - smoother than ReLU but still stable
             layers.append(nn.GELU())
-
-            # Dropout - reduced for later layers
             dropout_rate = dropout if i < len(hidden_dims) - 1 else dropout * 0.5
             layers.append(nn.Dropout(dropout_rate))
-
             prev_dim = hidden_dim
-
         self.mlp = nn.Sequential(*layers)
 
-        # Output layers for each task
+        # Output layers
         self.output_layers = nn.ModuleDict()
         for task_name, task_def in TASKS.items():
             if task_def.task_type in [
@@ -86,6 +97,23 @@ class Model(nn.Module):
                 TaskType.REGRESSION,
             ]:
                 self.output_layers[task_name] = nn.Linear(hidden_dims[-1], 1)
+
+    def map_numerical_to_patch_id(self, numerical_patch):
+        """
+        Convert normalized numerical_patch back to a patch index.
+        """
+        # Denormalize
+        raw_patch = numerical_patch * self.patch_std + self.patch_mean  # (batch_size,)
+
+        # Find nearest patch value
+        distances = torch.abs(
+            self.patch_values.to(raw_patch.device) - raw_patch.unsqueeze(-1)
+        )
+        patch_indices = torch.argmin(distances, dim=-1)  # (batch_size,)
+
+        # Clip to valid range
+        patch_indices = torch.clamp(patch_indices, 0, self.num_patches - 1)
+        return patch_indices
 
     def forward(self, features):
         batch_size = features["champion_ids"].size(0)
@@ -96,21 +124,47 @@ class Model(nn.Module):
             embed = self.embeddings[col](features[col])
             embeddings_list.append(embed)
 
+        # Process patch (convert numerical to categorical)
+        numerical_patch = features["numerical_patch"]  # Already normalized
+        patch_indices = self.map_numerical_to_patch_id(numerical_patch)  # (batch_size,)
+        patch_embed = self.patch_embedding(patch_indices)  # (batch_size, embed_dim)
+
         # Process champion features
-        champion_ids = features["champion_ids"]
-        champion_embeds = self.champion_embedding(champion_ids)
+        champion_ids = features["champion_ids"]  # (batch_size, 10)
+        base_champ_embeds = self.champion_embedding(
+            champion_ids
+        )  # (batch_size, 10, embed_dim)
+
+        # Expand patch_embed for champion adjustment
+        patch_embed_expanded = patch_embed.unsqueeze(1).expand(
+            -1, 10, -1
+        )  # (batch_size, 10, embed_dim)
+
+        # Adjust champion embeddings
+        champ_patch_concat = torch.cat(
+            [base_champ_embeds, patch_embed_expanded], dim=2
+        )  # (batch_size, 10, 2*embed_dim)
+        adjusted_champ_embeds = self.adjustment_mlp(
+            champ_patch_concat
+        )  # (batch_size, 10, embed_dim)
 
         # Flatten champion embeddings
-        champion_features = champion_embeds.view(batch_size, -1)
+        champion_features = adjusted_champ_embeds.view(
+            batch_size, -1
+        )  # (batch_size, 10*embed_dim)
         embeddings_list.append(champion_features)
 
-        # Process numerical features
-        if self.numerical_projection is not None and NUMERICAL_COLUMNS:
-            numerical_features = torch.stack(
-                [features[col] for col in NUMERICAL_COLUMNS], dim=1
-            )
-            numerical_embed = self.numerical_projection(numerical_features)
+        # Process numerical features (elo only)
+        if (
+            self.numerical_projection is not None
+            and "numerical_elo" in NUMERICAL_COLUMNS
+        ):
+            numerical_elo = features["numerical_elo"].unsqueeze(-1)  # (batch_size, 1)
+            numerical_embed = self.numerical_projection(numerical_elo)
             embeddings_list.append(numerical_embed)
+
+        # Add patch embedding for game dynamics
+        embeddings_list.append(patch_embed)
 
         # Concatenate all features
         combined_features = torch.cat(embeddings_list, dim=1)
