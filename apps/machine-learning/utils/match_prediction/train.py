@@ -120,36 +120,3 @@ def collate_fn(
         )
 
     return collated, collated_labels
-
-
-def collate_fn(
-    batch: List[Dict[str, Any]]
-) -> Tuple[Dict[str, torch.Tensor], Dict[str, torch.Tensor]]:
-    collated = {col: [] for col in COLUMNS}
-    collated_labels = {task: [] for task in TASKS}
-
-    for item in batch:
-        for col, col_def in COLUMNS.items():
-            collated[col].append(item[col])
-        for task in TASKS:
-            collated_labels[task].append(item[task])
-
-    for col, col_def in COLUMNS.items():
-        if col_def.column_type == ColumnType.LIST:
-            collated[col] = torch.stack(collated[col])
-        elif col_def.column_type == ColumnType.CATEGORICAL:
-            collated[col] = torch.tensor(collated[col], dtype=torch.long)
-        elif col_def.column_type == ColumnType.NUMERICAL:
-            collated[col] = torch.tensor(collated[col], dtype=torch.float)
-
-    for task_name, task_def in TASKS.items():
-        dtype = (
-            torch.float
-            if task_def.task_type != TaskType.MULTICLASS_CLASSIFICATION
-            else torch.long
-        )
-        collated_labels[task_name] = torch.tensor(
-            collated_labels[task_name], dtype=dtype
-        )
-
-    return collated, collated_labels
