@@ -221,8 +221,35 @@ def init_model(
         dropout=config.dropout,
     )
 
+    # Initialize patch embeddings with similar values
+    # Generate a base vector for patches
+    base_patch_vector = torch.randn(config.embed_dim) * 0.1  # Small random base vector
+    num_patches = model.num_patches
+
+    # Create similar vectors for all patches with small noise
+    patch_embeddings = torch.zeros(num_patches, config.embed_dim)
+    for i in range(num_patches):
+        noise = torch.randn(config.embed_dim) * 0.01  # Very small noise
+        patch_embeddings[i] = base_patch_vector + noise
+
+    # Apply the patch embeddings
+    model.patch_embedding.weight.data = patch_embeddings
+
     # Apply the champion embeddings
     model.champion_embedding.weight.data = embeddings
+
+    if config.log_wandb:
+        # Log patch embedding statistics
+        patch_embed_mean = patch_embeddings.mean().item()
+        patch_embed_std = patch_embeddings.std().item()
+        patch_embed_max_diff = torch.max(torch.pdist(patch_embeddings)).item()
+        wandb.log(
+            {
+                "init_patch_embed_mean": patch_embed_mean,
+                "init_patch_embed_std": patch_embed_std,
+                "init_patch_embed_max_diff": patch_embed_max_diff,
+            }
+        )
 
     if continue_training:
         load_path = load_path or MODEL_PATH
