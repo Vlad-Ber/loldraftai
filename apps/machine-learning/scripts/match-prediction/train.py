@@ -135,6 +135,21 @@ def init_model(
         col: len(label_encoders[col].classes_) for col in CATEGORICAL_COLUMNS
     }
 
+    # Initialize queue embeddings with same base vector + small noise
+    if "queueId" in label_encoders:
+        queue_encoder = label_encoders["queueId"]
+        queue_base_vector = (
+            torch.randn(config.embed_dim) * 0.1
+        )  # Base vector for all queues
+        queue_embeddings = torch.zeros(len(queue_encoder.classes_), config.embed_dim)
+
+        print("\nQueue Embedding Initialization:")
+        for queue_id in queue_encoder.classes_:
+            idx = queue_encoder.transform([queue_id])[0]
+            noise = torch.randn(config.embed_dim) * 0.01  # Very small noise
+            queue_embeddings[idx] = queue_base_vector + noise
+            print(f"Queue {queue_id}: initialized with base + noise")
+
     # Get the champion encoder
     champion_encoder = label_encoders["champion_ids"]
 
@@ -206,6 +221,20 @@ def init_model(
         hidden_dims=config.hidden_dims,
         dropout=config.dropout,
     )
+
+    # Set the initialized queue embeddings
+    if "queueId" in label_encoders:
+        model.embeddings["queueId"].weight.data = queue_embeddings
+        if config.log_wandb:
+            # Log the maximum difference between queue embeddings
+            max_diff = torch.max(torch.pdist(queue_embeddings)).item()
+            wandb.log(
+                {
+                    "init_queue_embed_max_diff": max_diff,
+                    "init_queue_embed_mean": queue_embeddings.mean().item(),
+                    "init_queue_embed_std": queue_embeddings.std().item(),
+                }
+            )
 
     # Patch embeddings initialization (similar across patches)
     base_patch_vector = torch.randn(config.embed_dim) * 0.1
