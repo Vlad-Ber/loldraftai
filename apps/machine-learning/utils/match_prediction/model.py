@@ -22,6 +22,7 @@ class Model(nn.Module):
     ):
         super(Model, self).__init__()
         self.embed_dim = embed_dim
+        self.num_champions = num_champions
 
         # Load patch mapping and stats
         with open(Path(PREPARED_DATA_DIR) / "patch_mapping.pkl", "rb") as f:
@@ -31,47 +32,42 @@ class Model(nn.Module):
             self.patch_mean = numerical_stats["means"]["numerical_patch"]
             self.patch_std = numerical_stats["stds"]["numerical_patch"]
 
-        # Determine number of unique patches
+        # Number of unique patches
         self.num_patches = len(self.patch_mapping)
         self.patch_values = torch.tensor(
             list(self.patch_mapping.keys()), dtype=torch.float32
-        )  # Raw patch values
+        )
 
         # Embeddings for categorical features
         self.embeddings = nn.ModuleDict()
         for col in CATEGORICAL_COLUMNS:
             self.embeddings[col] = nn.Embedding(num_categories[col], embed_dim)
 
-        # Patch embedding (categorical)
+        # Patch embedding (general meta changes)
         self.patch_embedding = nn.Embedding(self.num_patches, embed_dim)
 
-        # Champion embeddings
-        self.champion_embedding = nn.Embedding(num_champions, embed_dim)
-
-        # Adjustment MLP for champion embeddings
-        self.adjustment_mlp = nn.Sequential(
-            nn.Linear(2 * embed_dim, embed_dim),
-            nn.GELU(),
-            nn.Linear(embed_dim, embed_dim),
+        # Champion+patch embeddings (champion-specific changes)
+        self.champion_patch_embedding = nn.Embedding(
+            num_champions * self.num_patches, embed_dim
         )
 
-        # Project numerical features (only elo now)
+        # Project numerical features (e.g., elo)
         self.numerical_projection = (
             nn.Linear(1, embed_dim) if "numerical_elo" in NUMERICAL_COLUMNS else None
         )
 
-        # Update total input dimension
+        # Total input dimension for MLP
         num_categorical = len(CATEGORICAL_COLUMNS)
-        num_champions = len(POSITIONS) * 2  # 10 champions
+        num_champions_in_game = len(POSITIONS) * 2  # 10 champions
         num_numerical_projections = 1 if "numerical_elo" in NUMERICAL_COLUMNS else 0
         total_embed_features = (
-            num_categorical + num_champions + num_numerical_projections + 1
-        )  # +1 for patch
+            num_categorical + num_champions_in_game + num_numerical_projections + 1
+        )  # +1 for patch_embed
         mlp_input_dim = total_embed_features * embed_dim
 
         print(f"Model dimensions:")
         print(f"- Categorical features: {num_categorical}")
-        print(f"- Champion positions: {num_champions}")
+        print(f"- Champion positions: {num_champions_in_game}")
         print(f"- Numerical features projection: {num_numerical_projections}")
         print(f"- Total embedded features: {total_embed_features}")
         print(f"- Embedding dimension: {embed_dim}")
@@ -99,19 +95,12 @@ class Model(nn.Module):
                 self.output_layers[task_name] = nn.Linear(hidden_dims[-1], 1)
 
     def map_numerical_to_patch_id(self, numerical_patch):
-        """
-        Convert normalized numerical_patch back to a patch index.
-        """
-        # Denormalize
-        raw_patch = numerical_patch * self.patch_std + self.patch_mean  # (batch_size,)
-
-        # Find nearest patch value
+        """Convert normalized numerical_patch to a patch index."""
+        raw_patch = numerical_patch * self.patch_std + self.patch_mean
         distances = torch.abs(
             self.patch_values.to(raw_patch.device) - raw_patch.unsqueeze(-1)
         )
-        patch_indices = torch.argmin(distances, dim=-1)  # (batch_size,)
-
-        # Clip to valid range
+        patch_indices = torch.argmin(distances, dim=-1)
         patch_indices = torch.clamp(patch_indices, 0, self.num_patches - 1)
         return patch_indices
 
@@ -119,52 +108,38 @@ class Model(nn.Module):
         batch_size = features["champion_ids"].size(0)
         embeddings_list = []
 
-        # Process categorical features
+        # Categorical features
         for col in CATEGORICAL_COLUMNS:
             embed = self.embeddings[col](features[col])
             embeddings_list.append(embed)
 
-        # Process patch (convert numerical to categorical)
-        numerical_patch = features["numerical_patch"]  # Already normalized
+        # Patch embedding (general meta)
+        numerical_patch = features["numerical_patch"]  # Normalized
         patch_indices = self.map_numerical_to_patch_id(numerical_patch)  # (batch_size,)
         patch_embed = self.patch_embedding(patch_indices)  # (batch_size, embed_dim)
+        embeddings_list.append(patch_embed)
 
-        # Process champion features
+        # Champion+patch embeddings
         champion_ids = features["champion_ids"]  # (batch_size, 10)
-        base_champ_embeds = self.champion_embedding(
-            champion_ids
+        patch_indices_expanded = patch_indices.unsqueeze(1).expand(
+            -1, 10
+        )  # (batch_size, 10)
+        combined_indices = (
+            champion_ids * self.num_patches + patch_indices_expanded
+        )  # (batch_size, 10)
+        champ_patch_embeds = self.champion_patch_embedding(
+            combined_indices
         )  # (batch_size, 10, embed_dim)
-
-        # Expand patch_embed for champion adjustment
-        patch_embed_expanded = patch_embed.unsqueeze(1).expand(
-            -1, 10, -1
-        )  # (batch_size, 10, embed_dim)
-
-        # Adjust champion embeddings
-        champ_patch_concat = torch.cat(
-            [base_champ_embeds, patch_embed_expanded], dim=2
-        )  # (batch_size, 10, 2*embed_dim)
-        adjusted_champ_embeds = self.adjustment_mlp(
-            champ_patch_concat
-        )  # (batch_size, 10, embed_dim)
-
-        # Flatten champion embeddings
-        champion_features = adjusted_champ_embeds.view(
+        champion_features = champ_patch_embeds.view(
             batch_size, -1
         )  # (batch_size, 10*embed_dim)
         embeddings_list.append(champion_features)
 
-        # Process numerical features (elo only)
-        if (
-            self.numerical_projection is not None
-            and "numerical_elo" in NUMERICAL_COLUMNS
-        ):
+        # Numerical features (e.g., elo)
+        if self.numerical_projection and "numerical_elo" in NUMERICAL_COLUMNS:
             numerical_elo = features["numerical_elo"].unsqueeze(-1)  # (batch_size, 1)
             numerical_embed = self.numerical_projection(numerical_elo)
             embeddings_list.append(numerical_embed)
-
-        # Add patch embedding for game dynamics
-        embeddings_list.append(patch_embed)
 
         # Concatenate all features
         combined_features = torch.cat(embeddings_list, dim=1)

@@ -130,9 +130,7 @@ def init_model(
         label_encoders = pickle.load(f)
 
     # Create mapping of champion IDs to their class
-    champ_to_class = {
-        str(champ.id): champ.champion_class for champ in Champion
-    }  # Convert IDs to strings
+    champ_to_class = {str(champ.id): champ.champion_class for champ in Champion}
     num_categories = {
         col: len(label_encoders[col].classes_) for col in CATEGORICAL_COLUMNS
     }
@@ -146,7 +144,7 @@ def init_model(
     # Initialize embeddings with class-based bias
     class_counts = {class_type: 0 for class_type in ChampionClass}
     missing_classes = []
-    missing_class_names = []  # To store display names for logging
+    missing_class_names = []
 
     class_means = {
         ChampionClass.MAGE: torch.randn(config.embed_dim) * 0.1,
@@ -157,34 +155,23 @@ def init_model(
         ChampionClass.ENCHANTER: torch.randn(config.embed_dim) * 0.1,
     }
 
-    # Initialize champion embeddings
-    embeddings = torch.randn(num_champions, config.embed_dim) * 0.1
+    # Initialize base champion embeddings
+    base_embeddings = torch.zeros(num_champions, config.embed_dim)
     for raw_id in champion_encoder.classes_:
-        try:
-            raw_id_str = str(raw_id)
-            encoded_idx = champion_encoder.transform([raw_id])[0]
-
-            if raw_id_str == "UNKNOWN":
-                embeddings[encoded_idx] = torch.zeros(config.embed_dim)
-                continue
-
-            champ_class = champ_to_class.get(raw_id_str, ChampionClass.UNIQUE)
-
-            if champ_class != ChampionClass.UNIQUE:
-                mean = class_means[champ_class]
-                noise = torch.randn(config.embed_dim) * 0.01
-                embeddings[encoded_idx] = mean + noise
-
-            class_counts[champ_class] += 1
-            if champ_class == ChampionClass.UNIQUE:
-                missing_classes.append(raw_id_str)
-                display_name = champ_display_names.get(
-                    raw_id_str, f"Champion {raw_id_str}"
-                )
-                missing_class_names.append(display_name)
-
-        except ValueError as e:
-            print(f"Warning: Could not process champion ID {raw_id}: {e}")
+        idx = champion_encoder.transform([raw_id])[0]
+        if str(raw_id) == "UNKNOWN":
+            base_embeddings[idx] = torch.zeros(config.embed_dim)
+            continue
+        champ_class = champ_to_class.get(str(raw_id), ChampionClass.UNIQUE)
+        if champ_class != ChampionClass.UNIQUE:
+            mean = class_means[champ_class]
+            noise = torch.randn(config.embed_dim) * 0.01
+            base_embeddings[idx] = mean + noise
+        class_counts[champ_class] += 1
+        if champ_class == ChampionClass.UNIQUE:
+            missing_classes.append(raw_id)
+            display_name = champ_display_names.get(str(raw_id), f"Champion {raw_id}")
+            missing_class_names.append(display_name)
 
     # Log initialization statistics
     print("\nChampion Embedding Initialization Statistics:")
@@ -193,9 +180,8 @@ def init_model(
         print(f"{class_type.name}: {count} champions")
     if missing_class_names:
         print(
-            f"\nWarning: {len(missing_class_names)} champions without class assignment (defaulted to UNIQUE)"
+            f"\nWarning: {len(missing_class_names)} champions without class assignment:"
         )
-        print("Champions without class:")
         for name in sorted(missing_class_names):
             print(f"  - {name}")
     print()
@@ -212,7 +198,7 @@ def init_model(
             }
         )
 
-    # Initialize the model
+    # Initialize model
     model = Model(
         num_categories=num_categories,
         num_champions=num_champions,
@@ -221,52 +207,64 @@ def init_model(
         dropout=config.dropout,
     )
 
-    # Initialize patch embeddings with similar values
-    # Generate a base vector for patches
-    base_patch_vector = torch.randn(config.embed_dim) * 0.1  # Small random base vector
-    num_patches = model.num_patches
-
-    # Create similar vectors for all patches with small noise
-    patch_embeddings = torch.zeros(num_patches, config.embed_dim)
-    for i in range(num_patches):
-        noise = torch.randn(config.embed_dim) * 0.01  # Very small noise
+    # Patch embeddings initialization (similar across patches)
+    base_patch_vector = torch.randn(config.embed_dim) * 0.1
+    patch_embeddings = torch.zeros(model.num_patches, config.embed_dim)
+    for i in range(model.num_patches):
+        noise = torch.randn(config.embed_dim) * 0.01
         patch_embeddings[i] = base_patch_vector + noise
-
-    # Apply the patch embeddings
     model.patch_embedding.weight.data = patch_embeddings
 
-    # Apply the champion embeddings
-    model.champion_embedding.weight.data = embeddings
+    # Champion+patch embeddings initialization (based on class means)
+    champion_patch_embeddings = torch.zeros(
+        num_champions * model.num_patches, config.embed_dim
+    )
+    for c in range(num_champions):
+        base_vector = base_embeddings[c]
+        for p in range(model.num_patches):
+            idx = c * model.num_patches + p
+            noise = torch.randn(config.embed_dim) * 0.01
+            champion_patch_embeddings[idx] = base_vector + noise
+    model.champion_patch_embedding.weight.data = champion_patch_embeddings
 
+    # Log embedding statistics
     if config.log_wandb:
-        # Log patch embedding statistics
         patch_embed_mean = patch_embeddings.mean().item()
-        patch_embed_std = patch_embeddings.std().item()
+        patch_embed_std = (
+            patch_embeddings.std().item
+        )  # Calculate max difference for patch embeddings
         patch_embed_max_diff = torch.max(torch.pdist(patch_embeddings)).item()
+        champ_patch_embed_mean = champion_patch_embeddings.mean().item()
+        champ_patch_embed_std = champion_patch_embeddings.std().item()
+        # Calculate max difference for same champion across patches
+        max_diff = 0.0
+        for c in range(num_champions):
+            champ_embeds = champion_patch_embeddings[
+                c * model.num_patches : (c + 1) * model.num_patches
+            ]
+            diff = torch.max(torch.pdist(champ_embeds)).item()
+            max_diff = max(max_diff, diff)
         wandb.log(
             {
                 "init_patch_embed_mean": patch_embed_mean,
                 "init_patch_embed_std": patch_embed_std,
                 "init_patch_embed_max_diff": patch_embed_max_diff,
+                "init_champ_patch_embed_mean": champ_patch_embed_mean,
+                "init_champ_patch_embed_std": champ_patch_embed_std,
+                "init_champ_patch_embed_max_diff": max_diff,
             }
         )
 
-    if continue_training:
-        load_path = load_path or MODEL_PATH
-        if os.path.exists(load_path):
-            print(f"Loading model from {load_path}")
-            model.load_state_dict(torch.load(load_path, weights_only=True))
-        else:
-            print(f"No saved model found at {load_path}. Starting from scratch.")
+    if continue_training and load_path and Path(load_path).exists():
+        print(f"Loading model from {load_path}")
+        model.load_state_dict(torch.load(load_path, weights_only=True))
 
-    # Create a dictionary with model parameters
     model_params = {
         "num_categories": num_categories,
         "num_champions": num_champions,
         **config.to_dict(),
     }
 
-    # Save model config
     with open(MODEL_CONFIG_PATH, "wb") as f:
         pickle.dump(model_params, f)
 
@@ -326,7 +324,7 @@ def train_epoch(
             )
             task_loss = (losses * task_weights).sum()
 
-            # Add patch regularization
+            # Patch regularization
             patch_reg_loss = 0.0
             for i in range(model.num_patches - 1):
                 diff = (
@@ -334,11 +332,26 @@ def train_epoch(
                     - model.patch_embedding.weight[i + 1]
                 )
                 patch_reg_loss += torch.norm(diff, p=2)
-            patch_reg_loss = patch_reg_loss / (model.num_patches - 1)  # Normalize
+            patch_reg_loss /= model.num_patches - 1
 
-            # Combine losses with regularization weight
+            # Champion+patch regularization
+            champ_patch_reg_loss = 0.0
+            for c in range(model.num_champions):
+                for p in range(model.num_patches - 1):
+                    idx1 = c * model.num_patches + p
+                    idx2 = c * model.num_patches + p + 1
+                    diff = (
+                        model.champion_patch_embedding.weight[idx1]
+                        - model.champion_patch_embedding.weight[idx2]
+                    )
+                    champ_patch_reg_loss += torch.norm(diff, p=2)
+            champ_patch_reg_loss /= model.num_champions * (model.num_patches - 1)
+
+            # Combine losses with regularization weights
             total_loss = (
-                task_loss + config.patch_reg_lambda * patch_reg_loss
+                task_loss
+                + config.patch_reg_lambda * patch_reg_loss
+                + config.champ_patch_reg_lambda * champ_patch_reg_loss
             ) / config.accumulation_steps
 
         total_loss.backward()
@@ -358,7 +371,6 @@ def train_epoch(
                     if scheduler
                     else optimizer.param_groups[0]["lr"]
                 )
-                # Add patch regularization loss to logging
                 log_training_step(
                     epoch,
                     batch_idx,
@@ -367,7 +379,8 @@ def train_epoch(
                     task_names,
                     config,
                     current_lr,
-                    patch_reg_loss.item(),  # Add patch regularization loss
+                    patch_reg_loss.item(),
+                    champ_patch_reg_loss.item(),
                 )
 
         epoch_loss += total_loss.item()
@@ -385,6 +398,7 @@ def log_training_step(
     config: TrainingConfig,
     current_lr: float,
     patch_reg_loss: float,
+    champ_patch_reg_loss: float,
 ) -> None:
     if config.log_wandb:
         log_data = {
@@ -393,6 +407,7 @@ def log_training_step(
             "grad_norm": grad_norm,
             "learning_rate": current_lr,
             "patch_reg_loss": patch_reg_loss,
+            "champ_patch_reg_loss": champ_patch_reg_loss,
         }
         log_data.update(
             {f"train_loss_{k}": v.item() for k, v in zip(task_names, losses)}

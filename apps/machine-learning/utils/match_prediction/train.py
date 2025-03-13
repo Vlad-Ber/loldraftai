@@ -30,12 +30,15 @@ def get_optimizer_grouped_parameters(
         # 2. All bias terms
         # 3. All normalization layers
         # source: https://github.com/karpathy/minGPT/pull/24#issuecomment-679316025
+        # TODO: add elo projection
         if (
             "embeddings." in name
             or "champion_embedding." in name
-            or "pos_embedding" in name
+            or "patch_embedding." in name
+            or "champion_patch_embedding." in name
             or "bias" in name
             or "norm" in name
+            or "pos_embedding" in name
             or "pos_scale" in name
             or "numerical_projection" in name
         ):
