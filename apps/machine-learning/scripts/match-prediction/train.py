@@ -465,16 +465,17 @@ def validate(
 ) -> Tuple[Optional[float], Dict[str, float]]:
     model.eval()
     enabled_tasks = get_enabled_tasks(config, epoch)
+
+    # Initialize accumulators on the device (GPU/MPS) to avoid CPU-GPU transfers
     metric_accumulators = {
-        task_name: torch.zeros(2).cpu() for task_name in enabled_tasks.keys()
+        task_name: torch.zeros(2, device=device) for task_name in enabled_tasks.keys()
     }
 
-    # Load both patch mapping and numerical stats for denormalization
+    # Load patch mapping and numerical stats for denormalization
     try:
         with open(Path(PREPARED_DATA_DIR) / "patch_mapping.pkl", "rb") as f:
             patch_data = pickle.load(f)
             reverse_patch_mapping = {v: k for k, v in patch_data["mapping"].items()}
-
         with open(Path(NUMERICAL_STATS_PATH), "rb") as f:
             numerical_stats = pickle.load(f)
             patch_mean = numerical_stats["means"]["numerical_patch"]
@@ -485,25 +486,24 @@ def validate(
         patch_mean = None
         patch_std = None
 
-    # Load encoders for metric names
+    # Load queue encoder for inverse transformation
     try:
         with open(ENCODERS_PATH, "rb") as f:
             encoders = pickle.load(f)
             queue_inverse_transform = encoders["queueId"].inverse_transform
     except (FileNotFoundError, KeyError) as e:
         print(f"Warning: Could not load queue encoders: {e}")
-        queue_inverse_transform = lambda x: x  # fallback to original encoded values
+        queue_inverse_transform = lambda x: x  # Fallback to encoded values
 
-    # New: Add subset accumulators for win prediction
-    patch_metrics = {}  # {patch_val: [loss_sum, count]}
-    elo_metrics = {}  # {elo_val: [loss_sum, count]}
-    queue_metrics = {}  # {queue_id: [loss_sum, count]}
+    # Subset accumulators for win prediction (on GPU)
+    if TRACK_SUBSET_METRICS and "win_prediction" in enabled_tasks:
+        patch_metrics = {}  # {patch_val: [loss_sum, count]}
+        elo_metrics = {}  # {elo_val: [loss_sum, count]}
+        queue_metrics = {}  # {queue_id: [loss_sum, count]}
 
-    # Create a separate criterion for per-sample losses
     per_sample_criterion = nn.BCEWithLogitsLoss(reduction="none")
-
     num_samples = 0
-    total_loss = 0.0
+    total_loss = torch.tensor(0.0, device=device)
     total_steps = 0
     task_names = list(enabled_tasks.keys())
     task_weights = torch.tensor(
@@ -515,7 +515,10 @@ def validate(
             features = {k: v.to(device, non_blocking=True) for k, v in features.items()}
             labels = {k: v.to(device, non_blocking=True) for k, v in labels.items()}
 
-            with torch.autocast(device_type="cuda", dtype=torch.bfloat16):
+            with torch.autocast(
+                device_type=device.type if device.type == "cuda" else "cpu",
+                dtype=torch.bfloat16,
+            ):
                 outputs = model(features)
                 if config.calculate_val_loss:
                     losses = torch.stack(
@@ -526,72 +529,54 @@ def validate(
                     )
                     total_loss += (losses * task_weights).sum()
 
-                    # New: Track win prediction loss by subsets
+                    # Optimized subset metrics calculation on GPU
                     if TRACK_SUBSET_METRICS and "win_prediction" in enabled_tasks:
-                        # Calculate all sample losses at once using the per-sample criterion
                         sample_losses = per_sample_criterion(
                             outputs["win_prediction"], labels["win_prediction"]
-                        ).cpu()
-
-                        # Get all patch and elo values
-                        patch_values = features["numerical_patch"].cpu()
-                        elo_values = features["numerical_elo"].cpu().int()
-
-                        # Track by patch
-                        unique_patches = torch.unique(patch_values)
-                        for patch_val in unique_patches:
-                            mask = patch_values == patch_val
-                            if patch_val.item() not in patch_metrics:
-                                patch_metrics[patch_val.item()] = [0.0, 0]
-                            patch_metrics[patch_val.item()][0] += (
-                                sample_losses[mask].sum().item()
+                        )
+                        for key, values in [
+                            ("patch", features["numerical_patch"]),
+                            ("elo", features["numerical_elo"].int()),
+                            ("queue", features["queueId"]),
+                        ]:
+                            unique_vals, inverse = torch.unique(
+                                values, return_inverse=True
                             )
-                            patch_metrics[patch_val.item()][1] += mask.sum().item()
-
-                        # Track by ELO
-                        unique_elos = torch.unique(elo_values)
-                        for elo_val in unique_elos:
-                            mask = elo_values == elo_val
-                            if elo_val.item() not in elo_metrics:
-                                elo_metrics[elo_val.item()] = [0.0, 0]
-                            elo_metrics[elo_val.item()][0] += (
-                                sample_losses[mask].sum().item()
+                            counts = torch.bincount(inverse)
+                            sums = torch.zeros_like(
+                                unique_vals, dtype=torch.float, device=device
                             )
-                            elo_metrics[elo_val.item()][1] += mask.sum().item()
-
-                        # New: Track by queue type
-                        queue_values = features["queueId"].cpu()
-                        unique_queues = torch.unique(queue_values)
-                        for queue_val in unique_queues:
-                            mask = queue_values == queue_val
-                            if queue_val.item() not in queue_metrics:
-                                queue_metrics[queue_val.item()] = [0.0, 0]
-                            queue_metrics[queue_val.item()][0] += (
-                                sample_losses[mask].sum().item()
-                            )
-                            queue_metrics[queue_val.item()][1] += mask.sum().item()
+                            sums.scatter_add_(0, inverse, sample_losses)
+                            current_metrics = locals()[f"{key}_metrics"]
+                            for val, sum_val, count in zip(unique_vals, sums, counts):
+                                val_item = val.item()
+                                if val_item not in current_metrics:
+                                    current_metrics[val_item] = [0.0, 0]
+                                current_metrics[val_item][0] += sum_val.item()
+                                current_metrics[val_item][1] += count.item()
 
             batch_size = next(iter(labels.values())).size(0)
             num_samples += batch_size
             total_steps += 1
-
             update_metric_accumulators(
                 metric_accumulators, outputs, labels, batch_size, config
             )
 
+    # Compute final metrics and transfer only the result to CPU
     metrics = calculate_final_metrics(metric_accumulators)
-    avg_loss = total_loss / total_steps if config.calculate_val_loss else None
+    avg_loss = (total_loss / total_steps).item() if config.calculate_val_loss else None
 
-    # New: Add subset metrics to the metrics dictionary
-    if TRACK_SUBSET_METRICS:
+    # Add subset metrics to the metrics dictionary
+    if TRACK_SUBSET_METRICS and "win_prediction" in enabled_tasks:
+        # Patch metrics
         for patch_val, (loss_sum, count) in patch_metrics.items():
-            if reverse_patch_mapping is not None and patch_mean is not None:
-                # First denormalize the patch value
+            if (
+                reverse_patch_mapping
+                and patch_mean is not None
+                and patch_std is not None
+            ):
                 denormalized_patch = (patch_val * patch_std) + patch_mean
-                # Round to nearest integer since patch mapping uses integers
                 denormalized_patch = round(denormalized_patch)
-
-                # Convert to original format (e.g., "13.10")
                 original_patch = reverse_patch_mapping.get(denormalized_patch)
                 if original_patch is not None:
                     major = int(original_patch) // 50
@@ -601,13 +586,13 @@ def validate(
                     patch_key = f"unknown_{patch_val:.2f}"
             else:
                 patch_key = f"{patch_val:.2f}"
-
             metrics[f"win_prediction_patch_{patch_key}"] = loss_sum / count
 
+        # ELO metrics
         for elo_val, (loss_sum, count) in elo_metrics.items():
             metrics[f"win_prediction_elo_{elo_val}"] = loss_sum / count
 
-        # Add queue metrics using original queueId values
+        # Queue metrics
         for queue_val, (loss_sum, count) in queue_metrics.items():
             original_queue_id = queue_inverse_transform([queue_val])[0]
             metrics[f"win_prediction_queue_{original_queue_id}"] = loss_sum / count
@@ -631,11 +616,11 @@ def update_metric_accumulators(
         if task_def.task_type == TaskType.BINARY_CLASSIFICATION:
             probs = torch.sigmoid(task_output)
             preds = (probs >= 0.5).float()
-            correct = (preds == task_label).float().sum().cpu()
+            correct = (preds == task_label).float().sum()  # Stays on device
             metric_accumulators[task_name][0] += correct
             metric_accumulators[task_name][1] += batch_size
         elif task_def.task_type == TaskType.REGRESSION:
-            mse = nn.functional.mse_loss(task_output, task_label, reduction="sum").cpu()
+            mse = nn.functional.mse_loss(task_output, task_label, reduction="sum")
             metric_accumulators[task_name][0] += mse
             metric_accumulators[task_name][1] += batch_size
 
