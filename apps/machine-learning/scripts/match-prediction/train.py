@@ -309,7 +309,7 @@ def init_model(
     model.to(device)
     if device == torch.device("cuda"):
         print("Compiling model")
-        model = torch.compile(model)
+        model = torch.compile(model, backend="eager")
         print("Model compiled")
 
     if config.log_wandb:
@@ -363,7 +363,7 @@ def train_epoch(
             task_loss = (losses * task_weights).sum()
 
             # Patch regularization
-            patch_reg_loss = 0.0
+            patch_reg_loss = torch.tensor(0.0, device=device)
             if model.num_patches > 1:
                 for i in range(model.num_patches - 1):
                     diff = (
@@ -374,7 +374,7 @@ def train_epoch(
                 patch_reg_loss /= model.num_patches - 1
 
             # Champion+patch regularization
-            champ_patch_reg_loss = 0.0
+            champ_patch_reg_loss = torch.tensor(0.0, device=device)
             if model.num_patches > 1:
                 for c in range(model.num_champions):
                     for p in range(model.num_patches - 1):
@@ -712,6 +712,7 @@ def train_model(
             batch_size=TRAIN_BATCH_SIZE,
             **dataloader_config,
             collate_fn=collate_fn,
+            persistent_workers=device.type == "cuda",
         )
         for dataset in [train_dataset, test_dataset, test_masked_dataset]
     )
