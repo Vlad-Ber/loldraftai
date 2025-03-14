@@ -91,6 +91,7 @@ class APIInput(BaseModel):
     champion_ids: List[int | Literal["UNKNOWN"]]
     numerical_elo: int
     patch: Optional[str] = None
+    queueId: int
 
 
 class WinratePrediction(BaseModel):
@@ -159,11 +160,21 @@ def preprocess_batch(batch_inputs):
 
     patch_tensor = torch.tensor(patches, dtype=torch.float32, device=device)
 
+    # Process queueId
+    queues = []
+    for input_data in batch_inputs:
+        # Transform queueId using label encoder
+        encoded_queue = label_encoders["queueId"].transform([input_data.queueId])[0]
+        queues.append(encoded_queue)
+
+    queue_tensor = torch.tensor(queues, dtype=torch.long, device=device)
+
     # Return as dictionary for model input
     return {
         "champion_ids": champion_ids_tensor,
         "numerical_elo": elo_tensor,
         "numerical_patch": patch_tensor,
+        "queueId": queue_tensor,
     }
 
 
