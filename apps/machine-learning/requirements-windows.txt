@@ -6,11 +6,14 @@ sqlalchemy
 psycopg2-binary
 
 # Deep Learning and ML Frameworks
+--find-links https://download.pytorch.org/whl/cu126
 torch
 torchvision
 torchaudio
 torchinfo
 tensorboard
+#triton for cuda kernels
+https://huggingface.co/madbuda/triton-windows-builds/resolve/main/triton-3.0.0-cp312-cp312-win_amd64.whl
 # onnx # the build fails on windows, i can do without it for now
 
 
