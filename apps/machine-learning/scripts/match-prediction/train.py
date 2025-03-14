@@ -259,20 +259,29 @@ def init_model(
     # Log embedding statistics
     if config.log_wandb:
         patch_embed_mean = patch_embeddings.mean().item()
-        patch_embed_std = (
-            patch_embeddings.std().item
-        )  # Calculate max difference for patch embeddings
-        patch_embed_max_diff = torch.max(torch.pdist(patch_embeddings)).item()
+        patch_embed_std = patch_embeddings.std().item()
+
+        # Handle single patch case
+        if model.num_patches > 1:
+            patch_embed_max_diff = torch.max(torch.pdist(patch_embeddings)).item()
+        else:
+            print(
+                "Warning: Training with single patch, skipping patch distance calculations"
+            )
+            patch_embed_max_diff = 0.0
+
         champ_patch_embed_mean = champion_patch_embeddings.mean().item()
         champ_patch_embed_std = champion_patch_embeddings.std().item()
-        # Calculate max difference for same champion across patches
+
+        # Handle single patch case for champion embeddings
         max_diff = 0.0
-        for c in range(num_champions):
-            champ_embeds = champion_patch_embeddings[
-                c * model.num_patches : (c + 1) * model.num_patches
-            ]
-            diff = torch.max(torch.pdist(champ_embeds)).item()
-            max_diff = max(max_diff, diff)
+        if model.num_patches > 1:
+            for c in range(num_champions):
+                champ_embeds = champion_patch_embeddings[
+                    c * model.num_patches : (c + 1) * model.num_patches
+                ]
+                diff = torch.max(torch.pdist(champ_embeds)).item()
+                max_diff = max(max_diff, diff)
         wandb.log(
             {
                 "init_patch_embed_mean": patch_embed_mean,
@@ -630,7 +639,7 @@ def update_metric_accumulators(
 
 
 def calculate_final_metrics(
-    metric_accumulators: Dict[str, torch.Tensor]
+    metric_accumulators: Dict[str, torch.Tensor],
 ) -> Dict[str, float]:
     # Calculate final metrics
     metrics = {}
