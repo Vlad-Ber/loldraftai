@@ -364,26 +364,28 @@ def train_epoch(
 
             # Patch regularization
             patch_reg_loss = 0.0
-            for i in range(model.num_patches - 1):
-                diff = (
-                    model.patch_embedding.weight[i]
-                    - model.patch_embedding.weight[i + 1]
-                )
-                patch_reg_loss += torch.norm(diff, p=2)
-            patch_reg_loss /= model.num_patches - 1
+            if model.num_patches > 1:
+                for i in range(model.num_patches - 1):
+                    diff = (
+                        model.patch_embedding.weight[i]
+                        - model.patch_embedding.weight[i + 1]
+                    )
+                    patch_reg_loss += torch.norm(diff, p=2)
+                patch_reg_loss /= model.num_patches - 1
 
             # Champion+patch regularization
             champ_patch_reg_loss = 0.0
-            for c in range(model.num_champions):
-                for p in range(model.num_patches - 1):
-                    idx1 = c * model.num_patches + p
-                    idx2 = c * model.num_patches + p + 1
-                    diff = (
-                        model.champion_patch_embedding.weight[idx1]
-                        - model.champion_patch_embedding.weight[idx2]
-                    )
-                    champ_patch_reg_loss += torch.norm(diff, p=2)
-            champ_patch_reg_loss /= model.num_champions * (model.num_patches - 1)
+            if model.num_patches > 1:
+                for c in range(model.num_champions):
+                    for p in range(model.num_patches - 1):
+                        idx1 = c * model.num_patches + p
+                        idx2 = c * model.num_patches + p + 1
+                        diff = (
+                            model.champion_patch_embedding.weight[idx1]
+                            - model.champion_patch_embedding.weight[idx2]
+                        )
+                        champ_patch_reg_loss += torch.norm(diff, p=2)
+                champ_patch_reg_loss /= model.num_champions * (model.num_patches - 1)
 
             # Combine losses with regularization weights
             total_loss = (
