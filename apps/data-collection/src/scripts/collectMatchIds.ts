@@ -76,7 +76,8 @@ async function collectMatchIds() {
             const matchIds = await riotApiClient.getMatchIdsByPuuid(
               summoner.puuid!,
               {
-                queue: 700, // Summoner's rift clash, 420, // Ranked Solo/Duo queue
+                // queue: 700, // Summoner's rift clash, 420, // Ranked Solo/Duo queue
+                queue: 420, // TODO: automatically collect both queues, instead of manually changing this
                 count: 100, // max count
               }
             );
