@@ -1,0 +1,39 @@
+# Data Processing and Analysis
+pandas
+pyarrow
+scikit-learn==1.5.2  # For label encoders  # Pin to match training environment
+sqlalchemy
+psycopg2-binary
+
+# Deep Learning and ML Frameworks
+torch
+torchvision
+torchaudio
+torchinfo
+tensorboard
+# onnx # the build fails on windows, i can do without it for now
+
+
+# Reinforcement Learning
+stable_baselines3
+sb3_contrib
+gymnasium
+
+# ML Experiment Tracking
+wandb
+
+# API Development
+fastapi
+uvicorn
+
+# Jupyter Notebook Support
+ipykernel
+ipywidgets
+
+# Progress and Display Utilities
+tqdm
+rich
+
+# Cloud Storage and Configuration
+python-dotenv
+azure-storage-blob
