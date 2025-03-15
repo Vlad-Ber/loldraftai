@@ -19,7 +19,8 @@ from utils.match_prediction import (
 )
 from utils.match_prediction.column_definitions import COLUMNS, ColumnType
 from utils.match_prediction.task_definitions import TASKS, TaskType
-from utils.match_prediction.config import get_best_device
+from utils.match_prediction import get_best_device
+
 
 def get_dataloader_config():
     device = get_best_device()
@@ -51,6 +52,7 @@ def get_dataloader_config():
             ),  # Lower if memory constrained
             "pin_memory": False,  # False for CPU training
         }
+
 
 # Use in DataLoader initialization
 dataloader_config = get_dataloader_config()
