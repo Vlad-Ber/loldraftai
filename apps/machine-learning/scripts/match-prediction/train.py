@@ -403,6 +403,7 @@ def train_epoch(
                 scheduler.step()
             optimizer.zero_grad(set_to_none=True)
 
+            # log metrics every 20 steps
             if (
                 (batch_idx + 1) // config.accumulation_steps
             ) % 20 == 0 and config.log_wandb:
@@ -421,6 +422,7 @@ def train_epoch(
                     current_lr,
                     patch_reg_loss.item(),
                     champ_patch_reg_loss.item(),
+                    model,
                 )
 
         epoch_loss += total_loss.item()
@@ -439,8 +441,25 @@ def log_training_step(
     current_lr: float,
     patch_reg_loss: float,
     champ_patch_reg_loss: float,
+    model: Model,
 ) -> None:
     if config.log_wandb:
+        # Calculate L2 norms for different parameter groups
+        categorical_norm = torch.norm(
+            torch.cat(
+                [p.data.view(-1) for name, p in model.embeddings.named_parameters()]
+            )
+        ).item()
+        patch_norm = torch.norm(model.patch_embedding.weight.data).item()
+        champ_patch_norm = torch.norm(model.champion_patch_embedding.weight.data).item()
+
+        mlp_norm = torch.norm(
+            torch.cat([p.data.view(-1) for p in model.mlp.parameters()])
+        ).item()
+        output_norm = torch.norm(
+            torch.cat([p.data.view(-1) for p in model.output_layers.parameters()])
+        ).item()
+
         log_data = {
             "epoch": epoch + 1,
             "batch": (batch_idx + 1) // config.accumulation_steps,
@@ -448,6 +467,12 @@ def log_training_step(
             "learning_rate": current_lr,
             "patch_reg_loss": patch_reg_loss,
             "champ_patch_reg_loss": champ_patch_reg_loss,
+            # Parameter norms
+            "categorical_embed_norm": categorical_norm,
+            "patch_embed_norm": patch_norm,
+            "champ_patch_embed_norm": champ_patch_norm,
+            "mlp_norm": mlp_norm,
+            "output_layers_norm": output_norm,
         }
         log_data.update(
             {f"train_loss_{k}": v.item() for k, v in zip(task_names, losses)}
