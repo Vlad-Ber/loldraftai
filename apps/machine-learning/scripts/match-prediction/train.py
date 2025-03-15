@@ -805,25 +805,20 @@ if __name__ == "__main__":
     # Set up argument parser
     parser = argparse.ArgumentParser(description="Train the match-prediction model")
     parser.add_argument(
-        "--run_name",
+        "--run-name",
         type=str,
         required=False,
         default=None,
         help="Name for the Wandb run",
     )
     parser.add_argument(
-        "--config",
-        type=str,
-        help="Path to JSON configuration file",
-    )
-    parser.add_argument(
-        "--continue_training",
+        "--continue-training",
         action="store_true",
         default=False,
         help="Continue training from the last saved model",
     )
     parser.add_argument(
-        "--load_path",
+        "--load-path",
         type=str,
         default=None,
         help="Path to load the model from (default: MODEL_PATH)",
@@ -834,7 +829,6 @@ if __name__ == "__main__":
         default=1.0,
         help="Fraction of dataset to use (0.0-1.0)",
     )
-
     parser.add_argument(
         "--validation-interval",
         type=int,
@@ -850,8 +844,6 @@ if __name__ == "__main__":
 
     # Initialize configuration
     config = TrainingConfig()
-    if args.config:
-        config.update_from_json(args.config)
 
     # Update config with command line arguments
     config.dataset_fraction = args.dataset_fraction
