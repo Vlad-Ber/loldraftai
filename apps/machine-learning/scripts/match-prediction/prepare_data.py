@@ -15,6 +15,7 @@ from utils.match_prediction import (
     NUMERICAL_STATS_PATH,
     TASK_STATS_PATH,
     PATCH_MAPPING_PATH,
+    SAMPLE_COUNTS_PATH,
 )
 from utils.match_prediction.column_definitions import (
     NUMERICAL_COLUMNS,
@@ -29,6 +30,7 @@ from collections import defaultdict
 NUM_RECENT_PATCHES = 3  # Number of most recent patches to use for training
 PATCH_MIN_GAMES = 200_000  # Minimum number of games in a patch to be considered standalone(otherwise merged with previous patch)
 DEBUG = False
+DEBUG_FILE_LIMIT = 100  # Maximum number of files to process in debug mode
 
 # Filter constants
 MIN_GOLD_15MIN = 2400  # Minimum gold at 15 minutes
@@ -122,19 +124,29 @@ def compute_patch_mapping(input_files: List[str]) -> Dict[float, int]:
 
     # Get the last NUM_RECENT_PATCHES patches
     recent_patches = all_patches[-NUM_RECENT_PATCHES:]
-    if len(recent_patches) < NUM_RECENT_PATCHES:
+    if len(recent_patches) < NUM_RECENT_PATCHES and not DEBUG:
         raise ValueError(
             f"Not enough patches in the dataset! Need at least {NUM_RECENT_PATCHES} patches."
         )
+    elif len(recent_patches) < NUM_RECENT_PATCHES and DEBUG:
+        print(
+            f"Warning: Only {len(recent_patches)} patches found in debug mode (normally need {NUM_RECENT_PATCHES})"
+        )
+        if not recent_patches:  # If no patches found, use all patches
+            recent_patches = all_patches
+            if not recent_patches:
+                raise ValueError("No patches found in the dataset!")
 
     # Create mapping, handling low-data patches
     patch_mapping = {}
     normalized_value = 1
     previous_significant_patch = None
 
-    # Process patches from oldest to newest of the last NUM_RECENT_PATCHES
+    # Process patches from oldest to newest of the recent patches
     for patch in recent_patches:
-        if patch_counts[patch] > PATCH_MIN_GAMES:
+        if (
+            patch_counts[patch] > PATCH_MIN_GAMES or DEBUG
+        ):  # In debug mode, accept all patches
             # This is a significant patch
             patch_mapping[patch] = normalized_value
             previous_significant_patch = patch
@@ -143,8 +155,14 @@ def compute_patch_mapping(input_files: List[str]) -> Dict[float, int]:
             # Map to previous significant patch
             patch_mapping[patch] = patch_mapping[previous_significant_patch]
         else:
-            # First patch has low data, shouldn't happen with NUM_RECENT_PATCHES patches
-            raise ValueError(f"First patch {patch} has insufficient data!")
+            # First patch has low data
+            if DEBUG:
+                # In debug mode, accept it anyway
+                patch_mapping[patch] = normalized_value
+                previous_significant_patch = patch
+                normalized_value += 1
+            else:
+                raise ValueError(f"First patch {patch} has insufficient data!")
 
     # Log the mapping for transparency
     print("\nPatch mapping (last NUM_RECENT_PATCHES patches):")
@@ -322,7 +340,7 @@ def prepare_data(
         del df, df_train, df_test
 
     # Save sample counts
-    with open(os.path.join(output_dir, "sample_counts.pkl"), "wb") as f:
+    with open(SAMPLE_COUNTS_PATH, "wb") as f:
         pickle.dump(
             {
                 "train": train_count,
@@ -465,9 +483,23 @@ def main():
         action="store_true",
         help="Skip filtering of outliers/griefers",
     )
+    parser.add_argument(
+        "--debug",
+        action="store_true",
+        help="Enable debug mode (limits to 100 files and enables verbose output)",
+    )
     args = parser.parse_args()
 
+    # Set global DEBUG flag based on args
+    global DEBUG
+    DEBUG = args.debug
+
     input_files = glob.glob(os.path.join(args.input_dir, "*.parquet"))
+
+    if DEBUG:
+        print(f"Debug mode enabled - limiting to {DEBUG_FILE_LIMIT} files")
+        input_files = input_files[:DEBUG_FILE_LIMIT]
+        print(f"Processing {len(input_files)} files")
 
     # Create temporary directory for intermediate files
     temp_dir = os.path.join(args.output_dir, "temp")

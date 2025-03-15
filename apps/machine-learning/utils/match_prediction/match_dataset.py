@@ -13,9 +13,8 @@ import multiprocessing
 
 from utils.match_prediction import (
     PREPARED_DATA_DIR,
-    CHAMPION_FEATURES_PATH,
+    SAMPLE_COUNTS_PATH,
     PARQUET_READER_BATCH_SIZE,
-    POSITIONS,
 )
 from utils.match_prediction.column_definitions import COLUMNS, ColumnType
 from utils.match_prediction.task_definitions import TASKS, TaskType
@@ -92,10 +91,9 @@ class MatchDataset(IterableDataset):
         random.shuffle(self.data_files)
 
     def _count_total_samples(self):
-        count_path = os.path.join(PREPARED_DATA_DIR, "sample_counts.pkl")
         try:
-            if os.path.exists(count_path):
-                with open(count_path, "rb") as f:
+            if os.path.exists(SAMPLE_COUNTS_PATH):
+                with open(SAMPLE_COUNTS_PATH, "rb") as f:
                     counts = pickle.load(f)
                     count = counts.get(self.train_or_test)
                     if count is not None:
@@ -113,11 +111,11 @@ class MatchDataset(IterableDataset):
         # Try to save the count for future use
         try:
             counts = {}
-            if os.path.exists(count_path):
-                with open(count_path, "rb") as f:
+            if os.path.exists(SAMPLE_COUNTS_PATH):
+                with open(SAMPLE_COUNTS_PATH, "rb") as f:
                     counts = pickle.load(f)
             counts[self.train_or_test] = total
-            with open(count_path, "wb") as f:
+            with open(SAMPLE_COUNTS_PATH, "wb") as f:
                 pickle.dump(counts, f)
         except Exception as e:
             print(f"Warning: Could not save sample counts: {e}")
