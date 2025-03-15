@@ -13,15 +13,19 @@ DAMAGE_STATS = [
     "trueDamageDoneToChampions",
 ]
 TIMESTAMPS = ["900000", "1200000", "1500000", "1800000"]
-TEAM_STATS = [
-    # "totalKills",
-    # "totalDeaths",
-    # "totalAssists",
-    # "totalGold",
+TEAM_STATS_ALL_TIMESTAMPS = [
     "towerKills",
-    "inhibitorKills",
-    "baronKills",
     "dragonKills",
+]
+
+# Stats that don't make sense at 900000 and 1200000
+TEAM_STATS_LATE = [
+    "baronKills",
+    "inhibitorKills",
+]
+
+# Stats that don't make sense at 1800000
+TEAM_STATS_EARLY_MID = [
     "riftHeraldKills",
 ]
 
@@ -110,13 +114,21 @@ for damage_type in DAMAGE_STATS:
 
 # For team stats
 for timestamp in TIMESTAMPS:
-    for stat in TEAM_STATS:
+    # Determine which stats to use based on timestamp
+    current_stats = TEAM_STATS_ALL_TIMESTAMPS.copy()
+    if timestamp not in ["900000", "1200000"]:
+        current_stats.extend(TEAM_STATS_LATE)
+    if timestamp != "1800000":
+        current_stats.extend(TEAM_STATS_EARLY_MID)
+
+    for stat in current_stats:
         for team_id in TEAMS:
             task_name = f"team_{team_id}_{stat}_at_{timestamp}"
             TASKS[task_name] = TaskDefinition(
                 name=task_name,
                 task_type=TaskType.REGRESSION,
-                weight=0.02 / (len(TIMESTAMPS) * len(TEAM_STATS) * len(TEAMS)),
+                weight=0.02
+                / (len(TIMESTAMPS) * len(TEAM_STATS_ALL_TIMESTAMPS) * len(TEAMS)),
             )
 
 
