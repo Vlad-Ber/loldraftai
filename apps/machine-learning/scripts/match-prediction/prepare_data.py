@@ -40,6 +40,7 @@ MIN_LEVEL_15MIN = 4  # Minimum level at 15 minutes
 def create_encoders(data_files):
     encoders = {}
     for col in CATEGORICAL_COLUMNS + ["champion_ids"]:
+        # TODO: only created encoders for non id columns? why would we need it for queueId?
         print(f"Creating encoder for {col}")
         unique_values = set()
         for file_path in tqdm(data_files, desc=f"Processing {col}"):
@@ -50,6 +51,7 @@ def create_encoders(data_files):
                 unique_values.update(df[col].unique())
 
         unique_values = sorted(unique_values)
+        # TODO: this should only be for unseen categories
         unique_values.append("UNKNOWN")  # Add UNKNOWN for unseen categories
 
         encoder = LabelEncoder()
