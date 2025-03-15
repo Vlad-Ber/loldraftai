@@ -58,7 +58,7 @@ torch.set_float32_matmul_precision("high")
 
 device = get_best_device()
 
-TRACK_SUBSET_METRICS = True  # Track validation metrics by patch, ELO, and champion ID
+TRACK_SUBSET_VAL_LOSSES = True  # Track validation metrics by patch, ELO, and champion ID
 
 
 def get_dataloader_config():
@@ -492,7 +492,7 @@ def validate(
     enabled_tasks = get_enabled_tasks(config, epoch)
 
     # Initialize accumulators on the device (GPU/MPS) to avoid CPU-GPU transfers
-    metric_accumulators = {
+    loss_accumulators = {
         task_name: torch.zeros(2, device=device) for task_name in enabled_tasks.keys()
     }
 
@@ -521,10 +521,10 @@ def validate(
         queue_inverse_transform = lambda x: x  # Fallback to encoded values
 
     # Subset accumulators for win prediction (on GPU)
-    if TRACK_SUBSET_METRICS and "win_prediction" in enabled_tasks:
-        patch_metrics = {}  # {patch_val: [loss_sum, count]}
-        elo_metrics = {}  # {elo_val: [loss_sum, count]}
-        queue_metrics = {}  # {queue_id: [loss_sum, count]}
+    if TRACK_SUBSET_VAL_LOSSES and "win_prediction" in enabled_tasks:
+        patch_losses = {}  # {patch_val: [loss_sum, count]}
+        elo_losses = {}  # {elo_val: [loss_sum, count]}
+        queue_losses = {}  # {queue_id: [loss_sum, count]}
 
     per_sample_criterion = nn.BCEWithLogitsLoss(reduction="none")
     num_samples = 0
@@ -555,7 +555,7 @@ def validate(
                     total_loss += (losses * task_weights).sum()
 
                     # Optimized subset metrics calculation on GPU
-                    if TRACK_SUBSET_METRICS and "win_prediction" in enabled_tasks:
+                    if TRACK_SUBSET_VAL_LOSSES and "win_prediction" in enabled_tasks:
                         sample_losses = per_sample_criterion(
                             outputs["win_prediction"], labels["win_prediction"]
                         )
@@ -583,18 +583,18 @@ def validate(
             batch_size = next(iter(labels.values())).size(0)
             num_samples += batch_size
             total_steps += 1
-            update_metric_accumulators(
-                metric_accumulators, outputs, labels, batch_size, config
+            update_loss_accumulators(
+                loss_accumulators, outputs, labels, batch_size, config
             )
 
     # Compute final metrics and transfer only the result to CPU
-    metrics = calculate_final_metrics(metric_accumulators)
+    losses = calculate_final_loss(loss_accumulators)
     avg_loss = (total_loss / total_steps).item() if config.calculate_val_loss else None
 
     # Add subset metrics to the metrics dictionary
-    if TRACK_SUBSET_METRICS and "win_prediction" in enabled_tasks:
+    if TRACK_SUBSET_VAL_LOSSES and "win_prediction" in enabled_tasks:
         # Patch metrics
-        for patch_val, (loss_sum, count) in patch_metrics.items():
+        for patch_val, (loss_sum, count) in patch_losses.items():
             if (
                 reverse_patch_mapping
                 and patch_mean is not None
@@ -611,22 +611,22 @@ def validate(
                     patch_key = f"unknown_{patch_val:.2f}"
             else:
                 patch_key = f"{patch_val:.2f}"
-            metrics[f"win_prediction_patch_{patch_key}"] = loss_sum / count
+            losses[f"win_prediction_patch_{patch_key}"] = loss_sum / count
 
         # ELO metrics
-        for elo_val, (loss_sum, count) in elo_metrics.items():
-            metrics[f"win_prediction_elo_{elo_val}"] = loss_sum / count
+        for elo_val, (loss_sum, count) in elo_losses.items():
+            losses[f"win_prediction_elo_{elo_val}"] = loss_sum / count
 
         # Queue metrics
-        for queue_val, (loss_sum, count) in queue_metrics.items():
+        for queue_val, (loss_sum, count) in queue_losses.items():
             original_queue_id = queue_inverse_transform([queue_val])[0]
-            metrics[f"win_prediction_queue_{original_queue_id}"] = loss_sum / count
+            losses[f"win_prediction_queue_{original_queue_id}"] = loss_sum / count
 
-    return avg_loss, metrics
+    return avg_loss, losses
 
 
-def update_metric_accumulators(
-    metric_accumulators: Dict[str, torch.Tensor],
+def update_loss_accumulators(
+    loss_accumulators: Dict[str, torch.Tensor],
     outputs: Dict[str, torch.Tensor],
     labels: Dict[str, torch.Tensor],
     batch_size: int,
@@ -639,27 +639,24 @@ def update_metric_accumulators(
         task_label = labels[task_name]
 
         if task_def.task_type == TaskType.BINARY_CLASSIFICATION:
-            probs = torch.sigmoid(task_output)
-            preds = (probs >= 0.5).float()
-            correct = (preds == task_label).float().sum()  # Stays on device
-            metric_accumulators[task_name][0] += correct
-            metric_accumulators[task_name][1] += batch_size
+            loss = nn.functional.binary_cross_entropy_with_logits(
+                task_output, task_label, reduction="sum"
+            )
+            loss_accumulators[task_name][0] += loss
+            loss_accumulators[task_name][1] += batch_size
         elif task_def.task_type == TaskType.REGRESSION:
             mse = nn.functional.mse_loss(task_output, task_label, reduction="sum")
-            metric_accumulators[task_name][0] += mse
-            metric_accumulators[task_name][1] += batch_size
+            loss_accumulators[task_name][0] += mse
+            loss_accumulators[task_name][1] += batch_size
 
 
-def calculate_final_metrics(
-    metric_accumulators: Dict[str, torch.Tensor],
+def calculate_final_loss(
+    loss_accumulators: Dict[str, torch.Tensor],
 ) -> Dict[str, float]:
-    # Calculate final metrics
     metrics = {}
-    for task_name, accumulator in metric_accumulators.items():
-        if TASKS[task_name].task_type == TaskType.BINARY_CLASSIFICATION:
-            metrics[task_name] = (accumulator[0] / accumulator[1]).item()
-        elif TASKS[task_name].task_type == TaskType.REGRESSION:
-            metrics[task_name] = (accumulator[0] / accumulator[1]).item()
+    for task_name, accumulator in loss_accumulators.items():
+        # Calculate average loss for all task types
+        metrics[task_name] = (accumulator[0] / accumulator[1]).item()
     return metrics
 
 
