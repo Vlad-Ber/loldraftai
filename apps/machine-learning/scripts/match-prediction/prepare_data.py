@@ -36,21 +36,13 @@ MIN_CS_15MIN_NORMAL = 25  # Minimum CS at 15 minutes for non-support roles
 MIN_LEVEL_15MIN = 4  # Minimum level at 15 minutes
 
 
-def load_data(file_path):
-    return pd.read_parquet(file_path)
-
-
-def save_data(df, file_path):
-    df.to_parquet(file_path, index=False)
-
-
 def create_encoders(data_files):
     encoders = {}
     for col in CATEGORICAL_COLUMNS + ["champion_ids"]:
         print(f"Creating encoder for {col}")
         unique_values = set()
         for file_path in tqdm(data_files, desc=f"Processing {col}"):
-            df = load_data(file_path)
+            df = pd.read_parquet(file_path)
             if col == "champion_ids":
                 unique_values.update(df[col].explode().unique())
             else:
@@ -82,7 +74,7 @@ def compute_stats(data_files):
     total_count = 0
 
     for file_path in tqdm(data_files, desc="Computing stats"):
-        df = load_data(file_path)
+        df = pd.read_parquet(file_path)
         for col in NUMERICAL_COLUMNS:
             numerical_sums[col] += df[col].sum()
             numerical_sumsq[col] += (df[col] ** 2).sum()
@@ -118,7 +110,7 @@ def compute_patch_mapping(input_files: List[str]) -> Dict[float, int]:
 
     print("Computing patch distribution...")
     for file_path in tqdm(input_files):
-        df = load_data(file_path)
+        df = pd.read_parquet(file_path)
         raw_patches = df["gameVersionMajorPatch"] * 50 + df["gameVersionMinorPatch"]
         for patch in raw_patches:
             patch_counts[patch] += 1
@@ -269,7 +261,7 @@ def prepare_data(
     test_count = 0
 
     for file_index, file_path in enumerate(tqdm(input_files, desc="Preparing data")):
-        df = load_data(file_path)
+        df = pd.read_parquet(file_path)
 
         if len(df) <= 1:
             print(f"Skipping file {file_path} - insufficient samples ({len(df)} rows)")
@@ -315,11 +307,12 @@ def prepare_data(
         test_count += len(df_test)
 
         # Save prepared data
-        save_data(
-            df_train, os.path.join(output_dir, "train", f"train_{file_index}.parquet")
+        df_train.to_parquet(
+            os.path.join(output_dir, "train", f"train_{file_index}.parquet"),
+            index=False,
         )
-        save_data(
-            df_test, os.path.join(output_dir, "test", f"test_{file_index}.parquet")
+        df_test.to_parquet(
+            os.path.join(output_dir, "test", f"test_{file_index}.parquet"), index=False
         )
 
         # Clear memory
@@ -368,7 +361,7 @@ def add_computed_columns(input_files: List[str], output_dir: str) -> List[str]:
 
     pbar = tqdm(input_files, desc="Adding computed columns")
     for file_path in pbar:
-        df = load_data(file_path)
+        df = pd.read_parquet(file_path)
         original_count = len(df)
         cumulative_stats["total_raw"] += original_count
 
@@ -428,7 +421,7 @@ def add_computed_columns(input_files: List[str], output_dir: str) -> List[str]:
 
         # Save the enhanced dataframe
         new_file_path = os.path.join(output_dir, os.path.basename(file_path))
-        save_data(df, new_file_path)
+        df.to_parquet(new_file_path, index=False)
         new_files.append(new_file_path)
 
         # Clear memory
