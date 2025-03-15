@@ -57,6 +57,10 @@ class TrainingConfig:
         self.aux_tasks_enabled = True  # Enable/disable auxiliary tasks
         self.dataset_fraction = 1.0  # Use full dataset by default
 
+        self.track_subset_val_losses = (
+            True  # Track validation metrics by patch, ELO, and champion ID
+        )
+
     def update_from_json(self, json_file: str):
         with open(json_file, "r") as f:
             config_dict = json.load(f)

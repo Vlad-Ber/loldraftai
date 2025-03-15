@@ -49,10 +49,6 @@ torch.set_float32_matmul_precision("high")
 
 device = get_best_device()
 
-TRACK_SUBSET_VAL_LOSSES = (
-    True  # Track validation metrics by patch, ELO, and champion ID
-)
-
 
 def save_model(model: Model, timestamp: Optional[str] = None) -> str:
     if timestamp is None:
@@ -278,7 +274,7 @@ def validate(
         queue_inverse_transform = lambda x: x  # Fallback to encoded values
 
     # Subset accumulators for win prediction (on GPU)
-    if TRACK_SUBSET_VAL_LOSSES and "win_prediction" in enabled_tasks:
+    if config.track_subset_val_losses and "win_prediction" in enabled_tasks:
         patch_losses = {}  # {patch_val: [loss_sum, count]}
         elo_losses = {}  # {elo_val: [loss_sum, count]}
         queue_losses = {}  # {queue_id: [loss_sum, count]}
@@ -329,7 +325,10 @@ def validate(
                     total_loss += (losses * task_weights).sum()
 
                     # Track subset losses if needed
-                    if TRACK_SUBSET_VAL_LOSSES and "win_prediction" in enabled_tasks:
+                    if (
+                        config.track_subset_val_losses
+                        and "win_prediction" in enabled_tasks
+                    ):
                         win_pred_losses = task_losses["win_prediction"]
                         for key, values in [
                             ("patch", features["numerical_patch"]),
@@ -359,7 +358,7 @@ def validate(
     avg_loss = (total_loss / total_steps).item() if config.calculate_val_loss else None
 
     # Add subset metrics to the metrics dictionary
-    if TRACK_SUBSET_VAL_LOSSES and "win_prediction" in enabled_tasks:
+    if config.track_subset_val_losses and "win_prediction" in enabled_tasks:
         # Patch metrics
         for patch_val, (loss_sum, count) in patch_losses.items():
             if (
