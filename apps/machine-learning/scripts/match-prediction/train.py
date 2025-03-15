@@ -1,11 +1,10 @@
-# scripts/train.py
+# scripts/match-prediction/train.py
 import signal
 import copy
 import pickle
 import datetime
 import time
 from typing import Any, Dict, List, Optional, Tuple
-from pathlib import Path
 
 import torch
 import torch.optim as optim
@@ -39,6 +38,7 @@ from utils.match_prediction.train import (
     set_random_seeds,
     get_num_champions,
     collate_fn,
+    init_model,
 )
 from utils.match_prediction.champions import Champion, ChampionClass
 
@@ -74,8 +74,6 @@ def signal_handler(signum: int, frame: Any) -> None:
     print("Received interrupt signal. Saving model and exiting...")
     cleanup()
     exit(0)
-
-
 
 
 def apply_label_smoothing(labels: torch.Tensor, smoothing: float = 0.2) -> torch.Tensor:
@@ -243,7 +241,6 @@ def log_training_step(
 def validate(
     model: Model,
     test_loader: DataLoader,
-    criterions: Dict[str, nn.Module],
     config: TrainingConfig,
     device: torch.device,
     epoch: int,
@@ -526,11 +523,9 @@ def train_model(
 
         # Only run validation on specified intervals
         if (epoch + 1) % config.validation_interval == 0:
-            val_loss, val_metrics = validate(
-                model, test_loader, criterions, config, device, epoch
-            )
+            val_loss, val_metrics = validate(model, test_loader, config, device, epoch)
             val_masked_loss, val_masked_metrics = validate(
-                model, test_masked_loader, criterions, config, device, epoch
+                model, test_masked_loader, config, device, epoch
             )
 
             if config.calculate_val_loss:
