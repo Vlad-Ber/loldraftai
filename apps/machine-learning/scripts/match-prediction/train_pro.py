@@ -26,7 +26,7 @@ from utils.match_prediction import (
     PREPARED_DATA_DIR,
 )
 from utils.match_prediction.model import Model
-from utils.match_prediction.train import (
+from utils.match_prediction.train_utils import (
     get_optimizer_grouped_parameters,
     set_random_seeds,
     get_num_champions,

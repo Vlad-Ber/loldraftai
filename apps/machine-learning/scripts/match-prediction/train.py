@@ -33,7 +33,7 @@ from utils.match_prediction.column_definitions import (
 )
 from utils.match_prediction.task_definitions import TASKS, TaskType, get_enabled_tasks
 from utils.match_prediction.config import TrainingConfig
-from utils.match_prediction.train import (
+from utils.match_prediction.train_utils import (
     get_optimizer_grouped_parameters,
     set_random_seeds,
     get_num_champions,

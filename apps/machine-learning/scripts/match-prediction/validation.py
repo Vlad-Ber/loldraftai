@@ -20,7 +20,7 @@ from utils.match_prediction.column_definitions import CATEGORICAL_COLUMNS
 from utils.match_prediction.match_dataset import MatchDataset
 from utils.match_prediction.model import Model
 from utils.match_prediction.task_definitions import TASKS
-from utils.match_prediction.train import get_num_champions, collate_fn
+from utils.match_prediction.train_utils import get_num_champions, collate_fn
 from utils import DATA_DIR
 
 
