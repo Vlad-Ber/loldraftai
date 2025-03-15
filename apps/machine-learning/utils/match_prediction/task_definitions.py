@@ -163,13 +163,7 @@ def get_final_tasks() -> Dict[str, TaskDefinition]:
 
 def get_enabled_tasks(config: TrainingConfig, epoch: int) -> Dict[str, TaskDefinition]:
     """Returns dictionary of enabled tasks based on configuration and training phase"""
-    if not config.aux_tasks_enabled:
-        # Return only win prediction task
-        return {
-            "win_prediction": TASKS["win_prediction"],
-            "gameDuration": TASKS["gameDuration"],
-        }
-    elif epoch >= config.annealing_epoch:
+    if epoch >= config.annealing_epoch:
         # After annealing epoch, use final tasks with rebalanced weights
         return get_final_tasks()
     else:

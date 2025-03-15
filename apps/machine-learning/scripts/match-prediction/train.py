@@ -596,11 +596,7 @@ if __name__ == "__main__":
         default=1,
         help="Run validation every N epochs",
     )
-    parser.add_argument(
-        "--disable-aux-tasks",
-        action="store_true",
-        help="Disable auxiliary tasks and train only on win prediction",
-    )
+
     args = parser.parse_args()
 
     # Initialize configuration
@@ -609,7 +605,6 @@ if __name__ == "__main__":
     # Update config with command line arguments
     config.dataset_fraction = args.dataset_fraction
     config.validation_interval = args.validation_interval
-    config.aux_tasks_enabled = not args.disable_aux_tasks
 
     print("Training configuration:")
     print(config)

@@ -54,7 +54,6 @@ class TrainingConfig:
 
         # Add new configuration parameters
         self.validation_interval = 1  # Run validation every N epochs
-        self.aux_tasks_enabled = True  # Enable/disable auxiliary tasks
         self.dataset_fraction = 1.0  # Use full dataset by default
 
         self.track_subset_val_losses = (
