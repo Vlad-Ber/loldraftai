@@ -48,7 +48,7 @@ from utils.match_prediction.train import (
     collate_fn,
 )
 import psutil
-from utils.rl.champions import Champion, ChampionClass
+from utils.match_prediction.champions import Champion, ChampionClass
 
 # Enable cuDNN auto-tuner, source https://x.com/karpathy/status/1299921324333170689/photo/1
 torch.backends.cudnn.benchmark = True
