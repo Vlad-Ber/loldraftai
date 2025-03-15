@@ -1,16 +1,10 @@
 # scripts/train.py
-import multiprocessing
 import signal
-import os
 import copy
 import pickle
 import datetime
 import time
-import cProfile
-import pstats
-import io
 from typing import Any, Dict, List, Optional, Tuple
-from pstats import SortKey
 from pathlib import Path
 
 import torch
@@ -24,9 +18,8 @@ import argparse
 
 from torch.optim.lr_scheduler import OneCycleLR
 
-from utils.match_prediction.match_dataset import MatchDataset
+from utils.match_prediction.match_dataset import MatchDataset, dataloader_config
 from utils.match_prediction.model import Model
-from utils import DATA_DIR
 from utils.match_prediction import (
     get_best_device,
     ENCODERS_PATH,
@@ -47,7 +40,6 @@ from utils.match_prediction.train import (
     get_num_champions,
     collate_fn,
 )
-import psutil
 from utils.match_prediction.champions import Champion, ChampionClass
 
 # Enable cuDNN auto-tuner, source https://x.com/karpathy/status/1299921324333170689/photo/1
@@ -55,48 +47,11 @@ torch.backends.cudnn.benchmark = True
 # should use TensorFloat-32, which is faster that "highest" precision
 torch.set_float32_matmul_precision("high")
 
-
 device = get_best_device()
 
 TRACK_SUBSET_VAL_LOSSES = (
     True  # Track validation metrics by patch, ELO, and champion ID
 )
-
-
-def get_dataloader_config():
-    if device.type == "cuda":
-        # Original CUDA config
-        num_cpus = multiprocessing.cpu_count()
-        return {
-            "num_workers": 15,  # trying 15 on my windows pc
-            "prefetch_factor": 4,
-            "pin_memory": True,
-        }
-    elif device.type == "mps":
-        # M1/M2 Mac config
-        return {
-            "num_workers": 1,
-            "prefetch_factor": 1,
-            "pin_memory": True,
-        }
-    else:  # CPU
-        # For 4 CPU machine, reserve 1 CPU for main process
-        total_cpus = multiprocessing.cpu_count()
-        available_memory_gb = psutil.virtual_memory().available / (1024**3)
-
-        # Use 2 workers for 4 CPU machine, leaving 2 CPUs for main process and OS
-        # Adjust prefetch_factor based on available memory
-        return {
-            "num_workers": min(total_cpus - 2, 2),  # Use 2 workers on 4 CPU machine
-            "prefetch_factor": (
-                2 if available_memory_gb > 8 else 1
-            ),  # Lower if memory constrained
-            "pin_memory": False,  # False for CPU training
-        }
-
-
-# Use in DataLoader initialization
-dataloader_config = get_dataloader_config()
 
 
 def save_model(model: Model, timestamp: Optional[str] = None) -> str:

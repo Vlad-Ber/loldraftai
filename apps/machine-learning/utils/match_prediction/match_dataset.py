@@ -8,6 +8,8 @@ import numpy as np
 import pyarrow.parquet as pq
 from torch.utils.data import IterableDataset
 from typing import Callable, Optional, List
+import psutil
+import multiprocessing
 
 from utils.match_prediction import (
     PREPARED_DATA_DIR,
@@ -17,6 +19,41 @@ from utils.match_prediction import (
 )
 from utils.match_prediction.column_definitions import COLUMNS, ColumnType
 from utils.match_prediction.task_definitions import TASKS, TaskType
+from utils.match_prediction.config import get_best_device
+
+def get_dataloader_config():
+    device = get_best_device()
+    if device.type == "cuda":
+        # Original CUDA config
+        return {
+            "num_workers": 15,  # trying 15 on my windows pc
+            "prefetch_factor": 4,
+            "pin_memory": True,
+        }
+    elif device.type == "mps":
+        # M1/M2 Mac config
+        return {
+            "num_workers": 1,
+            "prefetch_factor": 1,
+            "pin_memory": True,
+        }
+    else:  # CPU
+        # For 4 CPU machine, reserve 1 CPU for main process
+        total_cpus = multiprocessing.cpu_count()
+        available_memory_gb = psutil.virtual_memory().available / (1024**3)
+
+        # Use 2 workers for 4 CPU machine, leaving 2 CPUs for main process and OS
+        # Adjust prefetch_factor based on available memory
+        return {
+            "num_workers": min(total_cpus - 2, 2),  # Use 2 workers on 4 CPU machine
+            "prefetch_factor": (
+                2 if available_memory_gb > 8 else 1
+            ),  # Lower if memory constrained
+            "pin_memory": False,  # False for CPU training
+        }
+
+# Use in DataLoader initialization
+dataloader_config = get_dataloader_config()
 
 
 class MatchDataset(IterableDataset):
