@@ -1,8 +1,7 @@
 import torch
 import torch.nn as nn
 import pickle
-from pathlib import Path
-from utils.match_prediction import NUMERICAL_STATS_PATH, PREPARED_DATA_DIR
+from utils.match_prediction import NUMERICAL_STATS_PATH, PATCH_MAPPING_PATH
 from utils.match_prediction.column_definitions import (
     NUMERICAL_COLUMNS,
     CATEGORICAL_COLUMNS,
@@ -25,7 +24,7 @@ class Model(nn.Module):
         self.num_champions = num_champions
 
         # Load patch mapping and stats
-        with open(Path(PREPARED_DATA_DIR) / "patch_mapping.pkl", "rb") as f:
+        with open(PATCH_MAPPING_PATH, "rb") as f:
             self.patch_mapping = pickle.load(f)["mapping"]
         with open(NUMERICAL_STATS_PATH, "rb") as f:
             numerical_stats = pickle.load(f)
