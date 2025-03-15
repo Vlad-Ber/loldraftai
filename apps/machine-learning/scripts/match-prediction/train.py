@@ -58,7 +58,9 @@ torch.set_float32_matmul_precision("high")
 
 device = get_best_device()
 
-TRACK_SUBSET_VAL_LOSSES = True  # Track validation metrics by patch, ELO, and champion ID
+TRACK_SUBSET_VAL_LOSSES = (
+    True  # Track validation metrics by patch, ELO, and champion ID
+)
 
 
 def get_dataloader_config():
@@ -526,11 +528,8 @@ def validate(
         elo_losses = {}  # {elo_val: [loss_sum, count]}
         queue_losses = {}  # {queue_id: [loss_sum, count]}
 
-    per_sample_criterion = nn.BCEWithLogitsLoss(reduction="none")
-    num_samples = 0
     total_loss = torch.tensor(0.0, device=device)
     total_steps = 0
-    task_names = list(enabled_tasks.keys())
     task_weights = torch.tensor(
         [task_def.weight for task_def in enabled_tasks.values()], device=device
     )
@@ -539,6 +538,7 @@ def validate(
         for features, labels in test_loader:
             features = {k: v.to(device, non_blocking=True) for k, v in features.items()}
             labels = {k: v.to(device, non_blocking=True) for k, v in labels.items()}
+            batch_size = next(iter(labels.values())).size(0)
 
             with torch.autocast(
                 device_type=device.type if device.type == "cuda" else "cpu",
@@ -546,19 +546,36 @@ def validate(
             ):
                 outputs = model(features)
                 if config.calculate_val_loss:
-                    losses = torch.stack(
-                        [
-                            criterions[task_name](outputs[task_name], labels[task_name])
-                            for task_name in task_names
-                        ]
-                    )
+                    # Calculate all task losses once using functional versions
+                    task_losses = {}
+                    for task_name, task_def in enabled_tasks.items():
+                        if task_def.task_type == TaskType.BINARY_CLASSIFICATION:
+                            loss = nn.functional.binary_cross_entropy_with_logits(
+                                outputs[task_name], labels[task_name], reduction="none"
+                            )
+                        elif task_def.task_type == TaskType.REGRESSION:
+                            loss = nn.functional.mse_loss(
+                                outputs[task_name], labels[task_name], reduction="none"
+                            )
+                        elif task_def.task_type == TaskType.MULTICLASS_CLASSIFICATION:
+                            loss = nn.functional.cross_entropy(
+                                outputs[task_name], labels[task_name], reduction="none"
+                            )
+                        task_losses[task_name] = loss
+
+                    # Update loss accumulators
+                    for task_name, loss in task_losses.items():
+                        loss_sum = loss.sum()
+                        loss_accumulators[task_name][0] += loss_sum
+                        loss_accumulators[task_name][1] += batch_size
+
+                    # Calculate total weighted loss
+                    losses = torch.stack([loss.mean() for loss in task_losses.values()])
                     total_loss += (losses * task_weights).sum()
 
-                    # Optimized subset metrics calculation on GPU
+                    # Track subset losses if needed
                     if TRACK_SUBSET_VAL_LOSSES and "win_prediction" in enabled_tasks:
-                        sample_losses = per_sample_criterion(
-                            outputs["win_prediction"], labels["win_prediction"]
-                        )
+                        win_pred_losses = task_losses["win_prediction"]
                         for key, values in [
                             ("patch", features["numerical_patch"]),
                             ("elo", features["numerical_elo"].int()),
@@ -571,8 +588,8 @@ def validate(
                             sums = torch.zeros_like(
                                 unique_vals, dtype=torch.float, device=device
                             )
-                            sums.scatter_add_(0, inverse, sample_losses)
-                            current_metrics = locals()[f"{key}_metrics"]
+                            sums.scatter_add_(0, inverse, win_pred_losses)
+                            current_metrics = locals()[f"{key}_losses"]
                             for val, sum_val, count in zip(unique_vals, sums, counts):
                                 val_item = val.item()
                                 if val_item not in current_metrics:
@@ -580,12 +597,7 @@ def validate(
                                 current_metrics[val_item][0] += sum_val.item()
                                 current_metrics[val_item][1] += count.item()
 
-            batch_size = next(iter(labels.values())).size(0)
-            num_samples += batch_size
             total_steps += 1
-            update_loss_accumulators(
-                loss_accumulators, outputs, labels, batch_size, config
-            )
 
     # Compute final metrics and transfer only the result to CPU
     losses = calculate_final_loss(loss_accumulators)
@@ -625,39 +637,14 @@ def validate(
     return avg_loss, losses
 
 
-def update_loss_accumulators(
-    loss_accumulators: Dict[str, torch.Tensor],
-    outputs: Dict[str, torch.Tensor],
-    labels: Dict[str, torch.Tensor],
-    batch_size: int,
-    config: TrainingConfig,
-) -> None:
-    for task_name, task_def in TASKS.items():
-        if config.calculate_val_win_prediction_only and task_name != "win_prediction":
-            continue
-        task_output = outputs[task_name]
-        task_label = labels[task_name]
-
-        if task_def.task_type == TaskType.BINARY_CLASSIFICATION:
-            loss = nn.functional.binary_cross_entropy_with_logits(
-                task_output, task_label, reduction="sum"
-            )
-            loss_accumulators[task_name][0] += loss
-            loss_accumulators[task_name][1] += batch_size
-        elif task_def.task_type == TaskType.REGRESSION:
-            mse = nn.functional.mse_loss(task_output, task_label, reduction="sum")
-            loss_accumulators[task_name][0] += mse
-            loss_accumulators[task_name][1] += batch_size
-
-
 def calculate_final_loss(
     loss_accumulators: Dict[str, torch.Tensor],
 ) -> Dict[str, float]:
-    metrics = {}
+    losses = {}
     for task_name, accumulator in loss_accumulators.items():
         # Calculate average loss for all task types
-        metrics[task_name] = (accumulator[0] / accumulator[1]).item()
-    return metrics
+        losses[task_name] = (accumulator[0] / accumulator[1]).item()
+    return losses
 
 
 def log_validation_metrics(
