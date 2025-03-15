@@ -66,8 +66,8 @@ def get_dataloader_config():
         # Original CUDA config
         num_cpus = multiprocessing.cpu_count()
         return {
-            "num_workers": max(1, min(num_cpus - 1, 8)),
-            "prefetch_factor": 2,
+            "num_workers": 15,  # trying 15 on my windows pc
+            "prefetch_factor": 4,
             "pin_memory": True,
         }
     elif device.type == "mps":
@@ -351,7 +351,7 @@ def train_epoch(
             if task_def.task_type == TaskType.BINARY_CLASSIFICATION:
                 labels[task_name] = apply_label_smoothing(labels[task_name])
 
-        optimizer.zero_grad()
+        optimizer.zero_grad(set_to_none=True)
         with torch.autocast(device_type="cuda", dtype=torch.bfloat16):
             outputs = model(features)
             losses = torch.stack(
@@ -401,7 +401,7 @@ def train_epoch(
             optimizer.step()
             if scheduler is not None and batch_idx < len(train_loader) - 1:
                 scheduler.step()
-            optimizer.zero_grad()
+            optimizer.zero_grad(set_to_none=True)
 
             if (
                 (batch_idx + 1) // config.accumulation_steps
@@ -785,10 +785,10 @@ def train_model(
                         f"New best model saved with validation loss: {best_metric:.4f}"
                     )
 
-                # save with timestamp anyways
-                save_model(model)
-
             log_validation_metrics(val_metrics, config)
+
+        # save with timestamp anyways
+        save_model(model)
 
         epoch_end_time = time.time()
         if config.log_wandb:
