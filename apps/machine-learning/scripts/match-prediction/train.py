@@ -458,7 +458,7 @@ def log_training_step(
 def validate(
     model: Model,
     test_loader: DataLoader,
-    criterion: Dict[str, nn.Module],
+    criterions: Dict[str, nn.Module],
     config: TrainingConfig,
     device: torch.device,
     epoch: int,
@@ -523,7 +523,7 @@ def validate(
                 if config.calculate_val_loss:
                     losses = torch.stack(
                         [
-                            criterion[task_name](outputs[task_name], labels[task_name])
+                            criterions[task_name](outputs[task_name], labels[task_name])
                             for task_name in task_names
                         ]
                     )
@@ -702,16 +702,19 @@ def train_model(
 
     model = init_model(config, num_champions, continue_training, load_path)
 
-    # Initialize loss functions for each task
-    criterion = {}
-    enabled_tasks = get_enabled_tasks(config, epoch=0)  # Get only enabled tasks
-    for task_name, task_def in enabled_tasks.items():
-        if task_def.task_type == TaskType.BINARY_CLASSIFICATION:
-            criterion[task_name] = nn.BCEWithLogitsLoss()
-        elif task_def.task_type == TaskType.REGRESSION:
-            criterion[task_name] = nn.MSELoss()
-        elif task_def.task_type == TaskType.MULTICLASS_CLASSIFICATION:
-            criterion[task_name] = nn.CrossEntropyLoss()
+    criterions = {}
+
+    def update_criterions(epoch: int) -> None:
+        """Update criterions based on current enabled tasks"""
+        enabled_tasks = get_enabled_tasks(config, epoch)
+        criterions.clear()  # Remove old criterions
+        for task_name, task_def in enabled_tasks.items():
+            if task_def.task_type == TaskType.BINARY_CLASSIFICATION:
+                criterions[task_name] = nn.BCEWithLogitsLoss()
+            elif task_def.task_type == TaskType.REGRESSION:
+                criterions[task_name] = nn.MSELoss()
+            elif task_def.task_type == TaskType.MULTICLASS_CLASSIFICATION:
+                criterions[task_name] = nn.CrossEntropyLoss()
 
     optimizer = optim.AdamW(
         get_optimizer_grouped_parameters(model, config.weight_decay),
@@ -733,6 +736,9 @@ def train_model(
         )
 
     for epoch in range(config.num_epochs):
+        # Update criterions if needed
+        if epoch == 0 or epoch == config.annealing_epoch:
+            update_criterions(epoch)
         epoch_start_time = time.time()
 
         epoch_loss, epoch_steps = train_epoch(
@@ -740,7 +746,7 @@ def train_model(
             train_loader,
             optimizer,
             scheduler if config.use_one_cycle_lr else None,  # Pass scheduler
-            criterion,
+            criterions,
             config,
             device,
             epoch,
@@ -754,10 +760,10 @@ def train_model(
         # Only run validation on specified intervals
         if (epoch + 1) % config.validation_interval == 0:
             val_loss, val_metrics = validate(
-                model, test_loader, criterion, config, device, epoch
+                model, test_loader, criterions, config, device, epoch
             )
             val_masked_loss, val_masked_metrics = validate(
-                model, test_masked_loader, criterion, config, device, epoch
+                model, test_masked_loader, criterions, config, device, epoch
             )
 
             if config.calculate_val_loss:
