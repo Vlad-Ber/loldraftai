@@ -33,7 +33,7 @@ from utils.match_prediction import (
     MODEL_PATH,
     MODEL_CONFIG_PATH,
     TRAIN_BATCH_SIZE,
-    PREPARED_DATA_DIR,
+    PATCH_MAPPING_PATH,
     NUMERICAL_STATS_PATH,
 )
 from utils.match_prediction.column_definitions import (
@@ -473,10 +473,10 @@ def validate(
 
     # Load patch mapping and numerical stats for denormalization
     try:
-        with open(Path(PREPARED_DATA_DIR) / "patch_mapping.pkl", "rb") as f:
+        with open(PATCH_MAPPING_PATH, "rb") as f:
             patch_data = pickle.load(f)
             reverse_patch_mapping = {v: k for k, v in patch_data["mapping"].items()}
-        with open(Path(NUMERICAL_STATS_PATH), "rb") as f:
+        with open(NUMERICAL_STATS_PATH, "rb") as f:
             numerical_stats = pickle.load(f)
             patch_mean = numerical_stats["means"]["numerical_patch"]
             patch_std = numerical_stats["stds"]["numerical_patch"]
@@ -686,9 +686,7 @@ def train_model(
     # Initialize wandb
     if config.log_wandb:
         config_dict = config.to_dict()
-        config_dict["num_samples"] = len(
-            train_dataset
-        )  # TODO: this could take some time, maybe we should have a file with this stat and claculate it only once?
+        config_dict["num_samples"] = len(train_dataset)
         wandb.init(project="draftking", name=run_name, config=config_dict)
 
     train_loader, test_loader, test_masked_loader = (
@@ -715,11 +713,10 @@ def train_model(
         elif task_def.task_type == TaskType.MULTICLASS_CLASSIFICATION:
             criterion[task_name] = nn.CrossEntropyLoss()
 
-    fused = True if device.type == "cuda" else False
     optimizer = optim.AdamW(
         get_optimizer_grouped_parameters(model, config.weight_decay),
         lr=config.learning_rate,
-        fused=fused,
+        fused=True if device.type == "cuda" else False,
     )
 
     # Initialize scheduler
@@ -809,11 +806,6 @@ if __name__ == "__main__":
         help="Name for the Wandb run",
     )
     parser.add_argument(
-        "--profile",
-        action="store_true",
-        help="Enable profiling",
-    )
-    parser.add_argument(
         "--config",
         type=str,
         help="Path to JSON configuration file",
@@ -863,10 +855,6 @@ if __name__ == "__main__":
     print("Training configuration:")
     print(config)
 
-    if args.profile:
-        profiler = cProfile.Profile()
-        profiler.enable()
-
     # Set random seeds for reproducibility
     set_random_seeds()
     # Set up signal handler
@@ -883,13 +871,3 @@ if __name__ == "__main__":
         print(f"An error occurred: {e}")
         cleanup()
         raise
-
-    if args.profile:
-        profiler.disable()
-        s = io.StringIO()
-        sortby = SortKey.CUMULATIVE
-        ps = pstats.Stats(profiler, stream=s).sort_stats(sortby)
-
-        # Optionally, save profiling results to a file
-        ps.dump_stats(DATA_DIR + "train_profile.prof")
-        print("Profiling data saved to train_profile.prof")

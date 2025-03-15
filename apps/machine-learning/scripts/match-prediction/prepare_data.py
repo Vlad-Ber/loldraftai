@@ -223,7 +223,7 @@ def filter_outliers(df: pd.DataFrame) -> Tuple[pd.DataFrame, Dict[str, int]]:
 
     if level_filter_conditions:
         level_filter = pd.concat(level_filter_conditions, axis=1).any(axis=1)
-        filter_counts["level_filter"] = level_filtered_count = level_filter.sum()
+        filter_counts["level_filter"] = level_filter.sum()
         df = df[~level_filter]
 
     # Print summary using tqdm.write
