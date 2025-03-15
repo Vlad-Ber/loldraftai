@@ -53,7 +53,7 @@ if DEVICE.type == "mps":
     TRAIN_BATCH_SIZE = 2048 * 2  # Used during training
 else:
     # cuda/runpod config
-    TRAIN_BATCH_SIZE = 2048 * 2  # Used during training
+    TRAIN_BATCH_SIZE = 2048 * 10  # Used during training
 
 # Data batch size could probably be higher
 DATA_EXTRACTION_BATCH_SIZE = 512 * 4  # Used during data extraction from the database

@@ -24,9 +24,8 @@ from utils.match_prediction import get_best_device
 def get_dataloader_config():
     device = get_best_device()
     if device.type == "cuda":
-        # Original CUDA config
         return {
-            "num_workers": 15,  # trying 15 on my windows pc
+            "num_workers": 8,
             "prefetch_factor": 4,
             "pin_memory": True,
         }
