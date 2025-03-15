@@ -14,6 +14,7 @@ from utils.match_prediction import (
     ENCODERS_PATH,
     NUMERICAL_STATS_PATH,
     TASK_STATS_PATH,
+    PATCH_MAPPING_PATH,
 )
 from utils.match_prediction.column_definitions import (
     NUMERICAL_COLUMNS,
@@ -344,7 +345,7 @@ def add_computed_columns(input_files: List[str], output_dir: str) -> List[str]:
     patch_mapping, patch_counts = compute_patch_mapping(input_files)
 
     # Save the patch mapping and counts for future reference
-    with open(os.path.join(PREPARED_DATA_DIR, "patch_mapping.pkl"), "wb") as f:
+    with open(PATCH_MAPPING_PATH, "wb") as f:
         pickle.dump({"mapping": patch_mapping, "counts": patch_counts}, f)
 
     # Track cumulative stats

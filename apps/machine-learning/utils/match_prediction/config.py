@@ -1,7 +1,10 @@
 # utils/match_prediction/config.py
 import json
 from typing import Callable
+import os
+import pickle
 
+from utils.match_prediction import PATCH_MAPPING_PATH
 from utils.match_prediction.masking_strategies import MASKING_STRATEGIES
 
 
@@ -18,15 +21,19 @@ class TrainingConfig:
         # 256: https://wandb.ai/loyd-team/draftking/runs/6w221kxa?nw=nwuserloyd
         # 1024: https://wandb.ai/loyd-team/draftking/runs/5eg66qlp?nw=nwuserloyd
 
+        # Load patch mapping to get number of patches
+        with open(PATCH_MAPPING_PATH, "rb") as f:
+            patch_data = pickle.load(f)
+            num_patches = len(set(patch_data["mapping"].values()))
+
         # weight decay didn't change much when training for a short time at 0.001, but for longer trianing runs, 0.01 might be better
         self.weight_decay = 0.001
         self.patch_reg_lambda = (
-            0.001 / 25
-        )  # TODO: trying to divide by number of patches # TODO: modular config by reading mappings  # Weight for patch regularization loss
-        # TODO: divided by number of champions, TODO: modular config by reading mappings
+            0.001 / num_patches
+        )  # Weight for patch regularization loss
         self.champ_patch_reg_lambda = (
-            0.001 / 25  # Regularization strength for champion+patch embeddings
-        )
+            0.001 / num_patches
+        )  # Regularization strength for champion+patch embeddings
         self.max_grad_norm = 1.0  # because has loss spikes after adding pos embeddings
         self.accumulation_steps = 1
         self.masking_strategy = {

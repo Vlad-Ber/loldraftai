@@ -43,6 +43,7 @@ MODEL_CONFIG_PATH = os.path.join(DATA_DIR, "model_config.pkl")
 NUMERICAL_STATS_PATH = os.path.join(DATA_DIR, "numerical_feature_stats.pkl")
 TASK_STATS_PATH = os.path.join(DATA_DIR, "task_stats.pkl")
 CHAMPION_FEATURES_PATH = os.path.join(DATA_DIR, "champion_features.pkl")
+PATCH_MAPPING_PATH = os.path.join(PREPARED_DATA_DIR, "patch_mapping.pkl")
 
 DEVICE = get_best_device()
 
