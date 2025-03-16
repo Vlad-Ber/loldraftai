@@ -195,8 +195,7 @@ async def predict_batch(inputs: List[APIInput], api_key: str = Depends(verify_ap
                 with torch.amp.autocast("cuda"):
                     outputs = model(model_inputs)
             elif device.type == "mps":
-                with torch.autocast(device_type="mps", dtype=torch.float16):
-                    outputs = model(model_inputs)
+                outputs = model(model_inputs)
         else:
             outputs = model(model_inputs)
 
