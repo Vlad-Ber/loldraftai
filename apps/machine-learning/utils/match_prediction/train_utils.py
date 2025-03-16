@@ -1,4 +1,4 @@
-# utils/match_prediction/train.py
+# utils/match_prediction/train_utils.py
 
 import torch.nn as nn
 import torch
