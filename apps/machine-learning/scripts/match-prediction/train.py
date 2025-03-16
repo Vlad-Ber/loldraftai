@@ -51,6 +51,10 @@ device = get_best_device()
 
 
 def save_model(model: Model, timestamp: Optional[str] = None) -> str:
+    if config.debug:
+        print("Debug mode: Skipping model save")
+        return "debug_mode_no_save"
+
     if timestamp is None:
         timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
     model_timestamp_path = f"{MODEL_PATH.rsplit('.', 1)[0]}_{timestamp}.pth"
@@ -60,7 +64,7 @@ def save_model(model: Model, timestamp: Optional[str] = None) -> str:
 
 
 def cleanup() -> None:
-    if "model" in globals():
+    if "model" in globals() and not config.debug:
         save_model(model)
     if wandb.run is not None:
         wandb.finish()
@@ -565,11 +569,12 @@ def train_model(
 
                 if val_loss < best_metric:
                     best_metric = val_loss
-                    best_model_state = copy.deepcopy(model.state_dict())
-                    torch.save(best_model_state, MODEL_PATH)
-                    print(
-                        f"New best model saved with validation loss: {best_metric:.4f}"
-                    )
+                    if not config.debug:
+                        best_model_state = copy.deepcopy(model.state_dict())
+                        torch.save(best_model_state, MODEL_PATH)
+                        print(
+                            f"New best model saved with validation loss: {best_metric:.4f}"
+                        )
 
             log_validation_metrics(val_metrics, config)
 
@@ -618,6 +623,12 @@ if __name__ == "__main__":
         default=1,
         help="Run validation every N epochs",
     )
+    parser.add_argument(
+        "--debug",
+        action="store_true",
+        default=False,
+        help="Run in debug mode: no model saving, no wandb logging",
+    )
 
     args = parser.parse_args()
 
@@ -627,6 +638,12 @@ if __name__ == "__main__":
     # Update config with command line arguments
     config.dataset_fraction = args.dataset_fraction
     config.validation_interval = args.validation_interval
+    config.debug = args.debug
+
+    # If in debug mode, disable wandb logging
+    if config.debug:
+        config.log_wandb = False
+        print("Running in DEBUG mode: No model saving, no wandb logging")
 
     print("Training configuration:")
     print(config)
