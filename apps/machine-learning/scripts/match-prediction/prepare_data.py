@@ -270,16 +270,39 @@ def prepare_data(
     numerical_stds,
     task_means,
     task_stds,
+    target_file_size: int = 50000,  # Target number of rows per output file
 ):
     os.makedirs(os.path.join(output_dir, "train"), exist_ok=True)
     os.makedirs(os.path.join(output_dir, "test"), exist_ok=True)
-    # clean up the folders
+
+    # Clean up existing files
     for folder in ["train", "test"]:
         for file_path in glob.glob(os.path.join(output_dir, folder, "*.parquet")):
             os.remove(file_path)
 
+    train_buffer = []
+    test_buffer = []
+    train_file_counter = 0
+    test_file_counter = 0
     train_count = 0
     test_count = 0
+
+    def write_buffer(buffer, is_train: bool, file_counter: int):
+        if not buffer:
+            return file_counter
+
+        file_prefix = "train" if is_train else "test"
+        output_path = os.path.join(
+            output_dir, file_prefix, f"{file_prefix}_{file_counter:04d}.parquet"
+        )
+
+        df = pd.DataFrame(buffer)
+        df.to_parquet(output_path, index=False)
+        return file_counter + 1
+
+    # Shuffle input files for better data distribution
+    rng = np.random.default_rng(42)  # Use seeded RNG for reproducibility
+    rng.shuffle(input_files)
 
     for file_index, file_path in enumerate(tqdm(input_files, desc="Preparing data")):
         df = pd.read_parquet(file_path)
@@ -288,56 +311,55 @@ def prepare_data(
             print(f"Skipping file {file_path} - insufficient samples ({len(df)} rows)")
             continue
 
-        # Encode categorical columns
+        # Process the data as before
         for col in CATEGORICAL_COLUMNS:
             df[col] = encoders[col].transform(df[col])
-
-        # Encode champion_ids
         df["champion_ids"] = df["champion_ids"].apply(
             lambda x: encoders["champion_ids"].transform(x)
         )
-
-        # Normalize numerical columns
         for col in NUMERICAL_COLUMNS:
             if numerical_stds[col] != 0:
                 df[col] = (df[col] - numerical_means[col]) / numerical_stds[col]
             else:
-                df[col] = (
-                    df[col] - numerical_means[col]
-                )  # Center the data if std is zero
-
-        # Normalize regression tasks
+                df[col] = df[col] - numerical_means[col]
         for task, task_def in TASKS.items():
             if task_def.task_type == TaskType.REGRESSION:
                 if task_stds[task] != 0:
                     df[task] = (df[task] - task_means[task]) / task_stds[task]
                 else:
-                    df[task] = (
-                        df[task] - task_means[task]
-                    )  # Center the data if std is zero
+                    df[task] = df[task] - task_means[task]
 
-        # Modified split with minimum size check
-        if len(df) < 10:  # Arbitrary minimum size, adjust as needed
-            # For very small datasets, use a fixed split
-            df_train = df.iloc[:-1]  # All but last row
-            df_test = df.iloc[-1:]  # Last row
+        # Split into train/test
+        if len(df) < 10:
+            df_train = df.iloc[:-1]
+            df_test = df.iloc[-1:]
         else:
             df_train, df_test = train_test_split(df, test_size=0.1, random_state=42)
+
+        # Add to buffers
+        train_buffer.extend(df_train.to_dict("records"))
+        test_buffer.extend(df_test.to_dict("records"))
 
         train_count += len(df_train)
         test_count += len(df_test)
 
-        # Save prepared data
-        df_train.to_parquet(
-            os.path.join(output_dir, "train", f"train_{file_index}.parquet"),
-            index=False,
-        )
-        df_test.to_parquet(
-            os.path.join(output_dir, "test", f"test_{file_index}.parquet"), index=False
-        )
+        # Write buffers if they exceed target size
+        if len(train_buffer) >= target_file_size:
+            train_file_counter = write_buffer(train_buffer, True, train_file_counter)
+            train_buffer = []
+
+        if len(test_buffer) >= target_file_size:
+            test_file_counter = write_buffer(test_buffer, False, test_file_counter)
+            test_buffer = []
 
         # Clear memory
         del df, df_train, df_test
+
+    # Write remaining buffers
+    if train_buffer:
+        train_file_counter = write_buffer(train_buffer, True, train_file_counter)
+    if test_buffer:
+        test_file_counter = write_buffer(test_buffer, False, test_file_counter)
 
     # Save sample counts
     with open(SAMPLE_COUNTS_PATH, "wb") as f:
@@ -349,7 +371,10 @@ def prepare_data(
             f,
         )
 
-    print(f"\nFinal sample counts: {train_count} train, {test_count} test")
+    print(f"\nFinal sample counts: {train_count:,d} train, {test_count:,d} test")
+    print(
+        f"Created {train_file_counter} train files and {test_file_counter} test files"
+    )
 
 
 def add_computed_columns(input_files: List[str], output_dir: str) -> List[str]:
