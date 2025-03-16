@@ -249,6 +249,11 @@ def validate(
         task_name: torch.zeros(2, device=device) for task_name in enabled_tasks.keys()
     }
 
+    # Add accuracy accumulator for win_prediction
+    win_prediction_accuracy = (
+        torch.zeros(2, device=device) if "win_prediction" in enabled_tasks else None
+    )
+
     # Load patch mapping and numerical stats for denormalization
     try:
         with open(PATCH_MAPPING_PATH, "rb") as f:
@@ -324,6 +329,17 @@ def validate(
                     losses = torch.stack([loss.mean() for loss in task_losses.values()])
                     total_loss += (losses * task_weights).sum()
 
+                    # Calculate win prediction accuracy
+                    if "win_prediction" in enabled_tasks:
+                        # Apply sigmoid to get probabilities
+                        win_probs = torch.sigmoid(outputs["win_prediction"])
+                        # Predicted win if probability > 0.5
+                        predictions = (win_probs > 0.5).float()
+                        # Count correct predictions
+                        correct = (predictions == labels["win_prediction"]).sum()
+                        win_prediction_accuracy[0] += correct
+                        win_prediction_accuracy[1] += batch_size
+
                     # Track subset losses if needed
                     if (
                         config.track_subset_val_losses
@@ -356,6 +372,11 @@ def validate(
     # Compute final metrics and transfer only the result to CPU
     losses = calculate_final_loss(loss_accumulators)
     avg_loss = (total_loss / total_steps).item() if config.calculate_val_loss else None
+
+    # Add win prediction accuracy to metrics
+    if win_prediction_accuracy is not None:
+        accuracy = (win_prediction_accuracy[0] / win_prediction_accuracy[1]).item()
+        losses["win_prediction_accuracy"] = accuracy
 
     # Add subset metrics to the metrics dictionary
     if config.track_subset_val_losses and "win_prediction" in enabled_tasks:
@@ -410,6 +431,7 @@ def log_validation_metrics(
             if (
                 config.calculate_val_win_prediction_only
                 and task_name != "win_prediction"
+                and task_name != "win_prediction_accuracy"  # Allow accuracy metric
             ):
                 continue
             log_data[f"val_{task_name}_metric"] = metric_value
