@@ -1,32 +1,34 @@
 # serve-model-m1.py
 import torch
-import numpy as np
 from fastapi import FastAPI, HTTPException, Depends
 from fastapi.security import APIKeyHeader
 from pydantic import BaseModel
 from typing import List, Literal, Dict, Optional
 import uvicorn
 import pickle
-import time
 import os
 from pathlib import Path
+import numpy as np
 
-from utils.match_prediction.column_definitions import COLUMNS, ColumnType
+from utils.match_prediction.model import Model
 from utils.match_prediction import (
     ENCODERS_PATH,
     NUMERICAL_STATS_PATH,
     MODEL_PATH,
     MODEL_CONFIG_PATH,
-    PREPARED_DATA_DIR,
+    PATCH_MAPPING_PATH,
 )
 
-# Set up Apple Silicon MPS acceleration
-if torch.backends.mps.is_available():
+# Set up GPU acceleration (CUDA or MPS)
+if torch.cuda.is_available():
+    device = torch.device("cuda")
+    print("Using CUDA GPU acceleration")
+elif torch.backends.mps.is_available():
     device = torch.device("mps")
     print("Using MPS (Metal Performance Shaders) for Apple Silicon GPU acceleration")
 else:
     device = torch.device("cpu")
-    print("MPS not available, falling back to CPU")
+    print("No GPU acceleration available, falling back to CPU")
 
 # Initialize FastAPI with minimal configuration
 app = FastAPI(title="LoL Draft Model Server - M1 Optimized")
@@ -43,16 +45,13 @@ with open(NUMERICAL_STATS_PATH, "rb") as f:
     numerical_stats = pickle.load(f)
 
 # Get patch mapping
-with open(Path(PREPARED_DATA_DIR) / "patch_mapping.pkl", "rb") as f:
+with open(PATCH_MAPPING_PATH, "rb") as f:
     patch_mapping = pickle.load(f)["mapping"]
 
 # Load model config
 with open(MODEL_CONFIG_PATH, "rb") as f:
     model_config = pickle.load(f)
 
-# Load PyTorch model
-from utils.match_prediction.model import Model
-from utils.match_prediction.column_definitions import CATEGORICAL_COLUMNS
 
 # Create model with same architecture
 model = Model(
@@ -65,15 +64,21 @@ model = Model(
 
 # Load model weights and move to device
 print(f"Loading PyTorch model from {MODEL_PATH}")
-model.load_state_dict(torch.load(MODEL_PATH, map_location=device))
+state_dict = torch.load(MODEL_PATH, map_location=device)
+# Remove '_orig_mod.' prefix from state dict keys if present
+fixed_state_dict = {
+    k.replace("_orig_mod.", ""): state_dict[k] for k in state_dict.keys()
+}
+model.load_state_dict(fixed_state_dict)
 model.to(device)
 model.eval()
 print("Model loaded successfully")
 
-# Enable float16 precision when possible (faster on Apple Silicon)
-use_float16 = False
-if use_float16 and device.type == "mps":
-    print("Enabling float16 precision for faster inference")
+# Enable mixed precision when possible (faster on GPUs)
+use_mixed_precision = False
+if device.type in ["cuda", "mps"]:
+    print(f"Enabling mixed precision for faster inference on {device.type}")
+    use_mixed_precision = True
 
 # For authentication
 API_KEY_HEADER = APIKeyHeader(name="X-API-Key", auto_error=False)
@@ -102,8 +107,6 @@ def preprocess_batch(batch_inputs):
     """
     Efficiently preprocess a batch of inputs for the model
     """
-    batch_size = len(batch_inputs)
-
     # Process champion IDs
     all_champion_ids = []
     for input_data in batch_inputs:
@@ -118,7 +121,8 @@ def preprocess_batch(batch_inputs):
         encoded = label_encoders["champion_ids"].transform(champion_ids)
         encoded_champions.append(encoded)
 
-    # Create tensor on device
+    # Convert list to numpy array first, then to tensor
+    encoded_champions = np.array(encoded_champions)
     champion_ids_tensor = torch.tensor(
         encoded_champions, dtype=torch.long, device=device
     )
@@ -183,30 +187,22 @@ async def predict_batch(inputs: List[APIInput], api_key: str = Depends(verify_ap
     """
     Optimized batch prediction endpoint
     """
-    batch_size = len(inputs)
-    start_time = time.time()
-
-    # Preprocess inputs
-    preprocess_start = time.time()
     model_inputs = preprocess_batch(inputs)
-    preprocess_time = time.time() - preprocess_start
-
-    # Run model inference
-    inference_start = time.time()
     with torch.no_grad():
-        # Use float16 precision if enabled and available
-        if use_float16 and device.type == "mps":
-            with torch.autocast(device_type="mps", dtype=torch.float16):
-                outputs = model(model_inputs)
+        # Use mixed precision if enabled and available
+        if use_mixed_precision:
+            if device.type == "cuda":
+                with torch.amp.autocast("cuda"):
+                    outputs = model(model_inputs)
+            elif device.type == "mps":
+                with torch.autocast(device_type="mps", dtype=torch.float16):
+                    outputs = model(model_inputs)
         else:
             outputs = model(model_inputs)
 
         # Get win predictions
         win_predictions = outputs["win_prediction"]
         win_probabilities = torch.sigmoid(win_predictions).cpu().numpy()
-
-    inference_time = time.time() - inference_start
-    total_time = time.time() - start_time
 
     # Return predictions
     return [
