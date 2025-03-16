@@ -42,6 +42,7 @@ class TrainingConfig:
         self.calculate_val_loss = True
         self.calculate_val_win_prediction_only = True
         self.log_wandb = True
+        self.debug = False
 
         # Add OneCycleLR parameters
         self.use_one_cycle_lr = True
