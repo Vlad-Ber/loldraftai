@@ -24,6 +24,7 @@ from utils.match_prediction import (
     RAW_PRO_GAMES_DIR,
     NUMERICAL_STATS_PATH,
     PREPARED_DATA_DIR,
+    PATCH_MAPPING_PATH,
 )
 from utils.match_prediction.model import Model
 from utils.match_prediction.train_utils import (
@@ -43,18 +44,18 @@ class FineTuningConfig:
 
     def __init__(self):
         # Fine-tuning hyperparameters - edit these directly instead of using command line flags
-        self.num_epochs = 20
+        self.num_epochs = 100
         self.learning_rate = 5e-6  # Lower learning rate for fine-tuning
         self.weight_decay = 0.05  # Much stronger regularization
         self.dropout = 0.3  # Higher dropout to prevent overfitting
-        self.batch_size = 32
+        self.batch_size = 16
         self.val_split = 0.2
-        self.hidden_dims = [768, 384, 192, 96]
-        self.embed_dim = 128
+        self.hidden_dims = [1536, 768, 384, 192]
+        self.embed_dim = 256
         self.max_grad_norm = 1.0
         self.log_wandb = True
         self.log_batch_interval = 5  # How often to log batch progress
-        self.save_checkpoints = True
+        self.save_checkpoints = False
 
     def __str__(self):
         return "\n".join(f"{key}: {value}" for key, value in vars(self).items())
@@ -71,14 +72,14 @@ class ProMatchDataset(Dataset):
         pro_games_df: pd.DataFrame,
         unknown_champion_id: int,
         label_encoders: Dict[str, Any],
-        numerical_stats: Dict[str, Dict[str, float]],
+        patch_mapping: Dict[float, int],
         train_or_test: str = "train",
         val_split: float = 0.2,
         seed: int = 42,
     ):
         self.unknown_champion_id = unknown_champion_id
         self.label_encoders = label_encoders
-        self.numerical_stats = numerical_stats
+        self.patch_mapping = patch_mapping
 
         # Split data into train/test
         np.random.seed(seed)
@@ -105,16 +106,6 @@ class ProMatchDataset(Dataset):
         # Process champion IDs
         try:
             champion_ids = self._get_champion_ids(row)
-
-            # Verify we have 10 champions
-            if len(champion_ids) != 10:
-                print(
-                    f"WARNING: Row {idx} has {len(champion_ids)} champions instead of 10!"
-                )
-                print(f"Row data: {row}")
-                raise ValueError(f"Expected 10 champions, got {len(champion_ids)}")
-
-            # Convert champion IDs to encoded format
             encoded_champs = self.label_encoders["champion_ids"].transform(champion_ids)
             features["champion_ids"] = torch.tensor(encoded_champs, dtype=torch.long)
         except Exception as e:
@@ -122,29 +113,19 @@ class ProMatchDataset(Dataset):
             print(f"Row data: {row}")
             raise
 
-        # Process numerical features
-        for col in NUMERICAL_COLUMNS:
-            if col == "numerical_elo":
-                # Pro games are highest ELO
-                val = 0
-            elif col == "numerical_patch":
-                # Calculate numerical patch
-                major = row["gameVersionMajorPatch"]
-                minor = row["gameVersionMinorPatch"]
-                val = major * 50 + minor
-            else:
-                continue
+        # Process patch
+        major = row["gameVersionMajorPatch"]
+        minor = row["gameVersionMinorPatch"]
+        raw_patch = major * 50 + minor
+        numerical_patch = self.patch_mapping.get(float(raw_patch), 0)
+        features["numerical_patch"] = torch.tensor(numerical_patch, dtype=torch.long)
 
-            # Normalize using pre-computed stats
-            mean = self.numerical_stats["means"].get(col, 0.0)
-            std = self.numerical_stats["stds"].get(col, 1.0)
+        # Process queue ID - always use queue 420 (ranked solo/duo) for pro games
+        queue_420_idx = self.label_encoders["queueId"].transform([420])[0]
+        features["queueId"] = torch.tensor(queue_420_idx, dtype=torch.long)
 
-            if std > 0:
-                normalized_val = (val - mean) / std
-            else:
-                normalized_val = val - mean
-
-            features[col] = torch.tensor(normalized_val, dtype=torch.float32)
+        # Add numerical_elo = 0 for pro games (highest skill level)
+        features["numerical_elo"] = torch.tensor(0.0, dtype=torch.float32)
 
         # Extract labels
         labels = {
@@ -350,7 +331,12 @@ def pro_collate_fn(batch):
 
 
 def create_dataloaders(
-    pro_games_df, unknown_champion_id, label_encoders, numerical_stats, config
+    pro_games_df,
+    unknown_champion_id,
+    label_encoders,
+    numerical_stats,
+    patch_mapping,
+    config,
 ):
     """Create train and validation dataloaders for fine-tuning"""
     # Create datasets
@@ -358,7 +344,7 @@ def create_dataloaders(
         pro_games_df=pro_games_df,
         unknown_champion_id=unknown_champion_id,
         label_encoders=label_encoders,
-        numerical_stats=numerical_stats,
+        patch_mapping=patch_mapping,
         train_or_test="train",
         val_split=config.val_split,
     )
@@ -367,7 +353,7 @@ def create_dataloaders(
         pro_games_df=pro_games_df,
         unknown_champion_id=unknown_champion_id,
         label_encoders=label_encoders,
-        numerical_stats=numerical_stats,
+        patch_mapping=patch_mapping,
         train_or_test="test",
         val_split=config.val_split,
     )
@@ -412,12 +398,21 @@ def fine_tune_model(
     with open(NUMERICAL_STATS_PATH, "rb") as f:
         numerical_stats = pickle.load(f)
 
+    # Load patch mapping
+    with open(PATCH_MAPPING_PATH, "rb") as f:
+        patch_mapping = pickle.load(f)["mapping"]
+
     # Get number of champions
     num_champions, unknown_champion_id = get_num_champions()
 
     # Create data loaders
     train_loader, val_loader = create_dataloaders(
-        pro_games_df, unknown_champion_id, label_encoders, numerical_stats, config
+        pro_games_df,
+        unknown_champion_id,
+        label_encoders,
+        numerical_stats,
+        patch_mapping,
+        config,
     )
 
     # Initialize the model
@@ -431,18 +426,40 @@ def fine_tune_model(
 
     # Load pre-trained weights
     print(f"Loading pre-trained model from {pretrained_model_path}")
-    model.load_state_dict(torch.load(pretrained_model_path, map_location=device))
+    state_dict = torch.load(MODEL_PATH, map_location=device)
+    # Remove '_orig_mod.' prefix from state dict keys if present
+    fixed_state_dict = {
+        k.replace("_orig_mod.", ""): state_dict[k] for k in state_dict.keys()
+    }
+    model.load_state_dict(fixed_state_dict)
     model.to(device)
 
-    # Freeze embeddings - they contain semantic information that's already well-learned
-    print("Freezing embedding layers to prevent overfitting...")
-    model.champion_embedding.requires_grad_(False)
-    for embedding in model.embeddings.values():
-        embedding.requires_grad_(False)
+    # Freeze embeddings except queueId
+    print("Freezing embedding layers except queueId...")
+    model.patch_embedding.requires_grad_(False)
+    model.champion_patch_embedding.requires_grad_(False)
+    for name, embedding in model.embeddings.items():
+        if name != "queueId":
+            embedding.requires_grad_(False)
+        else:
+            # Get queue 420 index for initialization
+            queue_420_idx = label_encoders["queueId"].transform([420])[0]
+            print(
+                f"Initializing queue embeddings from queue 420 (index: {queue_420_idx})"
+            )
+            with torch.no_grad():
+                base_embedding = embedding.weight[queue_420_idx].clone()
+                # Initialize other queue embeddings with small variations of queue 420
+                for i in range(len(embedding.weight)):
+                    if i != queue_420_idx:
+                        noise = torch.randn_like(base_embedding) * 0.01
+                        embedding.weight[i] = base_embedding + noise
 
     # Freeze early MLP layers
+    print("Freezing first two MLP layers...")
     mlp_layers = list(model.mlp)
-    for layer in mlp_layers[:4]:  # First two linear + batchnorm layers
+    frozen_layers = 4  # First two linear + batchnorm layers
+    for layer in mlp_layers[:frozen_layers]:
         layer.requires_grad_(False)
 
     # Count trainable parameters
@@ -477,8 +494,8 @@ def fine_tune_model(
         weight_decay=config.weight_decay,
     )
 
-    # Fine-tune the model
-    best_val_metric = 0.0  # Track best accuracy
+    # Change from tracking best loss to best loss
+    best_val_loss = float("inf")  # Track best loss (lower is better)
     best_model_state = None
 
     for epoch in range(config.num_epochs):
@@ -554,8 +571,12 @@ def fine_tune_model(
 
         epoch_time = time.time() - epoch_start
 
-        # Minimal console output - let wandb handle the metrics
-        print(f"Epoch {epoch+1}/{config.num_epochs} completed in {epoch_time:.2f}s")
+        # Enhanced console output to show both loss and accuracy
+        print(
+            f"Epoch {epoch+1}/{config.num_epochs} completed in {epoch_time:.2f}s\n"
+            f"Train Loss: {avg_train_loss:.4f}, Accuracy: {train_accuracy:.4f}\n"
+            f"Val Loss: {avg_val_loss:.4f}, Accuracy: {val_accuracy:.4f}"
+        )
 
         # Log metrics to wandb
         if config.log_wandb:
@@ -570,9 +591,9 @@ def fine_tune_model(
                 }
             )
 
-        # Save best model based on validation accuracy
-        if val_accuracy > best_val_metric:
-            best_val_metric = val_accuracy
+        # Save best model based on validation loss instead of accuracy
+        if avg_val_loss < best_val_loss:
+            best_val_loss = avg_val_loss
             best_model_state = model.state_dict().copy()
 
             # Save intermediate best model
@@ -581,13 +602,16 @@ def fine_tune_model(
                     f"{output_model_path.rsplit('.', 1)[0]}_epoch{epoch+1}.pth"
                 )
                 torch.save(best_model_state, intermediate_path)
-                print(f"New best model with validation accuracy: {best_val_metric:.4f}")
+                print(
+                    f"New best model saved with validation loss: {best_val_loss:.4f} "
+                    f"(accuracy: {val_accuracy:.4f})"
+                )
 
     # Save the final best model
     if best_model_state is not None:
         torch.save(best_model_state, output_model_path)
         print(
-            f"Best model saved to {output_model_path} with accuracy {best_val_metric:.4f}"
+            f"Best model saved to {output_model_path} with validation loss: {best_val_loss:.4f}"
         )
     else:
         # Save the final model if no best model was found
@@ -597,7 +621,7 @@ def fine_tune_model(
     if config.log_wandb:
         wandb.finish()
 
-    return best_val_metric
+    return best_val_loss  # Return best validation loss instead of accuracy
 
 
 def main():
@@ -682,7 +706,7 @@ def main():
     set_random_seeds()
 
     # Start fine-tuning
-    best_accuracy = fine_tune_model(
+    best_val_loss = fine_tune_model(
         pretrained_model_path=args.model_path,
         pro_games_df=pro_games_df,
         config=config,
@@ -691,7 +715,7 @@ def main():
     )
 
     print(
-        f"Fine-tuning complete. Best model saved to {args.output_path} with accuracy {best_accuracy:.4f}"
+        f"Fine-tuning complete. Best model saved to {args.output_path} with validation loss {best_val_loss:.4f}"
     )
 
 
