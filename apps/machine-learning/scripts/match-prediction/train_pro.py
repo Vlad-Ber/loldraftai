@@ -66,6 +66,9 @@ class FineTuningConfig:
         )
         self.unfreeze_embeddings = False  # Whether to eventually unfreeze embeddings
 
+        # Data augmentation options
+        self.use_team_symmetry = True  # Enable team symmetry augmentation
+
     def __str__(self):
         return "\n".join(f"{key}: {value}" for key, value in vars(self).items())
 
@@ -84,6 +87,7 @@ class ProMatchDataset(Dataset):
         patch_mapping: Dict[float, int],
         train_or_test: str = "train",
         val_split: float = 0.2,
+        use_team_symmetry: bool = True,
         seed: int = 42,
     ):
         self.unknown_champion_id = unknown_champion_id
@@ -102,19 +106,28 @@ class ProMatchDataset(Dataset):
 
         print(f"Created {train_or_test} dataset with {len(self.df)} pro games")
 
+        self.use_team_symmetry = use_team_symmetry and train_or_test == "train"
+
     def __len__(self):
-        return len(self.df)
+        return len(self.df) * (2 if self.use_team_symmetry else 1)
 
     def __getitem__(self, idx):
         """Get a single item from the dataset"""
-        row = self.df.iloc[idx]
+        # Handle symmetry indexing
+        use_symmetry = self.use_team_symmetry and idx >= len(self.df)
+        original_idx = idx % len(self.df)
+        row = self.df.iloc[original_idx]
 
         # Extract features
         features = {}
 
-        # Process champion IDs
+        # Process champion IDs with symmetry handling
         try:
             champion_ids = self._get_champion_ids(row)
+            if use_symmetry:
+                # Swap blue and red team champions (first 5 with last 5)
+                champion_ids = champion_ids[5:] + champion_ids[:5]
+
             encoded_champs = self.label_encoders["champion_ids"].transform(champion_ids)
             features["champion_ids"] = torch.tensor(encoded_champs, dtype=torch.long)
         except Exception as e:
@@ -136,10 +149,12 @@ class ProMatchDataset(Dataset):
         # Add numerical_elo = 0 for pro games (highest skill level)
         features["numerical_elo"] = torch.tensor(0.0, dtype=torch.float32)
 
-        # Extract labels
-        labels = {
-            "win_prediction": torch.tensor(row["team_100_win"], dtype=torch.float32)
-        }
+        # Extract labels with symmetry handling
+        win_prediction = row["team_100_win"]
+        if use_symmetry:
+            win_prediction = not win_prediction
+
+        labels = {"win_prediction": torch.tensor(win_prediction, dtype=torch.float32)}
 
         return features, labels
 
@@ -356,6 +371,7 @@ def create_dataloaders(
         patch_mapping=patch_mapping,
         train_or_test="train",
         val_split=config.val_split,
+        use_team_symmetry=config.use_team_symmetry,
     )
 
     val_dataset = ProMatchDataset(
@@ -365,6 +381,7 @@ def create_dataloaders(
         patch_mapping=patch_mapping,
         train_or_test="test",
         val_split=config.val_split,
+        use_team_symmetry=False,  # Don't use symmetry for validation
     )
 
     # Create dataloaders
