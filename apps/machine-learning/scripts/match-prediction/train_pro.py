@@ -44,7 +44,7 @@ class FineTuningConfig:
 
     def __init__(self):
         # Fine-tuning hyperparameters - edit these directly instead of using command line flags
-        self.num_epochs = 100
+        self.num_epochs = 60
         self.learning_rate = 5e-6  # Lower learning rate for fine-tuning
         self.weight_decay = 0.05  # Much stronger regularization
         self.dropout = 0.3  # Higher dropout to prevent overfitting
@@ -56,6 +56,15 @@ class FineTuningConfig:
         self.log_wandb = True
         self.log_batch_interval = 5  # How often to log batch progress
         self.save_checkpoints = False
+
+        # New unfreezing parameters
+        # NOTE: it didn't change much, but it's best practice so we can maybe keep it for now
+        self.progressive_unfreezing = True  # Enable progressive unfreezing
+        self.epochs_per_unfreeze = 10  # Number of epochs before unfreezing next layer
+        self.initial_frozen_layers = (
+            6  # Number of layers to start frozen (2 linear + 2 batchnorm)
+        )
+        self.unfreeze_embeddings = False  # Whether to eventually unfreeze embeddings
 
     def __str__(self):
         return "\n".join(f"{key}: {value}" for key, value in vars(self).items())
@@ -376,6 +385,44 @@ def create_dataloaders(
     return train_loader, val_loader
 
 
+def unfreeze_layer_group(
+    model: Model, current_unfrozen_layers: int, config: FineTuningConfig
+) -> int:
+    """
+    Unfreeze the next group of layers in the model.
+    Returns the new count of unfrozen layer groups.
+    """
+    mlp_layers = list(model.mlp)
+    total_layer_groups = len(mlp_layers) // 2  # Each group has linear + batchnorm
+
+    if current_unfrozen_layers >= total_layer_groups:
+        if config.unfreeze_embeddings:
+            # Unfreeze embeddings last if configured
+            print("Unfreezing embedding layers...")
+            model.patch_embedding.requires_grad_(True)
+            model.champion_patch_embedding.requires_grad_(True)
+            for name, embedding in model.embeddings.items():
+                if name != "queueId":  # Keep queueId unfrozen
+                    embedding.requires_grad_(True)
+            return current_unfrozen_layers + 1
+        return current_unfrozen_layers
+
+    # Calculate which layer group to unfreeze
+    layer_to_unfreeze = -(current_unfrozen_layers + 1) * 2
+
+    # Unfreeze the next linear + batchnorm group
+    mlp_layers[layer_to_unfreeze].requires_grad_(True)
+    mlp_layers[layer_to_unfreeze + 1].requires_grad_(True)
+
+    print(
+        f"Unfreezing layer group {total_layer_groups - current_unfrozen_layers}: "
+        f"{type(mlp_layers[layer_to_unfreeze]).__name__} and "
+        f"{type(mlp_layers[layer_to_unfreeze + 1]).__name__}"
+    )
+
+    return current_unfrozen_layers + 1
+
+
 def fine_tune_model(
     pretrained_model_path: str,
     pro_games_df: pd.DataFrame,
@@ -487,18 +534,49 @@ def fine_tune_model(
     # Define loss function for win prediction only
     criterion = {"win_prediction": nn.BCEWithLogitsLoss()}
 
-    # Configure optimizer - only use trainable parameters
+    # Initialize unfreezing state
+    current_unfrozen_layers = 0
+    last_unfreeze_epoch = 0
+
+    # Initialize optimizer with initially trainable parameters
     optimizer = optim.AdamW(
         [p for p in model.parameters() if p.requires_grad],
         lr=config.learning_rate,
         weight_decay=config.weight_decay,
     )
 
-    # Change from tracking best loss to best loss
-    best_val_loss = float("inf")  # Track best loss (lower is better)
-    best_model_state = None
-
     for epoch in range(config.num_epochs):
+        # Check if it's time to unfreeze next layer group
+        if (
+            config.progressive_unfreezing
+            and epoch > 0
+            and epoch - last_unfreeze_epoch >= config.epochs_per_unfreeze
+        ):
+
+            current_unfrozen_layers = unfreeze_layer_group(
+                model, current_unfrozen_layers, config
+            )
+            last_unfreeze_epoch = epoch
+
+            # Reconfigure optimizer with updated trainable parameters
+            optimizer = optim.AdamW(
+                [p for p in model.parameters() if p.requires_grad],
+                lr=config.learning_rate,
+                weight_decay=config.weight_decay,
+            )
+
+            # Log unfreezing event
+            if config.log_wandb:
+                wandb.log(
+                    {
+                        "epoch": epoch,
+                        "unfrozen_layer_groups": current_unfrozen_layers,
+                        "trainable_params": sum(
+                            p.numel() for p in model.parameters() if p.requires_grad
+                        ),
+                    }
+                )
+
         epoch_start = time.time()
 
         # Training
@@ -591,37 +669,14 @@ def fine_tune_model(
                 }
             )
 
-        # Save best model based on validation loss instead of accuracy
-        if avg_val_loss < best_val_loss:
-            best_val_loss = avg_val_loss
-            best_model_state = model.state_dict().copy()
-
-            # Save intermediate best model
-            if config.save_checkpoints:
-                intermediate_path = (
-                    f"{output_model_path.rsplit('.', 1)[0]}_epoch{epoch+1}.pth"
-                )
-                torch.save(best_model_state, intermediate_path)
-                print(
-                    f"New best model saved with validation loss: {best_val_loss:.4f} "
-                    f"(accuracy: {val_accuracy:.4f})"
-                )
-
     # Save the final best model
-    if best_model_state is not None:
-        torch.save(best_model_state, output_model_path)
-        print(
-            f"Best model saved to {output_model_path} with validation loss: {best_val_loss:.4f}"
-        )
-    else:
-        # Save the final model if no best model was found
-        torch.save(model.state_dict(), output_model_path)
-        print(f"Final model saved to {output_model_path}")
+    torch.save(model.state_dict(), output_model_path)
+    print(f"Final model saved to {output_model_path}")
 
     if config.log_wandb:
         wandb.finish()
 
-    return best_val_loss  # Return best validation loss instead of accuracy
+    return avg_val_loss  # Return best validation loss instead of accuracy
 
 
 def main():
