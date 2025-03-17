@@ -69,6 +69,11 @@ class FineTuningConfig:
         # Data augmentation options
         self.use_team_symmetry = True  # Enable team symmetry augmentation
 
+        # Label smoothing options
+        self.use_label_smoothing = True  # Enable label smoothing
+        self.smooth_low = 0.1  # Value to smooth 0 labels to
+        self.smooth_high = 0.9  # Value to smooth 1 labels to
+
     def __str__(self):
         return "\n".join(f"{key}: {value}" for key, value in vars(self).items())
 
@@ -88,6 +93,9 @@ class ProMatchDataset(Dataset):
         train_or_test: str = "train",
         val_split: float = 0.2,
         use_team_symmetry: bool = True,
+        use_label_smoothing: bool = True,
+        smooth_low: float = 0.1,
+        smooth_high: float = 0.9,
         seed: int = 42,
     ):
         self.unknown_champion_id = unknown_champion_id
@@ -107,6 +115,11 @@ class ProMatchDataset(Dataset):
         print(f"Created {train_or_test} dataset with {len(self.df)} pro games")
 
         self.use_team_symmetry = use_team_symmetry and train_or_test == "train"
+
+        # Label smoothing parameters
+        self.use_label_smoothing = use_label_smoothing and train_or_test == "train"
+        self.smooth_low = smooth_low
+        self.smooth_high = smooth_high
 
     def __len__(self):
         return len(self.df) * (2 if self.use_team_symmetry else 1)
@@ -153,6 +166,12 @@ class ProMatchDataset(Dataset):
         win_prediction = row["team_100_win"]
         if use_symmetry:
             win_prediction = not win_prediction
+
+        # Apply label smoothing only to binary labels
+        if self.use_label_smoothing and win_prediction in [0, 1]:
+            win_prediction = (
+                self.smooth_low if win_prediction == 0 else self.smooth_high
+            )
 
         labels = {"win_prediction": torch.tensor(win_prediction, dtype=torch.float32)}
 
@@ -372,6 +391,9 @@ def create_dataloaders(
         train_or_test="train",
         val_split=config.val_split,
         use_team_symmetry=config.use_team_symmetry,
+        use_label_smoothing=config.use_label_smoothing,
+        smooth_low=config.smooth_low,
+        smooth_high=config.smooth_high,
     )
 
     val_dataset = ProMatchDataset(
@@ -381,7 +403,10 @@ def create_dataloaders(
         patch_mapping=patch_mapping,
         train_or_test="test",
         val_split=config.val_split,
-        use_team_symmetry=False,  # Don't use symmetry for validation
+        use_team_symmetry=False,
+        use_label_smoothing=False,
+        smooth_low=config.smooth_low,
+        smooth_high=config.smooth_high,
     )
 
     # Create dataloaders
