@@ -11,7 +11,7 @@ import json
 import ast
 import time
 from pathlib import Path
-from typing import Optional, Dict, Any, List, Tuple
+from typing import Optional, Dict, Any, List, Tuple, Callable
 from torch.utils.data import DataLoader, Dataset
 import torch.optim as optim
 import torch.nn as nn
@@ -36,6 +36,10 @@ from utils.match_prediction.column_definitions import (
     CATEGORICAL_COLUMNS,
     NUMERICAL_COLUMNS,
     POSITIONS,
+)
+from utils.match_prediction.masking_strategies import (
+    MASKING_STRATEGIES,
+    StrategicMaskingDistribution,
 )
 
 
@@ -77,11 +81,33 @@ class FineTuningConfig:
         self.smooth_low = 0.1  # Value to smooth 0 labels to
         self.smooth_high = 0.9  # Value to smooth 1 labels to
 
+        # Champion masking options
+        self.use_champion_masking = True  # Enable champion masking
+        self.masking_strategy = "strategic"  # Options: "linear_decay", "strategic"
+        self.masking_decay_factor = 2.0  # For linear decay distribution
+        self.masking_epochs = (
+            self.num_epochs
+        )  # Number of epochs to use masking (first N epochs)
+
     def __str__(self):
         return "\n".join(f"{key}: {value}" for key, value in vars(self).items())
 
     def to_dict(self):
         return {key: value for key, value in vars(self).items()}
+
+    def get_masking_function(self):
+        """Get the masking function based on the selected strategy"""
+        if not self.use_champion_masking:
+            return None
+
+        strategy_class = MASKING_STRATEGIES.get(self.masking_strategy)
+        if strategy_class is None:
+            raise ValueError(f"Unknown masking strategy: {self.masking_strategy}")
+
+        if self.masking_strategy == "linear_decay":
+            return strategy_class(10, self.masking_decay_factor)
+        else:
+            return strategy_class(self.masking_decay_factor)
 
 
 class ProMatchDataset(Dataset):
@@ -99,11 +125,13 @@ class ProMatchDataset(Dataset):
         use_label_smoothing: bool = True,
         smooth_low: float = 0.1,
         smooth_high: float = 0.9,
+        masking_function: Optional[Callable[[], int]] = None,
         seed: int = 42,
     ):
         self.unknown_champion_id = unknown_champion_id
         self.label_encoders = label_encoders
         self.patch_mapping = patch_mapping
+        self.masking_function = masking_function
 
         # Split data into train/test
         np.random.seed(seed)
@@ -143,6 +171,12 @@ class ProMatchDataset(Dataset):
             if use_symmetry:
                 # Swap blue and red team champions (first 5 with last 5)
                 champion_ids = champion_ids[5:] + champion_ids[:5]
+
+            # Apply champion masking if enabled
+            if self.masking_function is not None:
+                champion_ids = self._mask_champions(
+                    champion_ids, self.masking_function()
+                )
 
             encoded_champs = self.label_encoders["champion_ids"].transform(champion_ids)
             features["champion_ids"] = torch.tensor(encoded_champs, dtype=torch.long)
@@ -235,6 +269,19 @@ class ProMatchDataset(Dataset):
             pass
 
         raise ValueError(f"Could not extract champion IDs from row: {row}")
+
+    def _mask_champions(self, champion_list: List[int], num_to_mask: int) -> List[int]:
+        """Masks a specific number of champions in the list"""
+        if num_to_mask <= 0:
+            return champion_list
+
+        mask_indices = np.random.choice(
+            len(champion_list), size=num_to_mask, replace=False
+        )
+        return [
+            self.unknown_champion_id if i in mask_indices else ch_id
+            for i, ch_id in enumerate(champion_list)
+        ]
 
 
 def filter_pro_games(pro_games_df, patch_mapping):
@@ -383,13 +430,24 @@ def create_dataloaders(
     numerical_stats,
     patch_mapping,
     config,
-    current_epoch: int = 0,  # Add epoch parameter to control team symmetry
+    current_epoch: int = 0,  # Add epoch parameter to control team symmetry and masking
 ):
     """Create train and validation dataloaders for fine-tuning"""
     # Determine if we should use team symmetry based on the current epoch
     use_symmetry = (
         config.use_team_symmetry and current_epoch < config.team_symmetry_epochs
     )
+
+    # Determine if we should use masking based on the current epoch
+    use_masking = config.use_champion_masking and current_epoch < config.masking_epochs
+
+    # Get masking function if needed
+    masking_function = config.get_masking_function() if use_masking else None
+
+    if masking_function is not None:
+        print(f"Using champion masking with strategy: {config.masking_strategy}")
+    else:
+        print("Champion masking disabled for this epoch")
 
     # Create datasets
     train_dataset = ProMatchDataset(
@@ -403,6 +461,7 @@ def create_dataloaders(
         use_label_smoothing=config.use_label_smoothing,
         smooth_low=config.smooth_low,
         smooth_high=config.smooth_high,
+        masking_function=masking_function,  # Add masking function
     )
 
     val_dataset = ProMatchDataset(
@@ -416,6 +475,22 @@ def create_dataloaders(
         use_label_smoothing=False,
         smooth_low=config.smooth_low,
         smooth_high=config.smooth_high,
+        masking_function=None,  # No masking for validation
+    )
+
+    # Create a masked validation dataset to evaluate model performance with masking
+    val_masked_dataset = ProMatchDataset(
+        pro_games_df=pro_games_df,
+        unknown_champion_id=unknown_champion_id,
+        label_encoders=label_encoders,
+        patch_mapping=patch_mapping,
+        train_or_test="test",
+        val_split=config.val_split,
+        use_team_symmetry=False,
+        use_label_smoothing=False,
+        smooth_low=config.smooth_low,
+        smooth_high=config.smooth_high,
+        masking_function=config.get_masking_function(),  # Always use masking
     )
 
     # Create dataloaders
@@ -433,7 +508,14 @@ def create_dataloaders(
         collate_fn=pro_collate_fn,
     )
 
-    return train_loader, val_loader
+    val_masked_loader = DataLoader(
+        val_masked_dataset,
+        batch_size=config.batch_size,
+        shuffle=False,
+        collate_fn=pro_collate_fn,
+    )
+
+    return train_loader, val_loader, val_masked_loader
 
 
 def unfreeze_layer_group(
@@ -502,6 +584,8 @@ def fine_tune_model(
 
     # Get number of champions
     num_champions, unknown_champion_id = get_num_champions()
+    # this is needed because it will be processed again
+    unknown_champion_id = "UNKNOWN"
 
     # Initialize unfreezing state
     current_unfrozen_layers = 0
@@ -587,24 +671,28 @@ def fine_tune_model(
     )
 
     for epoch in range(config.num_epochs):
-        # Create dataloaders for this epoch - this allows team symmetry to change based on epoch
-        train_loader, val_loader = create_dataloaders(
+        # Create dataloaders for this epoch - this allows team symmetry and masking to change based on epoch
+        train_loader, val_loader, val_masked_loader = create_dataloaders(
             pro_games_df,
             unknown_champion_id,
             label_encoders,
             numerical_stats,
             patch_mapping,
             config,
-            current_epoch=epoch,  # Pass current epoch to control team symmetry
+            current_epoch=epoch,  # Pass current epoch to control team symmetry and masking
         )
 
-        # Print team symmetry status at the start of each epoch
+        # Print team symmetry and masking status at the start of each epoch
         is_using_symmetry = epoch < config.team_symmetry_epochs
+        is_using_masking = epoch < config.masking_epochs
+
         print(
-            f"Epoch {epoch+1}/{config.num_epochs} - Team symmetry: {'enabled' if is_using_symmetry else 'disabled'}"
+            f"Epoch {epoch+1}/{config.num_epochs} - "
+            f"Team symmetry: {'enabled' if is_using_symmetry else 'disabled'}, "
+            f"Champion masking: {'enabled' if is_using_masking else 'disabled'}"
         )
 
-        # If this is the epoch where team symmetry is turned off, log it more prominently
+        # If this is the epoch where team symmetry or masking is turned off, log it more prominently
         if epoch == config.team_symmetry_epochs:
             print(f"\n=== DISABLING TEAM SYMMETRY AUGMENTATION AT EPOCH {epoch} ===\n")
 
@@ -614,6 +702,18 @@ def fine_tune_model(
                     {
                         "epoch": epoch,
                         "team_symmetry_disabled": True,
+                    }
+                )
+
+        if epoch == config.masking_epochs:
+            print(f"\n=== DISABLING CHAMPION MASKING AT EPOCH {epoch} ===\n")
+
+            # Also log to wandb if enabled
+            if config.log_wandb:
+                wandb.log(
+                    {
+                        "epoch": epoch,
+                        "champion_masking_disabled": True,
                     }
                 )
 
@@ -695,8 +795,13 @@ def fine_tune_model(
         val_steps = 0
         val_correct = 0
         val_total = 0
+        val_masked_loss = 0.0
+        val_masked_steps = 0
+        val_masked_correct = 0
+        val_masked_total = 0
 
         with torch.no_grad():
+            # Regular validation
             for features, labels in val_loader:
                 features = {k: v.to(device) for k, v in features.items()}
                 labels = {k: v.to(device) for k, v in labels.items()}
@@ -715,8 +820,34 @@ def fine_tune_model(
                 val_correct += (preds == labels["win_prediction"]).sum().item()
                 val_total += labels["win_prediction"].size(0)
 
+            # Masked validation
+            for features, labels in val_masked_loader:
+                features = {k: v.to(device) for k, v in features.items()}
+                labels = {k: v.to(device) for k, v in labels.items()}
+
+                outputs = model(features)
+                loss = criterion["win_prediction"](
+                    outputs["win_prediction"], labels["win_prediction"]
+                )
+
+                val_masked_loss += loss.item()
+                val_masked_steps += 1
+
+                # Calculate accuracy
+                probs = torch.sigmoid(outputs["win_prediction"])
+                preds = (probs >= 0.5).float()
+                val_masked_correct += (preds == labels["win_prediction"]).sum().item()
+                val_masked_total += labels["win_prediction"].size(0)
+
         avg_val_loss = val_loss / val_steps if val_steps > 0 else float("inf")
         val_accuracy = val_correct / val_total if val_total > 0 else 0
+
+        avg_val_masked_loss = (
+            val_masked_loss / val_masked_steps if val_masked_steps > 0 else float("inf")
+        )
+        val_masked_accuracy = (
+            val_masked_correct / val_masked_total if val_masked_total > 0 else 0
+        )
 
         epoch_time = time.time() - epoch_start
 
@@ -724,7 +855,8 @@ def fine_tune_model(
         print(
             f"Epoch {epoch+1}/{config.num_epochs} completed in {epoch_time:.2f}s\n"
             f"Train Loss: {avg_train_loss:.4f}, Accuracy: {train_accuracy:.4f}\n"
-            f"Val Loss: {avg_val_loss:.4f}, Accuracy: {val_accuracy:.4f}"
+            f"Val Loss: {avg_val_loss:.4f}, Accuracy: {val_accuracy:.4f}\n"
+            f"Val Masked Loss: {avg_val_masked_loss:.4f}, Masked Accuracy: {val_masked_accuracy:.4f}"
         )
 
         # Log metrics to wandb
@@ -736,8 +868,11 @@ def fine_tune_model(
                     "train_accuracy": train_accuracy,
                     "val_loss": avg_val_loss,
                     "val_accuracy": val_accuracy,
+                    "val_masked_loss": avg_val_masked_loss,
+                    "val_masked_accuracy": val_masked_accuracy,
                     "epoch_time": epoch_time,
                     "team_symmetry_active": is_using_symmetry,
+                    "champion_masking_active": is_using_masking,
                 }
             )
 
