@@ -68,6 +68,9 @@ class FineTuningConfig:
 
         # Data augmentation options
         self.use_team_symmetry = True  # Enable team symmetry augmentation
+        self.team_symmetry_epochs = (
+            self.num_epochs
+        )  # Number of epochs to use team symmetry
 
         # Label smoothing options
         self.use_label_smoothing = True  # Enable label smoothing
@@ -380,8 +383,14 @@ def create_dataloaders(
     numerical_stats,
     patch_mapping,
     config,
+    current_epoch: int = 0,  # Add epoch parameter to control team symmetry
 ):
     """Create train and validation dataloaders for fine-tuning"""
+    # Determine if we should use team symmetry based on the current epoch
+    use_symmetry = (
+        config.use_team_symmetry and current_epoch < config.team_symmetry_epochs
+    )
+
     # Create datasets
     train_dataset = ProMatchDataset(
         pro_games_df=pro_games_df,
@@ -390,7 +399,7 @@ def create_dataloaders(
         patch_mapping=patch_mapping,
         train_or_test="train",
         val_split=config.val_split,
-        use_team_symmetry=config.use_team_symmetry,
+        use_team_symmetry=use_symmetry,  # Use symmetry based on current epoch
         use_label_smoothing=config.use_label_smoothing,
         smooth_low=config.smooth_low,
         smooth_high=config.smooth_high,
@@ -494,15 +503,9 @@ def fine_tune_model(
     # Get number of champions
     num_champions, unknown_champion_id = get_num_champions()
 
-    # Create data loaders
-    train_loader, val_loader = create_dataloaders(
-        pro_games_df,
-        unknown_champion_id,
-        label_encoders,
-        numerical_stats,
-        patch_mapping,
-        config,
-    )
+    # Initialize unfreezing state
+    current_unfrozen_layers = 0
+    last_unfreeze_epoch = 0
 
     # Initialize the model
     model = Model(
@@ -576,10 +579,6 @@ def fine_tune_model(
     # Define loss function for win prediction only
     criterion = {"win_prediction": nn.BCEWithLogitsLoss()}
 
-    # Initialize unfreezing state
-    current_unfrozen_layers = 0
-    last_unfreeze_epoch = 0
-
     # Initialize optimizer with initially trainable parameters
     optimizer = optim.AdamW(
         [p for p in model.parameters() if p.requires_grad],
@@ -588,6 +587,36 @@ def fine_tune_model(
     )
 
     for epoch in range(config.num_epochs):
+        # Create dataloaders for this epoch - this allows team symmetry to change based on epoch
+        train_loader, val_loader = create_dataloaders(
+            pro_games_df,
+            unknown_champion_id,
+            label_encoders,
+            numerical_stats,
+            patch_mapping,
+            config,
+            current_epoch=epoch,  # Pass current epoch to control team symmetry
+        )
+
+        # Print team symmetry status at the start of each epoch
+        is_using_symmetry = epoch < config.team_symmetry_epochs
+        print(
+            f"Epoch {epoch+1}/{config.num_epochs} - Team symmetry: {'enabled' if is_using_symmetry else 'disabled'}"
+        )
+
+        # If this is the epoch where team symmetry is turned off, log it more prominently
+        if epoch == config.team_symmetry_epochs:
+            print(f"\n=== DISABLING TEAM SYMMETRY AUGMENTATION AT EPOCH {epoch} ===\n")
+
+            # Also log to wandb if enabled
+            if config.log_wandb:
+                wandb.log(
+                    {
+                        "epoch": epoch,
+                        "team_symmetry_disabled": True,
+                    }
+                )
+
         # Check if it's time to unfreeze next layer group
         if (
             config.progressive_unfreezing
@@ -708,6 +737,7 @@ def fine_tune_model(
                     "val_loss": avg_val_loss,
                     "val_accuracy": val_accuracy,
                     "epoch_time": epoch_time,
+                    "team_symmetry_active": is_using_symmetry,
                 }
             )
 
