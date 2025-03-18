@@ -93,14 +93,22 @@ class Model(nn.Module):
             ]:
                 self.output_layers[task_name] = nn.Linear(hidden_dims[-1], 1)
 
-    def map_numerical_to_patch_id(self, numerical_patch):
-        """Convert normalized numerical_patch to a patch index."""
+    def map_numerical_to_patch_id(self, numerical_patch: torch.Tensor) -> torch.Tensor:
+        """Convert normalized numerical_patch to a patch index.
+
+        Args:
+            numerical_patch: Normalized patch values (batch_size,)
+
+        Returns:
+            torch.Tensor: Patch indices (batch_size,)
+        """
+        # Denormalize to get raw position values
         raw_patch = numerical_patch * self.patch_std + self.patch_mean
-        distances = torch.abs(
-            self.patch_values.to(raw_patch.device) - raw_patch.unsqueeze(-1)
-        )
-        patch_indices = torch.argmin(distances, dim=-1)
+
+        # Round to nearest integer and clamp to valid range
+        patch_indices = torch.round(raw_patch).long()
         patch_indices = torch.clamp(patch_indices, 0, self.num_patches - 1)
+
         return patch_indices
 
     def forward(self, features):
