@@ -57,7 +57,7 @@ export default function DownloadPage() {
           className="gap-2 text-sm sm:text-base w-full sm:w-auto"
         >
           <a
-            href="https://releases.draftking.lol/latest/LoLDraftAI.Setup.exe"
+            href="https://releases.loldraftai.com/latest/LoLDraftAI.Setup.exe"
             download
           >
             <Download className="h-5 w-5" />
