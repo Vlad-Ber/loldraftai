@@ -21,7 +21,7 @@ class TrainingConfig:
         self.weight_decay = 0.001
         self.patch_reg_lambda = 0.001  # Weight for patch regularization loss
         self.champ_patch_reg_lambda = (
-            0.001  # Regularization strength for champion+patch embeddings
+            0.0001  # Regularization strength for champion+patch embeddings
         )
         self.max_grad_norm = 1.0  # because has loss spikes after adding pos embeddings
         self.accumulation_steps = 1
