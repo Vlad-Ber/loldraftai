@@ -8,7 +8,7 @@ from utils.match_prediction.column_definitions import (
     COLUMNS,
     POSITIONS,
 )
-from utils.match_prediction.task_definitions import TASKS, TaskType
+from utils.match_prediction.task_definitions import TASKS, TaskType, CONDITIONAL_TASKS
 
 
 class Model(nn.Module):
@@ -75,12 +75,14 @@ class Model(nn.Module):
 
         # Output layers
         self.output_layers = nn.ModuleDict()
-        for task_name, task_def in TASKS.items():
+        for task_name, task_def in [*TASKS.items(), *CONDITIONAL_TASKS.items()]:
             if task_def.task_type in [
                 TaskType.BINARY_CLASSIFICATION,
                 TaskType.REGRESSION,
             ]:
                 self.output_layers[task_name] = nn.Linear(hidden_dims[-1], 1)
+            else:
+                raise ValueError(f"Unknown task type: {task_def.task_type}")
 
     def forward(self, features):
         batch_size = features["champion_ids"].size(0)

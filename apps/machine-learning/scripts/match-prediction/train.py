@@ -26,7 +26,12 @@ from utils.match_prediction import (
     PATCH_MAPPING_PATH,
 )
 
-from utils.match_prediction.task_definitions import TASKS, TaskType, get_enabled_tasks
+from utils.match_prediction.task_definitions import (
+    TASKS,
+    TaskType,
+    get_enabled_tasks,
+    CONDITIONAL_TASKS,
+)
 from utils.match_prediction.config import TrainingConfig
 from utils.match_prediction.train_utils import (
     get_optimizer_grouped_parameters,
@@ -95,14 +100,18 @@ def train_epoch(
         [task_def.weight for task_def in enabled_tasks.values()], device=device
     )
 
+    conditional_task_weights = torch.tensor(
+        [task_def.weight for task_def in CONDITIONAL_TASKS.values()],
+        device=device,
+    )
+
     for batch_idx, (features, labels) in enumerate(train_loader):
         features = {k: v.to(device, non_blocking=True) for k, v in features.items()}
         labels = {k: v.to(device, non_blocking=True) for k, v in labels.items()}
 
-        # Apply label smoothing to binary classification labels
-        for task_name, task_def in TASKS.items():
-            if task_def.task_type == TaskType.BINARY_CLASSIFICATION:
-                labels[task_name] = apply_label_smoothing(labels[task_name])
+        # Apply label smoothing to win_prediction
+        if "win_prediction" in TASKS:
+            labels["win_prediction"] = apply_label_smoothing(labels["win_prediction"])
 
         optimizer.zero_grad(set_to_none=True)
         with torch.autocast(device_type="cuda", dtype=torch.bfloat16):
@@ -113,7 +122,25 @@ def train_epoch(
                     for task_name in task_names
                 ]
             )
+            # Conditional tasks(same criterion as task_column, but applied on conditional_on)
+            conditional_losses = torch.stack(
+                [
+                    criterion[task.task_column](
+                        outputs[task.name], labels[task.task_column]
+                    )
+                    * labels[
+                        task.conditional_on
+                    ]  # should be 1 or 0(smoothing is only on win_prediction)
+                    for task in CONDITIONAL_TASKS.values()
+                ]
+            )
             task_loss = (losses * task_weights).sum()
+            # Take mean across the tasks to weight them
+            conditional_losses_mean = conditional_losses.mean(dim=1)
+            conditional_loss = (
+                conditional_losses_mean * conditional_task_weights
+            ).sum()
+            total_loss = task_loss + conditional_loss
 
             # Patch regularization
             patch_reg_loss = torch.tensor(0.0, device=device)
@@ -171,6 +198,7 @@ def train_epoch(
                     grad_norm,
                     losses,
                     task_names,
+                    conditional_losses_mean,
                     config,
                     current_lr,
                     patch_reg_loss.item(),
@@ -190,6 +218,7 @@ def log_training_step(
     grad_norm: float,
     losses: torch.Tensor,
     task_names: List[str],
+    conditional_losses_mean: torch.Tensor,
     config: TrainingConfig,
     current_lr: float,
     patch_reg_loss: float,
@@ -229,6 +258,13 @@ def log_training_step(
         }
         log_data.update(
             {f"train_loss_{k}": v.item() for k, v in zip(task_names, losses)}
+        )
+        # TODO: should refactor these conditional tasks to now have them imported from task_definitions
+        log_data.update(
+            {
+                f"train_loss_conditional_{task.name}": conditional_losses_mean[i].item()
+                for i, task in enumerate(CONDITIONAL_TASKS.values())
+            }
         )
         wandb.log(log_data)
 

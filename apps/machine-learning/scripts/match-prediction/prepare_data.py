@@ -343,6 +343,7 @@ def prepare_data(
             if task_def.task_type == TaskType.BINARY_CLASSIFICATION
         ]
         for task in binary_tasks:
+            # TODO: this is actually done by the getter, so not needed!
             # For win prediction, we need to convert from team_100_win to win_prediction
             if task == "win_prediction":
                 new_df[task] = old_df["team_100_win"].astype("float32")

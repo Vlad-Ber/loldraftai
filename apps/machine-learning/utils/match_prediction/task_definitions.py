@@ -58,8 +58,66 @@ class TaskDefinition:
         self.weight = weight
 
 
+class ConditionalTaskDefinition(TaskDefinition):
+    def __init__(
+        self,
+        name: str,
+        task_type: TaskType,
+        weight: float,
+        conditional_on: str,
+        task_column: str,
+    ):
+        super().__init__(name, task_type, weight)
+        self.conditional_on = conditional_on
+        self.task_column = task_column
+
+
 def get_win_prediction(df: pd.DataFrame) -> pd.Series:
     return df["team_100_win"]
+
+
+def get_total_kills_at_20(df: pd.DataFrame) -> pd.Series:
+    kills = 0
+    timestamp = "1200000"
+    for position in POSITIONS:
+        for team_id in TEAMS:
+            col = f"team_{team_id}_{position}_kills_at_{timestamp}"
+            kills += df[col]
+    return kills
+
+
+def get_gold_diff_at_20(df: pd.DataFrame) -> pd.Series:
+    timestamp = "1200000"
+    stat = "totalGold"
+    # blud gold
+    blue_gold = 0
+    for position in POSITIONS:
+        col = f"team_100_{position}_{stat}_at_{timestamp}"
+        blue_gold += df[col]
+    # red gold
+    red_gold = 0
+    for position in POSITIONS:
+        col = f"team_200_{position}_{stat}_at_{timestamp}"
+        red_gold += df[col]
+    return blue_gold - red_gold
+
+
+gold_lead_threshold = 3000  # 3k gold lead
+
+
+def blue_has_gold_lead_at_20(df: pd.DataFrame) -> pd.Series:
+    return (get_gold_diff_at_20(df) >= gold_lead_threshold).astype(int)
+
+
+def red_has_gold_lead_at_20(df: pd.DataFrame) -> pd.Series:
+    return (get_gold_diff_at_20(df) <= -gold_lead_threshold).astype(int)
+
+
+def gold_is_even_at_20(df: pd.DataFrame) -> pd.Series:
+    gold_diff = get_gold_diff_at_20(df)
+    return (
+        (gold_diff < gold_lead_threshold) & (gold_diff > -gold_lead_threshold)
+    ).astype(int)
 
 
 # Define tasks
@@ -73,9 +131,66 @@ TASKS = {
     "gameDuration": TaskDefinition(
         name="gameDuration",
         task_type=TaskType.REGRESSION,
-        weight=0.04,
+        weight=0.01,
+    ),
+    "blue_has_gold_lead_at_20": TaskDefinition(
+        name="blue_has_gold_lead_at_20",
+        getter=blue_has_gold_lead_at_20,
+        task_type=TaskType.BINARY_CLASSIFICATION,
+        weight=0.01,
+    ),
+    "red_has_gold_lead_at_20": TaskDefinition(
+        name="red_has_gold_lead_at_20",
+        getter=red_has_gold_lead_at_20,
+        task_type=TaskType.BINARY_CLASSIFICATION,
+        weight=0.01,
+    ),
+    "gold_is_even_at_20": TaskDefinition(
+        name="gold_is_even_at_20",
+        getter=gold_is_even_at_20,
+        task_type=TaskType.BINARY_CLASSIFICATION,
+        weight=0.01,
+    ),
+    "gold_diff_at_20": TaskDefinition(
+        name="gold_diff_at_20",
+        getter=get_gold_diff_at_20,
+        task_type=TaskType.REGRESSION,
+        weight=0.01,
+    ),
+    "total_kills_at_20": TaskDefinition(
+        name="total_kills_at_20",
+        getter=get_total_kills_at_20,
+        task_type=TaskType.REGRESSION,
+        weight=0.01,
     ),
 }
+
+# don't need to be taken into account in data preparation, only in model and loss calculation
+CONDITIONAL_TASKS = {
+    "win_prediction_if_blue_has_gold_lead_at_20": ConditionalTaskDefinition(
+        name="win_prediction_if_blue_has_gold_lead_at_20",
+        task_type=TaskType.BINARY_CLASSIFICATION,
+        weight=0.01,
+        task_column="win_prediction",
+        conditional_on="blue_has_gold_lead_at_20",
+    ),
+    "win_prediction_if_red_has_gold_lead_at_20": ConditionalTaskDefinition(
+        name="win_prediction_if_red_has_gold_lead_at_20",
+        task_type=TaskType.BINARY_CLASSIFICATION,
+        weight=0.01,
+        task_column="win_prediction",
+        conditional_on="red_has_gold_lead_at_20",
+    ),
+    "win_prediction_if_gold_is_even_at_20": ConditionalTaskDefinition(
+        name="win_prediction_if_gold_is_even_at_20",
+        task_type=TaskType.BINARY_CLASSIFICATION,
+        weight=0.01,
+        task_column="win_prediction",
+        conditional_on="gold_is_even_at_20",
+    ),
+}
+
+
 for stat in INDIVIDUAL_STATS:
     for position in POSITIONS:
         for team_id in TEAMS:
@@ -138,7 +253,37 @@ def get_final_tasks() -> Dict[str, TaskDefinition]:
             name="win_prediction",
             getter=get_win_prediction,
             task_type=TaskType.BINARY_CLASSIFICATION,
-            weight=0.99,  # 99% weight to win prediction
+            weight=0.94,
+        ),
+        "blue_has_gold_lead_at_20": TaskDefinition(
+            name="blue_has_gold_lead_at_20",
+            getter=blue_has_gold_lead_at_20,
+            task_type=TaskType.BINARY_CLASSIFICATION,
+            weight=0.01,
+        ),
+        "red_has_gold_lead_at_20": TaskDefinition(
+            name="red_has_gold_lead_at_20",
+            getter=red_has_gold_lead_at_20,
+            task_type=TaskType.BINARY_CLASSIFICATION,
+            weight=0.01,
+        ),
+        "gold_is_even_at_20": TaskDefinition(
+            name="gold_is_even_at_20",
+            getter=gold_is_even_at_20,
+            task_type=TaskType.BINARY_CLASSIFICATION,
+            weight=0.01,
+        ),
+        "gold_diff_at_20": TaskDefinition(
+            name="gold_diff_at_20",
+            getter=get_gold_diff_at_20,
+            task_type=TaskType.REGRESSION,
+            weight=0.01,
+        ),
+        "total_kills_at_20": TaskDefinition(
+            name="total_kills_at_20",
+            getter=get_total_kills_at_20,
+            task_type=TaskType.REGRESSION,
+            weight=0.01,
         ),
     }
 
