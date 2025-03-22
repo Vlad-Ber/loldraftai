@@ -9,17 +9,17 @@ from utils.match_prediction.column_definitions import (
     POSITIONS,
 )
 from utils.match_prediction.task_definitions import TASKS, TaskType, CONDITIONAL_TASKS
+from utils.match_prediction.config import TrainingConfig
 
 
 class Model(nn.Module):
     def __init__(
         self,
-        embed_dim=64,
+        config: TrainingConfig,
         hidden_dims=[256, 128, 64],
         dropout=0.2,
     ):
         super(Model, self).__init__()
-        self.embed_dim = embed_dim
 
         # Load patch mapping and stats
         with open(PATCH_MAPPING_PATH, "rb") as f:
@@ -33,33 +33,30 @@ class Model(nn.Module):
         self.num_patches = len(self.patch_mapping)
 
         # Embeddings for categorical features
+        mlp_input_dim = 0
         self.embeddings = nn.ModuleDict()
         for col in KNOWN_CATEGORICAL_COLUMNS_NAMES:
+            if col == "queue_type":
+                embed_dim = config.queue_type_embed_dim
+            elif col == "elo":
+                embed_dim = config.elo_embed_dim
+            else:
+                raise ValueError(f"Unhandled categorical column: {col}")
+            mlp_input_dim += embed_dim
             self.embeddings[col] = nn.Embedding(
                 len(COLUMNS[col].possible_values), embed_dim
             )
 
         # Patch embedding (general meta changes)
-        self.patch_embedding = nn.Embedding(self.num_patches, embed_dim)
-
+        self.patch_embedding = nn.Embedding(self.num_patches, config.patch_embed_dim)
+        mlp_input_dim += config.patch_embed_dim
         # Champion+patch embeddings (champion-specific changes)
         self.champion_patch_embedding = nn.Embedding(
-            self.num_champions * self.num_patches, embed_dim
+            self.num_champions * self.num_patches, config.champion_embed_dim
         )
+        mlp_input_dim += config.champion_embed_dim * 10  # 10 champions
 
-        # Total input dimension for MLP
-        num_categorical = len(KNOWN_CATEGORICAL_COLUMNS_NAMES)
-        num_champions_in_game = len(POSITIONS) * 2  # 10 champions
-        total_embed_features = (
-            num_categorical + num_champions_in_game + 1
-        )  # +1 for patch_embed
-        mlp_input_dim = total_embed_features * embed_dim
-
-        print(f"Model dimensions:")
-        print(f"- Categorical features: {num_categorical}")
-        print(f"- Total embedded features: {total_embed_features}")
-        print(f"- Embedding dimension: {embed_dim}")
-        print(f"- MLP input dimension: {mlp_input_dim}")
+        print(f"MLP input dimension: {mlp_input_dim}")
 
         # MLP
         layers = []
@@ -95,7 +92,9 @@ class Model(nn.Module):
 
         # Patch embedding (general meta)
         patch_indices = features["patch"]  # (batch_size,)
-        patch_embed = self.patch_embedding(patch_indices)  # (batch_size, embed_dim)
+        patch_embed = self.patch_embedding(
+            patch_indices
+        )  # (batch_size, config.patch_embed_dim)
         embeddings_list.append(patch_embed)
 
         # Champion+patch embeddings
@@ -108,10 +107,10 @@ class Model(nn.Module):
         )  # (batch_size, 10)
         champ_patch_embeds = self.champion_patch_embedding(
             combined_indices
-        )  # (batch_size, 10, embed_dim)
+        )  # (batch_size, 10, config.champion_embed_dim)
         champion_features = champ_patch_embeds.view(
             batch_size, -1
-        )  # (batch_size, 10*embed_dim)
+        )  # (batch_size, 10*config.champion_embed_dim)
         embeddings_list.append(champion_features)
 
         # Concatenate all features

@@ -401,7 +401,7 @@ def fine_tune_model(
     main_model_config = TrainingConfig()
     # Initialize the model
     model = Model(
-        embed_dim=main_model_config.embed_dim,
+        config=main_model_config,
         hidden_dims=main_model_config.hidden_dims,
         dropout=finetune_config.dropout,
     )

@@ -130,12 +130,12 @@ def collate_fn(
     return collated, collated_labels
 
 
-def _initialize_queue_embeddings(
-     embed_dim: int
-) -> torch.Tensor:
+def _initialize_queue_embeddings(embed_dim: int) -> torch.Tensor:
     """Initialize queue embeddings with half random, half biased initialization."""
     half_dim = embed_dim // 2
-    queue_embeddings = torch.randn(len(possible_values_queue_type), embed_dim) * 0.02  # Default random init
+    queue_embeddings = (
+        torch.randn(len(possible_values_queue_type), embed_dim) * 0.02
+    )  # Default random init
 
     # Only modify second half with biased initialization
     queue_base_vector = torch.randn(half_dim) * 0.1
@@ -254,7 +254,7 @@ def init_model(
 
     # Initialize model
     model = Model(
-        embed_dim=config.embed_dim,
+        config=config,
         hidden_dims=config.hidden_dims,
         dropout=config.dropout,
     )
@@ -263,7 +263,7 @@ def init_model(
     if use_custom_init:
         # Initialize embeddings
         queue_embeddings = _initialize_queue_embeddings(
-            embed_dim=config.embed_dim,
+            embed_dim=config.queue_type_embed_dim,
         )
         # Set the initialized queue embeddings
         model.embeddings["queue_type"].weight.data = queue_embeddings
@@ -281,7 +281,7 @@ def init_model(
         base_embeddings, class_counts, missing_class_names = (
             _initialize_champion_embeddings(
                 num_champions=num_champions,
-                embed_dim=config.embed_dim,
+                embed_dim=config.champion_embed_dim,
                 champion_encoder=champion_id_mapping,
                 champ_to_class=champ_to_class,
                 champ_display_names=champ_display_names,
@@ -293,8 +293,8 @@ def init_model(
         )
 
         # Patch embeddings initialization (half random, half similar)
-        patch_embeddings = torch.randn(model.num_patches, config.embed_dim) * 0.02
-        half_dim = config.embed_dim // 2
+        patch_embeddings = torch.randn(model.num_patches, config.patch_embed_dim) * 0.02
+        half_dim = config.patch_embed_dim // 2
         base_patch_vector = torch.randn(half_dim) * 0.1
         for i in range(model.num_patches):
             noise = torch.randn(half_dim) * 0.01
@@ -303,7 +303,8 @@ def init_model(
 
         # Champion+patch embeddings initialization (half random, half class-based)
         champion_patch_embeddings = (
-            torch.randn(num_champions * model.num_patches, config.embed_dim) * 0.02
+            torch.randn(num_champions * model.num_patches, config.champion_embed_dim)
+            * 0.02
         )
         for c in range(num_champions):
             base_vector = base_embeddings[c, half_dim:]  # Use the biased half

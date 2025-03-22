@@ -18,6 +18,7 @@ from utils.match_prediction import (
     PATCH_MAPPING_PATH,
     CHAMPION_ID_ENCODER_PATH,
 )
+from utils.match_prediction.config import TrainingConfig
 
 device = get_best_device()
 
@@ -43,7 +44,7 @@ with open(MODEL_CONFIG_PATH, "rb") as f:
 
 # Create model with same architecture
 model = Model(
-    embed_dim=model_config["embed_dim"],
+    config=TrainingConfig(),
     hidden_dims=model_config["hidden_dims"],
     dropout=0.0,  # No dropout needed for inference
 )

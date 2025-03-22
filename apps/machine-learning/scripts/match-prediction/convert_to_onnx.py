@@ -5,6 +5,7 @@ from pathlib import Path
 
 from utils.match_prediction.model import Model
 from utils.match_prediction.column_definitions import COLUMNS, ColumnType
+from utils.match_prediction.config import TrainingConfig
 from utils.match_prediction import (
     MODEL_PATH,
     MODEL_CONFIG_PATH,
@@ -43,10 +44,11 @@ def main():
     with open(MODEL_CONFIG_PATH, "rb") as f:
         model_params = pickle.load(f)
 
+    config = TrainingConfig()
     # Initialize the model
     print("Initializing PyTorch model...")
     model = Model(
-        embed_dim=model_params["embed_dim"],
+        config=config,
         dropout=model_params["dropout"],
         hidden_dims=model_params["hidden_dims"],
     )
