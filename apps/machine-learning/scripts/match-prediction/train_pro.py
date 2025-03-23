@@ -20,6 +20,9 @@ from utils.match_prediction import (
     RAW_PRO_GAMES_FILE,
     PATCH_MAPPING_PATH,
     CHAMPION_ID_ENCODER_PATH,
+    TASK_STATS_PATH,
+    POSITIONS,
+    TEAMS,
 )
 from utils.match_prediction.model import Model
 from utils.match_prediction.train_utils import (
@@ -81,6 +84,31 @@ class FineTuningConfig:
         return {key: value for key, value in vars(self).items()}
 
 
+def get_gold_diff_at_20(df: pd.DataFrame) -> pd.Series:
+    timestamp = "1200000"  # 20 minutes
+    # blue gold
+    blue_gold = 0
+    for position in POSITIONS:
+        col = f"team_100_{position}_totalGold_at_{timestamp}"
+        blue_gold += df[col]
+    # red gold
+    red_gold = 0
+    for position in POSITIONS:
+        col = f"team_200_{position}_totalGold_at_{timestamp}"
+        red_gold += df[col]
+    return blue_gold - red_gold
+
+
+def get_total_kills_at_20(df: pd.DataFrame) -> pd.Series:
+    kills = 0
+    timestamp = "1200000"
+    for position in POSITIONS:
+        for team_id in TEAMS:
+            col = f"team_{team_id}_{position}_kills_at_{timestamp}"
+            kills += df[col]
+    return kills
+
+
 class ProMatchDataset(Dataset):
     """Dataset for professional matches fine-tuning"""
 
@@ -121,6 +149,22 @@ class ProMatchDataset(Dataset):
         self.smooth_low = smooth_low
         self.smooth_high = smooth_high
 
+        # Load task statistics for normalization
+        with open(TASK_STATS_PATH, "rb") as f:
+            task_stats = pickle.load(f)
+            self.task_means = task_stats["means"]
+            self.task_stds = task_stats["stds"]
+
+        # Define task symmetry transformations
+        self.task_symmetry = {
+            "win_prediction": lambda x: 1.0 - x,
+            "gold_diff_at_20": lambda x: -x,
+            "total_kills_at_20": lambda x: x,  # No change
+            "gold_is_even_at_20": lambda x: x,  # No change
+            "blue_has_gold_lead_at_20": lambda x: float(x == 0),  # Swap with red
+            "red_has_gold_lead_at_20": lambda x: float(x == 1),  # Swap with blue
+        }
+
     def __len__(self):
         return len(self.df) * (2 if self.use_team_symmetry else 1)
 
@@ -153,23 +197,65 @@ class ProMatchDataset(Dataset):
             self.patch_mapping[get_patch_from_raw_data(row)], dtype=torch.long
         )
 
-        # Tensor 2 is reserved for pro play, see column_definitions.py
+        # Tensor 2 is reserved for pro play
         features["queue_type"] = torch.tensor(PRO_QUEUE_INDEX, dtype=torch.long)
         # Add numerical_elo = 0 for pro games (highest skill level)
         features["elo"] = torch.tensor(0.0, dtype=torch.long)
 
-        # Extract labels with symmetry handling
+        # Calculate and normalize task values
+        labels = {}
+
+        # Win prediction
         win_prediction = row["team_100_win"]
         if use_symmetry:
-            win_prediction = not win_prediction
-
-        # Apply label smoothing only to binary labels
-        if self.use_label_smoothing and win_prediction in [0, 1]:
+            win_prediction = self.task_symmetry["win_prediction"](win_prediction)
+        if self.use_label_smoothing:
             win_prediction = (
                 self.smooth_low if win_prediction == 0 else self.smooth_high
             )
+        labels["win_prediction"] = torch.tensor(win_prediction, dtype=torch.float32)
 
-        labels = {"win_prediction": torch.tensor(win_prediction, dtype=torch.float32)}
+        # Gold difference at 20
+        gold_diff = get_gold_diff_at_20(row)
+        if use_symmetry:
+            gold_diff = self.task_symmetry["gold_diff_at_20"](gold_diff)
+        # Normalize using stored statistics
+        gold_diff_norm = (
+            gold_diff - self.task_means["gold_diff_at_20"]
+        ) / self.task_stds["gold_diff_at_20"]
+        labels["gold_diff_at_20"] = torch.tensor(gold_diff_norm, dtype=torch.float32)
+
+        # Total kills at 20
+        total_kills = get_total_kills_at_20(row)
+        # No symmetry needed for total kills
+        total_kills_norm = (
+            total_kills - self.task_means["total_kills_at_20"]
+        ) / self.task_stds["total_kills_at_20"]
+        labels["total_kills_at_20"] = torch.tensor(
+            total_kills_norm, dtype=torch.float32
+        )
+
+        # Gold lead thresholds (using the same threshold as in task_definitions.py)
+        gold_lead_threshold = 3000
+        gold_is_even = (gold_diff < gold_lead_threshold) & (
+            gold_diff > -gold_lead_threshold
+        )
+        blue_has_lead = gold_diff >= gold_lead_threshold
+        red_has_lead = gold_diff <= -gold_lead_threshold
+
+        if use_symmetry:
+            # Swap blue and red leads
+            blue_has_lead, red_has_lead = red_has_lead, blue_has_lead
+
+        labels["gold_is_even_at_20"] = torch.tensor(
+            float(gold_is_even), dtype=torch.float32
+        )
+        labels["blue_has_gold_lead_at_20"] = torch.tensor(
+            float(blue_has_lead), dtype=torch.float32
+        )
+        labels["red_has_gold_lead_at_20"] = torch.tensor(
+            float(red_has_lead), dtype=torch.float32
+        )
 
         return features, labels
 

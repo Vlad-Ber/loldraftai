@@ -5,6 +5,7 @@ import torch
 from utils import DATA_DIR
 
 POSITIONS = ["TOP", "JUNGLE", "MIDDLE", "BOTTOM", "UTILITY"]
+TEAMS = [100, 200]
 
 
 def get_best_device():
