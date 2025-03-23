@@ -137,31 +137,31 @@ TASKS = {
         name="blue_has_gold_lead_at_20",
         getter=blue_has_gold_lead_at_20,
         task_type=TaskType.BINARY_CLASSIFICATION,
-        weight=0.05,
+        weight=0.15,
     ),
     "red_has_gold_lead_at_20": TaskDefinition(
         name="red_has_gold_lead_at_20",
         getter=red_has_gold_lead_at_20,
         task_type=TaskType.BINARY_CLASSIFICATION,
-        weight=0.05,
+        weight=0.15,
     ),
     "gold_is_even_at_20": TaskDefinition(
         name="gold_is_even_at_20",
         getter=gold_is_even_at_20,
         task_type=TaskType.BINARY_CLASSIFICATION,
-        weight=0.05,
+        weight=0.15,
     ),
     "gold_diff_at_20": TaskDefinition(
         name="gold_diff_at_20",
         getter=get_gold_diff_at_20,
         task_type=TaskType.REGRESSION,
-        weight=0.05,
+        weight=0.15,
     ),
     "total_kills_at_20": TaskDefinition(
         name="total_kills_at_20",
         getter=get_total_kills_at_20,
         task_type=TaskType.REGRESSION,
-        weight=0.05,
+        weight=0.15,
     ),
 }
 
@@ -189,6 +189,8 @@ CONDITIONAL_TASKS = {
         conditional_on="gold_is_even_at_20",
     ),
 }
+# TODO: experiment with them again later, for now removed to simplify
+CONDITIONAL_TASKS = {}
 
 
 for stat in INDIVIDUAL_STATS:
@@ -253,37 +255,37 @@ def get_final_tasks() -> Dict[str, TaskDefinition]:
             name="win_prediction",
             getter=get_win_prediction,
             task_type=TaskType.BINARY_CLASSIFICATION,
-            weight=0.94,
+            weight=1,
         ),
         "blue_has_gold_lead_at_20": TaskDefinition(
             name="blue_has_gold_lead_at_20",
             getter=blue_has_gold_lead_at_20,
             task_type=TaskType.BINARY_CLASSIFICATION,
-            weight=0.05,
+            weight=0.15,
         ),
         "red_has_gold_lead_at_20": TaskDefinition(
             name="red_has_gold_lead_at_20",
             getter=red_has_gold_lead_at_20,
             task_type=TaskType.BINARY_CLASSIFICATION,
-            weight=0.05,
+            weight=0.15,
         ),
         "gold_is_even_at_20": TaskDefinition(
             name="gold_is_even_at_20",
             getter=gold_is_even_at_20,
             task_type=TaskType.BINARY_CLASSIFICATION,
-            weight=0.05,
+            weight=0.15,
         ),
         "gold_diff_at_20": TaskDefinition(
             name="gold_diff_at_20",
             getter=get_gold_diff_at_20,
             task_type=TaskType.REGRESSION,
-            weight=0.05,
+            weight=0.15,
         ),
         "total_kills_at_20": TaskDefinition(
             name="total_kills_at_20",
             getter=get_total_kills_at_20,
             task_type=TaskType.REGRESSION,
-            weight=0.05,
+            weight=0.15,
         ),
     }
 
