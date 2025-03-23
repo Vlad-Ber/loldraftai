@@ -649,6 +649,23 @@ def fine_tune_model(
         train_losses = {task: 0.0 for task in task_names}
         train_steps = 0
 
+        # Progressive unfreezing check
+        if (
+            finetune_config.progressive_unfreezing
+            and frozen_layers > 0
+            and epoch - last_unfreeze_epoch >= finetune_config.epochs_per_unfreeze
+        ):
+            frozen_layers = unfreeze_layer_group(model, frozen_layers)
+            last_unfreeze_epoch = epoch
+
+            # Reinitialize optimizer with newly unfrozen parameters
+            optimizer = optim.AdamW(
+                [p for p in model.parameters() if p.requires_grad],
+                lr=finetune_config.learning_rate,
+                weight_decay=finetune_config.weight_decay,
+            )
+            print(f"\nUnfroze layer group. Remaining frozen groups: {frozen_layers}")
+
         progress_bar = tqdm(
             train_loader, desc=f"Epoch {epoch+1}/{finetune_config.num_epochs}"
         )
@@ -708,7 +725,6 @@ def fine_tune_model(
 
             optimizer.step()
             train_steps += 1
-
 
         # Calculate average losses and metrics
         avg_train_losses = {
