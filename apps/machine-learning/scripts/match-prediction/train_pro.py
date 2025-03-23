@@ -44,32 +44,32 @@ FINE_TUNE_TASKS = {
     "win_prediction": TaskDefinition(
         name="win_prediction",
         task_type=TaskType.BINARY_CLASSIFICATION,
-        weight=0.94,
+        weight=1,
     ),
     "blue_has_gold_lead_at_20": TaskDefinition(
         name="blue_has_gold_lead_at_20",
         task_type=TaskType.BINARY_CLASSIFICATION,
-        weight=0.05,
+        weight=0.15,
     ),
     "red_has_gold_lead_at_20": TaskDefinition(
         name="red_has_gold_lead_at_20",
         task_type=TaskType.BINARY_CLASSIFICATION,
-        weight=0.05,
+        weight=0.15,
     ),
     "gold_is_even_at_20": TaskDefinition(
         name="gold_is_even_at_20",
         task_type=TaskType.BINARY_CLASSIFICATION,
-        weight=0.05,
+        weight=0.15,
     ),
     "gold_diff_at_20": TaskDefinition(
         name="gold_diff_at_20",
         task_type=TaskType.REGRESSION,
-        weight=0.05,
+        weight=0.15,
     ),
     "total_kills_at_20": TaskDefinition(
         name="total_kills_at_20",
         task_type=TaskType.REGRESSION,
-        weight=0.05,
+        weight=0.15,
     ),
 }
 
@@ -97,7 +97,6 @@ class FineTuningConfig:
         self.val_split = 0.2
         self.max_grad_norm = 1.0
         self.log_wandb = True
-        self.log_batch_interval = 5  # How often to log batch progress
         self.save_checkpoints = False
 
         # New unfreezing parameters
@@ -114,9 +113,6 @@ class FineTuningConfig:
         self.use_label_smoothing = True  # Enable label smoothing
         self.smooth_low = 0.1  # Value to smooth 0 labels to
         self.smooth_high = 0.9  # Value to smooth 1 labels to
-
-        # Add validation dataset fraction
-        self.val_dataset_fraction = 0.1  # Use 10% of original data for validation
 
     def __str__(self):
         return "\n".join(f"{key}: {value}" for key, value in vars(self).items())
