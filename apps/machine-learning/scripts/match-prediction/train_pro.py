@@ -13,6 +13,7 @@ from torch.utils.data import DataLoader, Dataset
 import torch.optim as optim
 import torch.nn as nn
 from tqdm import tqdm
+from torch.nn.utils import clip_grad_norm_
 
 from utils.match_prediction import (
     get_best_device,
@@ -35,6 +36,44 @@ from utils.match_prediction.column_definitions import (
     RANKED_QUEUE_INDEX,
     PRO_QUEUE_INDEX,
 )
+from utils.match_prediction.task_definitions import (
+    TaskDefinition,
+    TaskType,
+    get_enabled_tasks,
+)
+
+FINE_TUNE_TASKS = {
+    "win_prediction": TaskDefinition(
+        name="win_prediction",
+        task_type=TaskType.BINARY_CLASSIFICATION,
+        weight=0.94,
+    ),
+    "blue_has_gold_lead_at_20": TaskDefinition(
+        name="blue_has_gold_lead_at_20",
+        task_type=TaskType.BINARY_CLASSIFICATION,
+        weight=0.05,
+    ),
+    "red_has_gold_lead_at_20": TaskDefinition(
+        name="red_has_gold_lead_at_20",
+        task_type=TaskType.BINARY_CLASSIFICATION,
+        weight=0.05,
+    ),
+    "gold_is_even_at_20": TaskDefinition(
+        name="gold_is_even_at_20",
+        task_type=TaskType.BINARY_CLASSIFICATION,
+        weight=0.05,
+    ),
+    "gold_diff_at_20": TaskDefinition(
+        name="gold_diff_at_20",
+        task_type=TaskType.REGRESSION,
+        weight=0.05,
+    ),
+    "total_kills_at_20": TaskDefinition(
+        name="total_kills_at_20",
+        task_type=TaskType.REGRESSION,
+        weight=0.05,
+    ),
+}
 
 
 # in this file we get from a row, so it's different from column_definitions.py
@@ -86,26 +125,53 @@ class FineTuningConfig:
 
 def get_gold_diff_at_20(df: pd.DataFrame) -> pd.Series:
     timestamp = "1200000"  # 20 minutes
+    # Add debugging
+    debug = False
+
     # blue gold
     blue_gold = 0
+    if debug:
+        print("\nCalculating blue gold:")
     for position in POSITIONS:
         col = f"team_100_{position}_totalGold_at_{timestamp}"
+        if debug:
+            print(f"  {position}: {df[col]}")
         blue_gold += df[col]
+
     # red gold
     red_gold = 0
+    if debug:
+        print("\nCalculating red gold:")
     for position in POSITIONS:
         col = f"team_200_{position}_totalGold_at_{timestamp}"
+        if debug:
+            print(f"  {position}: {df[col]}")
         red_gold += df[col]
+
+    if debug:
+        print(f"\nTotal gold - Blue: {blue_gold}, Red: {red_gold}")
+        print(f"Gold diff: {blue_gold - red_gold}")
+
     return blue_gold - red_gold
 
 
 def get_total_kills_at_20(df: pd.DataFrame) -> pd.Series:
     kills = 0
     timestamp = "1200000"
+    debug = False
+
+    if debug:
+        print("\nCalculating total kills:")
     for position in POSITIONS:
         for team_id in TEAMS:
             col = f"team_{team_id}_{position}_kills_at_{timestamp}"
+            if debug:
+                print(f"  {team_id} {position}: {df[col]}")
             kills += df[col]
+
+    if debug:
+        print(f"Total kills: {kills}")
+
     return kills
 
 
@@ -165,6 +231,16 @@ class ProMatchDataset(Dataset):
             "red_has_gold_lead_at_20": lambda x: float(x == 1),  # Swap with blue
         }
 
+        # Add debug flag
+        self.debug = False
+
+        # Debug the task statistics
+        if self.debug:
+            print("\n=== Task Statistics Debug ===")
+            print("Task means:", self.task_means)
+            print("Task stds:", self.task_stds)
+            print("================================\n")
+
     def __len__(self):
         return len(self.df) * (2 if self.use_team_symmetry else 1)
 
@@ -217,23 +293,31 @@ class ProMatchDataset(Dataset):
 
         # Gold difference at 20
         gold_diff = get_gold_diff_at_20(row)
-        if use_symmetry:
-            gold_diff = self.task_symmetry["gold_diff_at_20"](gold_diff)
-        # Normalize using stored statistics
-        gold_diff_norm = (
-            gold_diff - self.task_means["gold_diff_at_20"]
-        ) / self.task_stds["gold_diff_at_20"]
-        labels["gold_diff_at_20"] = torch.tensor(gold_diff_norm, dtype=torch.float32)
+        if pd.isna(gold_diff):  # Check for NaN before normalization
+            labels["gold_diff_at_20"] = torch.tensor(float("nan"), dtype=torch.float32)
+        else:
+            if use_symmetry:
+                gold_diff = self.task_symmetry["gold_diff_at_20"](gold_diff)
+            gold_diff_norm = (
+                gold_diff - self.task_means["gold_diff_at_20"]
+            ) / self.task_stds["gold_diff_at_20"]
+            labels["gold_diff_at_20"] = torch.tensor(
+                gold_diff_norm, dtype=torch.float32
+            )
 
         # Total kills at 20
         total_kills = get_total_kills_at_20(row)
-        # No symmetry needed for total kills
-        total_kills_norm = (
-            total_kills - self.task_means["total_kills_at_20"]
-        ) / self.task_stds["total_kills_at_20"]
-        labels["total_kills_at_20"] = torch.tensor(
-            total_kills_norm, dtype=torch.float32
-        )
+        if pd.isna(total_kills):  # Check for NaN before normalization
+            labels["total_kills_at_20"] = torch.tensor(
+                float("nan"), dtype=torch.float32
+            )
+        else:
+            total_kills_norm = (
+                total_kills - self.task_means["total_kills_at_20"]
+            ) / self.task_stds["total_kills_at_20"]
+            labels["total_kills_at_20"] = torch.tensor(
+                total_kills_norm, dtype=torch.float32
+            )
 
         # Gold lead thresholds (using the same threshold as in task_definitions.py)
         gold_lead_threshold = 3000
@@ -256,6 +340,35 @@ class ProMatchDataset(Dataset):
         labels["red_has_gold_lead_at_20"] = torch.tensor(
             float(red_has_lead), dtype=torch.float32
         )
+
+        # Validate that all required tasks are present
+        missing_tasks = set(FINE_TUNE_TASKS.keys()) - set(labels.keys())
+        if missing_tasks:
+            print(f"\nWarning: Missing tasks in dataset: {missing_tasks}")
+            print(f"Row index: {original_idx}")
+
+        if self.debug and idx < 3:  # Only print first 3 items
+            print(f"\n=== Dataset Item {idx} Debug ===")
+
+            # Debug gold difference calculation
+            gold_diff = get_gold_diff_at_20(row)
+            print(f"Raw gold_diff: {gold_diff}")
+            print(f"gold_diff mean: {self.task_means['gold_diff_at_20']}")
+            print(f"gold_diff std: {self.task_stds['gold_diff_at_20']}")
+            print(f"Normalized gold_diff: {gold_diff_norm}")
+
+            # Debug total kills calculation
+            total_kills = get_total_kills_at_20(row)
+            print(f"Raw total_kills: {total_kills}")
+            print(f"total_kills mean: {self.task_means['total_kills_at_20']}")
+            print(f"total_kills std: {self.task_stds['total_kills_at_20']}")
+            print(f"Normalized total_kills: {total_kills_norm}")
+
+            # Debug final labels
+            print("\nFinal labels:")
+            for task_name, value in labels.items():
+                print(f"{task_name}: {value.item()}")
+            print("================================\n")
 
         return features, labels
 
@@ -484,21 +597,29 @@ def fine_tune_model(
 
     model = load_model_state_dict(model, device, path=pretrained_model_path)
 
-    # Initialize pro play embedding (index 2) with ranked solo/duo embedding (index 0)
-    print("Initializing pro play embedding with ranked solo/duo embedding values...")
-    with torch.no_grad():
-        ranked_solo_embedding = (
-            model.embeddings["queue_type"].weight[RANKED_QUEUE_INDEX].clone()
-        )
-        model.embeddings["queue_type"].weight[PRO_QUEUE_INDEX] = ranked_solo_embedding
+    print("\nQueue type embedding weights before initialization:")
+    print(model.embeddings["queue_type"].weight.data)
 
-    # Freeze embeddings except queueId
-    print("Freezing embedding layers except queue_type...")
+    # Initialize pro play embedding (index 2) with ranked queue values
+    print("\nInitializing pro play embedding (index 2) with ranked queue values...")
+    with torch.no_grad():
+        ranked_weights = (
+            model.embeddings["queue_type"].weight.data[RANKED_QUEUE_INDEX].clone()
+        )
+        model.embeddings["queue_type"].weight.data[PRO_QUEUE_INDEX] = ranked_weights
+
+    print("\nQueue type embedding weights after initialization:")
+    print(model.embeddings["queue_type"].weight.data)
+
+    # Initially freeze ALL embeddings including queue_type
+    print("Initially freezing all embedding layers...")
     model.patch_embedding.requires_grad_(False)
     model.champion_patch_embedding.requires_grad_(False)
     for name, embedding in model.embeddings.items():
-        if name != "queue_type":
-            embedding.requires_grad_(False)
+        embedding.requires_grad_(False)
+
+    # Add queue_type embedding unfreezing schedule
+    queue_type_unfreeze_epoch = 5  # Unfreeze after 5 epochs of stable training
 
     # Freeze early MLP layers
     print(f"Freezing first {finetune_config.initial_frozen_layers} MLP layer groups...")
@@ -532,8 +653,18 @@ def fine_tune_model(
         )
         wandb.watch(model, log_freq=100)
 
-    # Define loss function for win prediction only
-    criterion = {"win_prediction": nn.BCEWithLogitsLoss()}
+    # Define loss functions for each task type
+    criterion = {
+        TaskType.BINARY_CLASSIFICATION: nn.BCEWithLogitsLoss(reduction="none"),
+        TaskType.REGRESSION: nn.MSELoss(reduction="none"),
+    }
+
+    # Get task definitions and weights
+    enabled_tasks = FINE_TUNE_TASKS
+    task_names = list(enabled_tasks.keys())
+    task_weights = torch.tensor(
+        [task_def.weight for task_def in enabled_tasks.values()], device=device
+    )
 
     # Initialize optimizer with initially trainable parameters
     optimizer = optim.AdamW(
@@ -548,46 +679,60 @@ def fine_tune_model(
         finetune_config,
     )
 
+    def debug_gradients(batch_idx):
+        if batch_idx == 0:
+            print("\n=== Gradient Flow Debug ===")
+
+            # Store gradient hooks for cleanup
+            hooks = []
+
+            def make_hook(name):
+                def hook(grad):
+                    if grad is not None:
+                        print(f"\nGradients for {name}:")
+                        print(f"Shape: {grad.shape}")
+                        print(f"Contains NaN: {torch.isnan(grad).any()}")
+                        if torch.isnan(grad).any():
+                            print(
+                                f"First NaN at: {torch.nonzero(torch.isnan(grad))[0]}"
+                            )
+                            print(
+                                f"Grad stats - Min: {grad[~torch.isnan(grad)].min() if (~torch.isnan(grad)).any() else 'all NaN'}, Max: {grad[~torch.isnan(grad)].max() if (~torch.isnan(grad)).any() else 'all NaN'}"
+                            )
+                    return grad
+
+                return hook
+
+            # Register hooks for key layers
+            for name, param in model.named_parameters():
+                if param.requires_grad:
+                    hook = param.register_hook(make_hook(name))
+                    hooks.append(hook)
+
+            return hooks
+
     for epoch in range(finetune_config.num_epochs):
-        # Check if it's time to unfreeze next layer group
-        if (
-            finetune_config.progressive_unfreezing
-            and epoch > 0
-            and epoch - last_unfreeze_epoch >= finetune_config.epochs_per_unfreeze
-        ):
-
-            frozen_layers = unfreeze_layer_group(model, frozen_layers)
-            last_unfreeze_epoch = epoch
-
-            # Reconfigure optimizer with updated trainable parameters
+        epoch_start = time.time()
+        # Unfreeze queue_type embedding after stable initial training
+        if epoch == queue_type_unfreeze_epoch:
+            print("\nUnfreezing queue_type embedding...")
+            model.embeddings["queue_type"].requires_grad_(True)
+            # Reconfigure optimizer with newly trainable parameters
             optimizer = optim.AdamW(
                 [p for p in model.parameters() if p.requires_grad],
-                lr=finetune_config.learning_rate,
+                lr=finetune_config.learning_rate
+                * 0.1,  # Lower learning rate for embedding
                 weight_decay=finetune_config.weight_decay,
             )
 
-            # Log unfreezing event
-            if finetune_config.log_wandb:
-                wandb.log(
-                    {
-                        "epoch": epoch,
-                        "frozen_layers": frozen_layers,
-                        "trainable_params": sum(
-                            p.numel() for p in model.parameters() if p.requires_grad
-                        ),
-                    }
-                )
-
-        epoch_start = time.time()
-
         # Training
         model.train()
-        train_loss = 0.0
+        train_losses = {task: 0.0 for task in task_names}
         train_steps = 0
-        train_correct = 0
-        train_total = 0
+        train_metrics = {
+            task: [0.0, 0] for task in task_names
+        }  # [sum, count] for each task
 
-        # Use tqdm for progress tracking without loss postfix
         progress_bar = tqdm(
             train_loader, desc=f"Epoch {epoch+1}/{finetune_config.num_epochs}"
         )
@@ -598,76 +743,205 @@ def fine_tune_model(
             optimizer.zero_grad()
             outputs = model(features)
 
-            loss = criterion["win_prediction"](
-                outputs["win_prediction"], labels["win_prediction"]
-            )
+            # Calculate losses for each task
+            batch_losses = []
+            for task_name, task_def in enabled_tasks.items():
+                task_criterion = criterion[task_def.task_type]
 
-            loss.backward()
+                # Create mask for non-NaN values in both predictions and labels
+                valid_mask = ~torch.isnan(labels[task_name])
+                if valid_mask.any():
+                    # Only compute loss on non-NaN values
+                    valid_outputs = outputs[task_name][valid_mask]
+                    valid_labels = labels[task_name][valid_mask]
+
+                    # Additional check for NaN in outputs
+                    output_valid_mask = ~torch.isnan(valid_outputs)
+                    if output_valid_mask.any():
+                        task_loss = task_criterion(
+                            valid_outputs[output_valid_mask],
+                            valid_labels[output_valid_mask],
+                        )
+                        masked_loss = task_loss.mean()
+                    else:
+                        masked_loss = torch.tensor(0.0, device=device)
+                else:
+                    masked_loss = torch.tensor(0.0, device=device)
+
+                # Debug information
+                if epoch == 0 and batch_idx == 0:
+                    print(f"\n=== Loss Masking Debug for {task_name} ===")
+                    print(f"Total samples in batch: {len(labels[task_name])}")
+                    print(f"Valid samples (non-NaN labels): {valid_mask.sum().item()}")
+                    if valid_mask.any():
+                        print(
+                            f"Valid outputs contain NaN: {torch.isnan(valid_outputs).any().item()}"
+                        )
+                        print(
+                            f"Final number of samples used: {output_valid_mask.sum().item()}"
+                        )
+                    print(f"Final masked loss: {masked_loss.item()}")
+
+                # For regression tasks, add gradient scaling to prevent explosion
+                if task_def.task_type == TaskType.REGRESSION:
+                    masked_loss = masked_loss * 0.1  # Scale down regression losses
+
+                batch_losses.append(masked_loss)
+
+            # Combine losses with task weights
+            batch_losses = torch.stack(batch_losses)
+
+            # Debug information for weighted loss
+            if torch.isnan(batch_losses).any():
+                print("\nNaN detected in batch losses!")
+                for task_name, loss in zip(task_names, batch_losses):
+                    print(f"{task_name}: {loss.item()}")
+                print(f"Task weights: {task_weights}")
+
+            total_loss = (batch_losses * task_weights).sum()
+
+            # Add hooks for first batch
+            hooks = debug_gradients(batch_idx) if epoch == 0 else []
+
+            # Backward pass
+            total_loss.backward()
+
+            # Print individual gradients before clipping
+            if epoch == 0 and batch_idx == 0:
+                print("\nGradients before clipping:")
+                for name, param in model.named_parameters():
+                    if param.grad is not None:
+                        print(f"{name}: {param.grad.norm().item()}")
+
+            clip_grad_norm_(model.parameters(), finetune_config.max_grad_norm)
+
+            # Remove hooks after first batch
+            if hooks:
+                for hook in hooks:
+                    hook.remove()
+
             optimizer.step()
 
-            train_loss += loss.item()
             train_steps += 1
 
-            # Calculate accuracy
-            probs = torch.sigmoid(outputs["win_prediction"])
-            preds = (probs >= 0.5).float()
-            train_correct += (preds == labels["win_prediction"]).sum().item()
-            train_total += labels["win_prediction"].size(0)
+        # Calculate average losses and metrics
+        avg_train_losses = {
+            task: loss / train_steps for task, loss in train_losses.items()
+        }
 
-        avg_train_loss = train_loss / train_steps
-        train_accuracy = train_correct / train_total
+        # Calculate task-specific metrics
+        train_task_metrics = {}
+        for task_name, task_def in enabled_tasks.items():
+            if train_metrics[task_name][1] > 0:  # If we have valid samples
+                if task_def.task_type == TaskType.BINARY_CLASSIFICATION:
+                    # Calculate accuracy
+                    train_task_metrics[f"{task_name}_accuracy"] = (
+                        train_metrics[task_name][0] / train_metrics[task_name][1]
+                    )
+                else:
+                    # Calculate RMSE for regression tasks
+                    train_task_metrics[f"{task_name}_rmse"] = np.sqrt(
+                        train_metrics[task_name][0] / train_metrics[task_name][1]
+                    )
 
         # Validation
         model.eval()
-        val_loss = 0.0
+        val_losses = {task: 0.0 for task in task_names}
         val_steps = 0
-        val_correct = 0
-        val_total = 0
+        val_metrics = {task: [0.0, 0] for task in task_names}
 
         with torch.no_grad():
-            # Regular validation
             for features, labels in val_loader:
                 features = {k: v.to(device) for k, v in features.items()}
                 labels = {k: v.to(device) for k, v in labels.items()}
 
                 outputs = model(features)
-                loss = criterion["win_prediction"](
-                    outputs["win_prediction"], labels["win_prediction"]
-                )
+                for task_name, task_def in enabled_tasks.items():
+                    task_criterion = criterion[task_def.task_type]
 
-                val_loss += loss.item()
-                val_steps += 1
+                    # Create mask for non-NaN values
+                    valid_mask = ~torch.isnan(labels[task_name])
 
-                # Calculate accuracy
-                probs = torch.sigmoid(outputs["win_prediction"])
-                preds = (probs >= 0.5).float()
-                val_correct += (preds == labels["win_prediction"]).sum().item()
-                val_total += labels["win_prediction"].size(0)
+                    # Apply mask and take mean of valid losses
+                    if valid_mask.any():
+                        task_loss = task_criterion(
+                            outputs[task_name][valid_mask],
+                            labels[task_name][valid_mask],
+                        )
+                        masked_loss = task_loss.mean()
+                    else:
+                        masked_loss = torch.tensor(0.0, device=device)
 
-        avg_val_loss = val_loss / val_steps if val_steps > 0 else float("inf")
-        val_accuracy = val_correct / val_total if val_total > 0 else 0
+                    val_losses[task_name] += masked_loss.item()
+                    if valid_mask.any():
+                        if task_def.task_type == TaskType.BINARY_CLASSIFICATION:
+                            # Calculate accuracy for binary classification tasks
+                            probs = torch.sigmoid(outputs[task_name][valid_mask])
+                            preds = (probs >= 0.5).float()
+                            correct = (
+                                (preds == labels[task_name][valid_mask]).sum().item()
+                            )
+                            val_metrics[task_name][0] += correct
+                            val_metrics[task_name][1] += valid_mask.sum().item()
+                        else:
+                            # For regression tasks, accumulate MSE
+                            val_metrics[task_name][0] += task_loss.sum().item()
+                            val_metrics[task_name][1] += valid_mask.sum().item()
+
+                    val_steps += 1
+
+        # Calculate average losses and metrics
+        avg_val_losses = {task: loss / val_steps for task, loss in val_losses.items()}
+
+        # Calculate task-specific metrics
+        val_task_metrics = {}
+        for task_name, task_def in enabled_tasks.items():
+            if val_metrics[task_name][1] > 0:  # If we have valid samples
+                if task_def.task_type == TaskType.BINARY_CLASSIFICATION:
+                    # Calculate accuracy
+                    val_task_metrics[f"{task_name}_accuracy"] = (
+                        val_metrics[task_name][0] / val_metrics[task_name][1]
+                    )
+                else:
+                    # Calculate RMSE for regression tasks
+                    val_task_metrics[f"{task_name}_rmse"] = np.sqrt(
+                        val_metrics[task_name][0] / val_metrics[task_name][1]
+                    )
 
         epoch_time = time.time() - epoch_start
 
-        # Enhanced console output to show both loss and accuracy
-        print(
-            f"Epoch {epoch+1}/{finetune_config.num_epochs} completed in {epoch_time:.2f}s\n"
-            f"Train Loss: {avg_train_loss:.4f}, Accuracy: {train_accuracy:.4f}\n"
-            f"Val Loss: {avg_val_loss:.4f}, Accuracy: {val_accuracy:.4f}\n"
-        )
-
-        # Log metrics to wandb
+        # Log metrics
         if finetune_config.log_wandb:
-            wandb.log(
-                {
-                    "epoch": epoch + 1,
-                    "train_loss": avg_train_loss,
-                    "train_accuracy": train_accuracy,
-                    "val_loss": avg_val_loss,
-                    "val_accuracy": val_accuracy,
-                    "epoch_time": epoch_time,
-                }
-            )
+            log_dict = {
+                "epoch": epoch + 1,
+                "epoch_time": epoch_time,
+                **{
+                    f"train_loss_{task}": loss
+                    for task, loss in avg_train_losses.items()
+                },
+                **{
+                    f"train_{metric}": value
+                    for metric, value in train_task_metrics.items()
+                },
+                **{f"val_loss_{task}": loss for task, loss in avg_val_losses.items()},
+                **{
+                    f"val_{metric}": value for metric, value in val_task_metrics.items()
+                },
+            }
+            wandb.log(log_dict)
+
+        # Print progress
+        print(
+            f"Epoch {epoch+1}/{finetune_config.num_epochs} completed in {epoch_time:.2f}s"
+        )
+        for task in task_names:
+            print(f"Train {task} loss: {avg_train_losses[task]:.4f}")
+        for metric, value in train_task_metrics.items():
+            print(f"Train {metric}: {value:.4f}")
+        for task in task_names:
+            print(f"Val {task} loss: {avg_val_losses[task]:.4f}")
+        for metric, value in val_task_metrics.items():
+            print(f"Val {metric}: {value:.4f}")
 
     # Save the final best model
     torch.save(model.state_dict(), output_model_path)
@@ -676,7 +950,7 @@ def fine_tune_model(
     if finetune_config.log_wandb:
         wandb.finish()
 
-    return avg_val_loss  # Return best validation loss instead of accuracy
+    return avg_val_losses  # Return best validation loss instead of accuracy
 
 
 def main():
@@ -757,7 +1031,7 @@ def main():
     set_random_seeds()
 
     # Start fine-tuning
-    best_val_loss = fine_tune_model(
+    best_val_losses = fine_tune_model(
         pretrained_model_path=args.model_path,
         pro_games_df=pro_games_df,
         finetune_config=config,
@@ -766,7 +1040,7 @@ def main():
     )
 
     print(
-        f"Fine-tuning complete. Best model saved to {args.output_path} with validation loss {best_val_loss:.4f}"
+        f"Fine-tuning complete. Best model saved to {args.output_path} with validation losses {best_val_losses}"
     )
 
 
