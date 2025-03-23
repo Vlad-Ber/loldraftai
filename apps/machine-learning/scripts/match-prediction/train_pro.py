@@ -25,10 +25,9 @@ from utils.match_prediction import (
     POSITIONS,
     TEAMS,
 )
+from utils.match_prediction.match_dataset import MatchDataset, dataloader_config
 from utils.match_prediction.model import Model
-from utils.match_prediction.train_utils import (
-    set_random_seeds,
-)
+from utils.match_prediction.train_utils import set_random_seeds, collate_fn
 from utils.match_prediction.config import (
     TrainingConfig,
 )
@@ -93,7 +92,8 @@ class FineTuningConfig:
         self.learning_rate = 5e-6  # Lower learning rate for fine-tuning
         self.weight_decay = 0.05  # Much stronger regularization
         self.dropout = 0.3  # Higher dropout to prevent overfitting
-        self.batch_size = 16  # TODO: should increase it
+        self.batch_size = 128
+        self.original_batch_size = 128
         self.val_split = 0.2
         self.max_grad_norm = 1.0
         self.log_wandb = True
@@ -114,6 +114,9 @@ class FineTuningConfig:
         self.use_label_smoothing = True  # Enable label smoothing
         self.smooth_low = 0.1  # Value to smooth 0 labels to
         self.smooth_high = 0.9  # Value to smooth 1 labels to
+
+        # Add validation dataset fraction
+        self.val_dataset_fraction = 0.1  # Use 10% of original data for validation
 
     def __str__(self):
         return "\n".join(f"{key}: {value}" for key, value in vars(self).items())
@@ -461,6 +464,61 @@ def pro_collate_fn(
     return features_batch, labels_batch
 
 
+class MixedDataLoader:
+    """Custom data loader that combines original and fine-tuning data"""
+
+    def __init__(
+        self,
+        original_loader: DataLoader,
+        finetune_loader: DataLoader,
+    ):
+        self.original_loader = original_loader
+        self.finetune_loader = finetune_loader
+        self.length = len(finetune_loader)
+
+    def __len__(self):
+        return self.length
+
+    def __iter__(self):
+        # Create fresh iterators at the start of each epoch
+        self.original_iter = iter(self.original_loader)
+        self.finetune_iter = iter(self.finetune_loader)
+        return self
+
+    def __next__(self):
+        try:
+            # Get next fine-tuning batch
+            finetune_features, finetune_labels = next(self.finetune_iter)
+
+            try:
+                original_features, original_labels = next(self.original_iter)
+            except StopIteration:
+                # Reset original data iterator if exhausted
+                self.original_iter = iter(self.original_loader)
+                original_features, original_labels = next(self.original_iter)
+
+            # Combine batches
+            combined_features = {}
+            combined_labels = {}
+
+            for key in finetune_features:
+                combined_features[key] = torch.cat(
+                    [finetune_features[key], original_features[key]]
+                )
+
+            # Only include fine-tune tasks in labels
+            for key in FINE_TUNE_TASKS:
+                combined_labels[key] = torch.cat(
+                    [finetune_labels[key], original_labels[key]]
+                )
+
+            return combined_features, combined_labels
+
+        except StopIteration:
+            # End epoch when fine-tuning data is exhausted
+            raise StopIteration
+
+
 def create_dataloaders(
     pro_games_df,
     patch_mapping,
@@ -468,8 +526,8 @@ def create_dataloaders(
 ):
     """Create train and validation dataloaders for fine-tuning"""
 
-    # Create datasets
-    train_dataset = ProMatchDataset(
+    # Create pro datasets
+    train_pro_dataset = ProMatchDataset(
         pro_games_df=pro_games_df,
         patch_mapping=patch_mapping,
         train_or_test="train",
@@ -480,7 +538,7 @@ def create_dataloaders(
         smooth_high=config.smooth_high,
     )
 
-    val_dataset = ProMatchDataset(
+    val_pro_dataset = ProMatchDataset(
         pro_games_df=pro_games_df,
         patch_mapping=patch_mapping,
         train_or_test="test",
@@ -489,22 +547,51 @@ def create_dataloaders(
         use_label_smoothing=False,
     )
 
-    # Create dataloaders
-    train_loader = DataLoader(
-        train_dataset,
+    # Create original dataset (using only fine-tune tasks)
+    # Use full dataset for training but fraction for validation
+    train_original_dataset = MatchDataset(
+        train_or_test="train", dataset_fraction=1.0  # Use full dataset for training
+    )
+    val_original_dataset = MatchDataset(train_or_test="test", dataset_fraction=0.01)
+
+    # Create individual dataloaders
+    train_pro_loader = DataLoader(
+        train_pro_dataset,
         batch_size=config.batch_size,
         shuffle=True,
         collate_fn=pro_collate_fn,
     )
 
-    val_loader = DataLoader(
-        val_dataset,
+    train_original_loader = DataLoader(
+        train_original_dataset,
+        batch_size=config.original_batch_size,
+        collate_fn=collate_fn,
+        **dataloader_config,
+    )
+
+    # Create mixed training loader
+    train_loader = MixedDataLoader(
+        train_original_loader,
+        train_pro_loader,
+    )
+
+    # For validation, we'll keep separate loaders
+    val_pro_loader = DataLoader(
+        val_pro_dataset,
         batch_size=config.batch_size,
         shuffle=False,
         collate_fn=pro_collate_fn,
     )
 
-    return train_loader, val_loader
+    # TODO: add validation on original, but it's slow so removed while experimenting
+    # val_original_loader = DataLoader(
+    #     val_original_dataset,
+    #     batch_size=config.batch_size,
+    #     collate_fn=collate_fn,
+    #     **dataloader_config,
+    # )
+
+    return train_loader, (val_pro_loader)
 
 
 def unfreeze_layer_group(model: Model, frozen_layers: int) -> int:
@@ -635,7 +722,7 @@ def fine_tune_model(
         weight_decay=finetune_config.weight_decay,
     )
 
-    train_loader, val_loader = create_dataloaders(
+    train_loader, val_loaders = create_dataloaders(
         pro_games_df,
         patch_mapping,
         finetune_config,
@@ -733,36 +820,7 @@ def fine_tune_model(
 
         # Validation
         model.eval()
-        val_losses = {task: 0.0 for task in task_names}
-        val_steps = 0
-
-        with torch.no_grad():
-            for features, labels in val_loader:
-                features = {k: v.to(device) for k, v in features.items()}
-                labels = {k: v.to(device) for k, v in labels.items()}
-
-                outputs = model(features)
-                for task_name, task_def in enabled_tasks.items():
-                    task_criterion = criterion[task_def.task_type]
-
-                    # Create mask for non-NaN values
-                    valid_mask = ~torch.isnan(labels[task_name])
-
-                    # Apply mask and take mean of valid losses
-                    if valid_mask.any():
-                        task_loss = task_criterion(
-                            outputs[task_name][valid_mask],
-                            labels[task_name][valid_mask],
-                        )
-                        masked_loss = task_loss.mean()
-                    else:
-                        masked_loss = torch.tensor(0.0, device=device)
-
-                    val_losses[task_name] += masked_loss.item()
-                val_steps += 1
-
-        # Calculate average losses and metrics
-        avg_val_losses = {task: loss / val_steps for task, loss in val_losses.items()}
+        val_metrics = validate(model, val_loaders, finetune_config, device, epoch)
 
         epoch_time = time.time() - epoch_start
 
@@ -775,7 +833,7 @@ def fine_tune_model(
                     f"train_loss_{task}": loss
                     for task, loss in avg_train_losses.items()
                 },
-                **{f"val_loss_{task}": loss for task, loss in avg_val_losses.items()},
+                **val_metrics,  # This now includes both pro and original metrics
             }
             wandb.log(log_dict)
 
@@ -783,10 +841,13 @@ def fine_tune_model(
         print(
             f"Epoch {epoch+1}/{finetune_config.num_epochs} completed in {epoch_time:.2f}s"
         )
+        print("\nTraining Losses:")
         for task in task_names:
             print(f"Train {task} loss: {avg_train_losses[task]:.4f}")
-        for task in task_names:
-            print(f"Val {task} loss: {avg_val_losses[task]:.4f}")
+
+        print("\nValidation Metrics:")
+        for metric_name, value in val_metrics.items():
+            print(f"{metric_name}: {value:.4f}")
 
     # Save the final best model
     torch.save(model.state_dict(), output_model_path)
@@ -795,7 +856,143 @@ def fine_tune_model(
     if finetune_config.log_wandb:
         wandb.finish()
 
-    return avg_val_losses  # Return best validation loss instead of accuracy
+    return
+
+
+def validate(
+    model: Model,
+    val_loaders: Tuple[DataLoader, DataLoader],
+    config: TrainingConfig,
+    device: torch.device,
+    epoch: int,
+) -> Tuple[Optional[float], Dict[str, float]]:
+    """Run validation on both pro and original data"""
+    model.eval()
+    # TODO: if we want to validate on original, we need to add it back
+    val_pro_loader = val_loaders
+    enabled_tasks = FINE_TUNE_TASKS
+
+    # Initialize accumulators for both datasets
+    pro_accumulators = {
+        task_name: torch.zeros(2, device=device) for task_name in enabled_tasks.keys()
+    }
+    original_accumulators = {
+        task_name: torch.zeros(2, device=device) for task_name in enabled_tasks.keys()
+    }
+
+    # Add accuracy accumulator for win_prediction
+    pro_win_accuracy = torch.zeros(2, device=device)
+    original_win_accuracy = torch.zeros(2, device=device)
+
+    with torch.no_grad():
+        # Validate on pro data
+        pro_metrics = validate_loader(
+            model=model,
+            loader=val_pro_loader,
+            accumulators=pro_accumulators,
+            win_accuracy=pro_win_accuracy,
+            device=device,
+            prefix="pro",
+        )
+
+        # Validate on original data
+        # original_metrics = validate_loader(
+        #     model=model,
+        #     loader=val_original_loader,
+        #     accumulators=original_accumulators,
+        #     win_accuracy=original_win_accuracy,
+        #     device=device,
+        #     prefix="original",
+        # )
+
+    # Combine metrics
+    combined_metrics = {
+        **pro_metrics,
+        # **original_metrics,
+    }
+
+    wandb.log(combined_metrics)
+
+    return combined_metrics
+
+
+def validate_loader(
+    model: Model,
+    loader: DataLoader,
+    accumulators: Dict[str, torch.Tensor],
+    win_accuracy: torch.Tensor,
+    device: torch.device,
+    prefix: str,
+) -> Dict[str, float]:
+    """Validate model on a single loader"""
+    total_loss = torch.tensor(0.0, device=device)
+    total_steps = 0
+
+    task_weights = torch.tensor(
+        [task_def.weight for task_def in FINE_TUNE_TASKS.values()], device=device
+    )
+
+    for features, labels in loader:
+        features = {k: v.to(device) for k, v in features.items()}
+        labels = {k: v.to(device) for k, v in labels.items()}
+        batch_size = next(iter(labels.values())).size(0)
+
+        outputs = model(features)
+
+        # Calculate task losses
+        batch_losses = []
+        for task_name, task_def in FINE_TUNE_TASKS.items():
+            if task_def.task_type == TaskType.BINARY_CLASSIFICATION:
+                loss = nn.functional.binary_cross_entropy_with_logits(
+                    outputs[task_name], labels[task_name], reduction="none"
+                )
+            else:  # REGRESSION
+                loss = nn.functional.mse_loss(
+                    outputs[task_name], labels[task_name], reduction="none"
+                )
+
+            # Update accumulators
+            valid_mask = ~torch.isnan(labels[task_name])
+            if valid_mask.any():
+                loss_sum = loss[valid_mask].sum()
+                accumulators[task_name][0] += loss_sum
+                accumulators[task_name][1] += valid_mask.sum()
+
+            batch_losses.append(loss.mean())
+
+        # Calculate win prediction accuracy
+        if "win_prediction" in FINE_TUNE_TASKS:
+            win_probs = torch.sigmoid(outputs["win_prediction"])
+            predictions = (win_probs > 0.5).float()
+            correct = (predictions == labels["win_prediction"]).sum()
+            win_accuracy[0] += correct
+            win_accuracy[1] += batch_size
+
+        # Calculate total weighted loss
+        losses = torch.stack(batch_losses)
+        total_loss += (losses * task_weights).sum()
+        total_steps += 1
+
+    # Calculate metrics
+    metrics = {}
+
+    # Add individual task losses
+    for task_name, accumulator in accumulators.items():
+        if accumulator[1] > 0:  # Only calculate if we have valid samples
+            metrics[f"{prefix}_{task_name}_loss"] = (
+                accumulator[0] / accumulator[1]
+            ).item()
+
+    # Add win prediction accuracy if available
+    if win_accuracy[1] > 0:
+        metrics[f"{prefix}_win_prediction_accuracy"] = (
+            win_accuracy[0] / win_accuracy[1]
+        ).item()
+
+    # Add average loss
+    metrics[f"{prefix}_avg_loss"] = (total_loss / total_steps).item()
+
+    return metrics
 
 
 def main():
@@ -876,16 +1073,12 @@ def main():
     set_random_seeds()
 
     # Start fine-tuning
-    best_val_losses = fine_tune_model(
+    fine_tune_model(
         pretrained_model_path=args.model_path,
         pro_games_df=pro_games_df,
         finetune_config=config,
         output_model_path=args.output_path,
         run_name=args.run_name,
-    )
-
-    print(
-        f"Fine-tuning complete. Best model saved to {args.output_path} with validation losses {best_val_losses}"
     )
 
 
