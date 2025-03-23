@@ -190,7 +190,15 @@ CONDITIONAL_TASKS = {
     ),
 }
 # TODO: experiment with them again later, for now removed to simplify
-CONDITIONAL_TASKS = {}
+CONDITIONAL_TASKS = {
+    "win_prediction_if_blue_has_gold_lead_at_20": ConditionalTaskDefinition(
+        name="win_prediction_if_blue_has_gold_lead_at_20",
+        task_type=TaskType.BINARY_CLASSIFICATION,
+        weight=0,
+        task_column="win_prediction",
+        conditional_on="blue_has_gold_lead_at_20",
+    ),
+}
 
 
 for stat in INDIVIDUAL_STATS:
