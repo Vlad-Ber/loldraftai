@@ -92,11 +92,11 @@ class FineTuningConfig:
 
     def __init__(self):
         # Fine-tuning hyperparameters - edit these directly instead of using command line flags
-        self.num_epochs = 300
+        self.num_epochs = 400
         self.learning_rate = 1e-4  # Lower learning rate for fine-tuning
         self.weight_decay = 0.05  # Much stronger regularization
-        self.dropout = 0.3  # Higher dropout to prevent overfitting
-        self.batch_size = 1024
+        self.dropout = 0.5  # Higher dropout to prevent overfitting
+        self.batch_size = 1024 * 3
         self.original_batch_size = (
             1024  # trying with more to avoid catastrophic forgetting
         )
@@ -107,7 +107,7 @@ class FineTuningConfig:
 
         # New unfreezing parameters
         self.progressive_unfreezing = True  # Enable progressive unfreezing
-        self.epochs_per_unfreeze = 150
+        self.epochs_per_unfreeze = 200
         self.initial_frozen_layers = 3
 
         # Data augmentation options
@@ -119,7 +119,7 @@ class FineTuningConfig:
         self.smooth_high = 0.8  # Value to smooth 1 labels to
 
         # Loss balancing parameters
-        self.pro_loss_weight = 5.0  # Weight multiplier for pro data losses
+        self.pro_loss_weight = 1.0  # Weight multiplier for pro data losses
         self.original_loss_weight = 1.0  # Weight multiplier for original data losses
 
     def __str__(self):
