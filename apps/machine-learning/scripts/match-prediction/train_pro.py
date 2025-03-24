@@ -494,6 +494,7 @@ class MixedDataLoader:
                 original_features, original_labels = next(self.original_iter)
             except StopIteration:
                 # Reset original data iterator if exhausted
+                print("Resetting original data iterator")
                 self.original_iter = iter(self.original_loader)
                 original_features, original_labels = next(self.original_iter)
 
@@ -583,15 +584,14 @@ def create_dataloaders(
         collate_fn=pro_collate_fn,
     )
 
-    # TODO: add validation on original, but it's slow so removed while experimenting
-    # val_original_loader = DataLoader(
-    #     val_original_dataset,
-    #     batch_size=config.batch_size,
-    #     collate_fn=collate_fn,
-    #     **dataloader_config,
-    # )
+    val_original_loader = DataLoader(
+        val_original_dataset,
+        batch_size=config.batch_size,
+        collate_fn=collate_fn,
+        **dataloader_config,
+    )
 
-    return train_loader, (val_pro_loader)
+    return train_loader, val_pro_loader, val_original_loader
 
 
 def unfreeze_layer_group(model: Model, frozen_layers: int) -> int:
@@ -717,7 +717,7 @@ def fine_tune_model(
         weight_decay=finetune_config.weight_decay,
     )
 
-    train_loader, val_loaders = create_dataloaders(
+    train_loader, val_pro_loader, val_original_loader = create_dataloaders(
         pro_games_df,
         patch_mapping,
         finetune_config,
@@ -815,7 +815,9 @@ def fine_tune_model(
 
         # Validation
         model.eval()
-        val_metrics = validate(model, val_loaders, finetune_config, device, epoch)
+        validate(
+            model, val_pro_loader, val_original_loader, finetune_config, device, epoch
+        )
 
         epoch_time = time.time() - epoch_start
 
@@ -828,7 +830,6 @@ def fine_tune_model(
                     f"train_loss_{task}": loss
                     for task, loss in avg_train_losses.items()
                 },
-                **val_metrics,  # This now includes both pro and original metrics
             }
             wandb.log(log_dict)
 
@@ -836,13 +837,6 @@ def fine_tune_model(
         print(
             f"Epoch {epoch+1}/{finetune_config.num_epochs} completed in {epoch_time:.2f}s"
         )
-        print("\nTraining Losses:")
-        for task in task_names:
-            print(f"Train {task} loss: {avg_train_losses[task]:.4f}")
-
-        print("\nValidation Metrics:")
-        for metric_name, value in val_metrics.items():
-            print(f"{metric_name}: {value:.4f}")
 
     # Save the final best model
     torch.save(model.state_dict(), output_model_path)
@@ -856,27 +850,26 @@ def fine_tune_model(
 
 def validate(
     model: Model,
-    val_loaders: Tuple[DataLoader, DataLoader],
+    val_pro_loader: DataLoader,
+    val_original_loader: DataLoader,
     config: TrainingConfig,
     device: torch.device,
     epoch: int,
 ) -> Tuple[Optional[float], Dict[str, float]]:
     """Run validation on both pro and original data"""
     model.eval()
-    # TODO: if we want to validate on original, we need to add it back
-    val_pro_loader = val_loaders
     enabled_tasks = FINE_TUNE_TASKS
 
     # Initialize accumulators for both datasets
     pro_accumulators = {
         task_name: torch.zeros(2, device=device) for task_name in enabled_tasks.keys()
     }
-    original_accumulators = {
-        task_name: torch.zeros(2, device=device) for task_name in enabled_tasks.keys()
-    }
 
     # Add accuracy accumulator for win_prediction
     pro_win_accuracy = torch.zeros(2, device=device)
+    original_accumulators = {
+        task_name: torch.zeros(2, device=device) for task_name in enabled_tasks.keys()
+    }
     original_win_accuracy = torch.zeros(2, device=device)
 
     with torch.no_grad():
@@ -889,26 +882,21 @@ def validate(
             device=device,
             prefix="pro",
         )
+        wandb.log(pro_metrics)
 
-        # Validate on original data
-        # original_metrics = validate_loader(
-        #     model=model,
-        #     loader=val_original_loader,
-        #     accumulators=original_accumulators,
-        #     win_accuracy=original_win_accuracy,
-        #     device=device,
-        #     prefix="original",
-        # )
+        # don't validate on every epoch, it's slow
+        if epoch % 10 == 0:
+            original_metrics = validate_loader(
+                model=model,
+                loader=val_original_loader,
+                accumulators=original_accumulators,
+                win_accuracy=original_win_accuracy,
+                device=device,
+                prefix="original",
+            )
+            wandb.log(original_metrics)
 
-    # Combine metrics
-    combined_metrics = {
-        **pro_metrics,
-        # **original_metrics,
-    }
-
-    wandb.log(combined_metrics)
-
-    return combined_metrics
+    return
 
 
 def validate_loader(
