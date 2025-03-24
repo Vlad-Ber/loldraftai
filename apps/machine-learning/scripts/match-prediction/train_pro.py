@@ -93,7 +93,7 @@ class FineTuningConfig:
     def __init__(self):
         # Fine-tuning hyperparameters - edit these directly instead of using command line flags
         self.num_epochs = 300
-        self.learning_rate = 5e-6  # Lower learning rate for fine-tuning
+        self.learning_rate = 1e-4  # Lower learning rate for fine-tuning
         self.weight_decay = 0.05  # Much stronger regularization
         self.dropout = 0.3  # Higher dropout to prevent overfitting
         self.batch_size = 1024
@@ -977,7 +977,7 @@ def validate(
         wandb.log(pro_metrics)
 
         # don't validate on every epoch, it's slow
-        if epoch % 10 == 0:
+        if epoch % 50 == 0:
             original_metrics = validate_loader(
                 model=model,
                 loader=val_original_loader,
