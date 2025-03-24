@@ -116,6 +116,10 @@ class FineTuningConfig:
         self.smooth_low = 0.1  # Value to smooth 0 labels to
         self.smooth_high = 0.9  # Value to smooth 1 labels to
 
+        # Loss balancing parameters
+        self.pro_loss_weight = 5.0  # Weight multiplier for pro data losses
+        self.original_loss_weight = 0.5  # Weight multiplier for original data losses
+
     def __str__(self):
         return "\n".join(f"{key}: {value}" for key, value in vars(self).items())
 
@@ -729,6 +733,10 @@ def fine_tune_model(
         # Training
         model.train()
         train_losses = {task: 0.0 for task in task_names}
+        pro_train_losses = {task: 0.0 for task in task_names}
+        original_train_losses = {task: 0.0 for task in task_names}
+        pro_train_counts = {task: 0 for task in task_names}
+        original_train_counts = {task: 0 for task in task_names}
         train_steps = 0
 
         # Progressive unfreezing check
@@ -760,6 +768,9 @@ def fine_tune_model(
 
             # Calculate losses for each task
             batch_losses = []
+            pro_losses = {task: 0.0 for task in task_names}
+            original_losses = {task: 0.0 for task in task_names}
+
             for task_name, task_def in enabled_tasks.items():
                 task_criterion = criterion[task_def.task_type]
 
@@ -770,14 +781,54 @@ def fine_tune_model(
                     valid_outputs = outputs[task_name][valid_mask]
                     valid_labels = labels[task_name][valid_mask]
 
+                    # Create pro/original mask before applying output_valid_mask
+                    pro_orig_mask = (
+                        torch.arange(len(valid_mask), device=device)
+                        < finetune_config.batch_size
+                    )
+                    # Keep track of which valid samples are from pro/original data
+                    valid_pro_mask = pro_orig_mask[valid_mask]
+
                     # Additional check for NaN in outputs
                     output_valid_mask = ~torch.isnan(valid_outputs)
                     if output_valid_mask.any():
+                        # Update pro mask to account for output_valid_mask
+                        final_pro_mask = valid_pro_mask[output_valid_mask]
+
                         task_loss = task_criterion(
                             valid_outputs[output_valid_mask],
                             valid_labels[output_valid_mask],
                         )
-                        masked_loss = task_loss.mean()
+
+                        # Apply separate weights to pro and original losses
+                        weighted_loss_sum = 0.0
+
+                        # Apply pro weight to pro samples
+                        if final_pro_mask.any():
+                            pro_loss = task_loss[final_pro_mask].mean()
+                            weighted_pro_loss = (
+                                pro_loss * finetune_config.pro_loss_weight
+                            )
+                            pro_losses[task_name] = pro_loss.item()
+                            pro_train_losses[task_name] += pro_loss.item()
+                            pro_train_counts[task_name] += 1
+                            # Add weighted pro loss
+                            weighted_loss_sum += weighted_pro_loss
+
+                        # Apply original weight to original samples
+                        if (~final_pro_mask).any():
+                            original_loss = task_loss[~final_pro_mask].mean()
+                            weighted_original_loss = (
+                                original_loss * finetune_config.original_loss_weight
+                            )
+                            original_losses[task_name] = original_loss.item()
+                            original_train_losses[task_name] += original_loss.item()
+                            original_train_counts[task_name] += 1
+                            # Add weighted original loss
+                            weighted_loss_sum += weighted_original_loss
+
+                        # Use weighted loss - now a scalar value
+                        masked_loss = weighted_loss_sum
                     else:
                         print(f"No valid values for task {task_name}")
                         masked_loss = torch.tensor(0.0, device=device)
@@ -800,6 +851,22 @@ def fine_tune_model(
 
             total_loss = (batch_losses * task_weights).sum()
 
+            # Log per-batch losses to wandb
+            if finetune_config.log_wandb:
+                log_dict = {
+                    f"train_batch_pro_loss_{task}": loss
+                    for task, loss in pro_losses.items()
+                    if loss is not None
+                }
+                log_dict.update(
+                    {
+                        f"train_batch_original_loss_{task}": loss
+                        for task, loss in original_losses.items()
+                        if loss is not None
+                    }
+                )
+                wandb.log(log_dict)
+
             # Backward pass
             total_loss.backward()
 
@@ -811,6 +878,23 @@ def fine_tune_model(
         # Calculate average losses and metrics
         avg_train_losses = {
             task: loss / train_steps for task, loss in train_losses.items()
+        }
+
+        # Calculate average pro and original losses
+        avg_pro_train_losses = {
+            task: loss / count if count > 0 else float("nan")
+            for task, (loss, count) in zip(
+                pro_losses.keys(),
+                zip(pro_losses.values(), pro_train_counts.values()),
+            )
+        }
+
+        avg_original_train_losses = {
+            task: loss / count if count > 0 else float("nan")
+            for task, (loss, count) in zip(
+                original_losses.keys(),
+                zip(original_losses.values(), original_train_counts.values()),
+            )
         }
 
         # Validation
@@ -829,6 +913,14 @@ def fine_tune_model(
                 **{
                     f"train_loss_{task}": loss
                     for task, loss in avg_train_losses.items()
+                },
+                **{
+                    f"train_pro_loss_{task}": loss
+                    for task, loss in avg_pro_train_losses.items()
+                },
+                **{
+                    f"train_original_loss_{task}": loss
+                    for task, loss in avg_original_train_losses.items()
                 },
             }
             wandb.log(log_dict)
@@ -880,7 +972,7 @@ def validate(
             accumulators=pro_accumulators,
             win_accuracy=pro_win_accuracy,
             device=device,
-            prefix="pro",
+            prefix="val_pro",
         )
         wandb.log(pro_metrics)
 
@@ -892,7 +984,7 @@ def validate(
                 accumulators=original_accumulators,
                 win_accuracy=original_win_accuracy,
                 device=device,
-                prefix="original",
+                prefix="val_original",
             )
             wandb.log(original_metrics)
 
