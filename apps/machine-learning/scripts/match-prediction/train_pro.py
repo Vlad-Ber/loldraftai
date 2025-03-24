@@ -77,6 +77,14 @@ FINE_TUNE_TASKS = {
     ),
 }
 
+FINE_TUNE_TASKS_LAST_EPOCHS = {
+    "win_prediction": TaskDefinition(
+        name="win_prediction",
+        task_type=TaskType.BINARY_CLASSIFICATION,
+        weight=1,
+    ),
+}
+
 
 # in this file we get from a row, so it's different from column_definitions.py
 def get_patch_from_raw_data(row: pd.Series) -> str:
@@ -730,6 +738,16 @@ def fine_tune_model(
 
     for epoch in range(finetune_config.num_epochs):
         epoch_start = time.time()
+
+        if epoch >= finetune_config.num_epochs * 0.75:
+            print(
+                f"Enabling last epoch tasks at epoch {epoch} (75% of {finetune_config.num_epochs})"
+            )
+            enabled_tasks = FINE_TUNE_TASKS_LAST_EPOCHS
+            task_names = list(enabled_tasks.keys())
+            task_weights = torch.tensor(
+                [task_def.weight for task_def in enabled_tasks.values()], device=device
+            )
 
         # Training
         model.train()
