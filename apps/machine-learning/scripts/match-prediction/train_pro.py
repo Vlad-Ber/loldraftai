@@ -614,8 +614,9 @@ def unfreeze_layer_group(model: Model, frozen_layers: int) -> int:
     Returns the new count of unfrozen layer groups.
     """
     mlp_layers = list(model.mlp)
-    if frozen_layers <= 0:
-        return 0
+    # trying to keep frist layer always frozen
+    if frozen_layers <= 1:
+        return 1
 
     # Calculate which layer group to unfreeze (each group is 4 layers)
     base_index = (frozen_layers - 1) * 4
@@ -764,6 +765,9 @@ def fine_tune_model(
             and frozen_layers > 0
             and epoch - last_unfreeze_epoch >= finetune_config.epochs_per_unfreeze
         ):
+            if finetune_config.epochs_per_unfreeze == 200:
+                print("Lowering unfreezing frequency to 100 epochs")
+                finetune_config.epochs_per_unfreeze = 100
             frozen_layers = unfreeze_layer_group(model, frozen_layers)
             last_unfreeze_epoch = epoch
 
