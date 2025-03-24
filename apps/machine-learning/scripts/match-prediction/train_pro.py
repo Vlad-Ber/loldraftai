@@ -96,10 +96,10 @@ class FineTuningConfig:
         self.learning_rate = 5e-6  # Lower learning rate for fine-tuning
         self.weight_decay = 0.05  # Much stronger regularization
         self.dropout = 0.3  # Higher dropout to prevent overfitting
-        self.batch_size = 128
+        self.batch_size = 1024
         self.original_batch_size = (
-            2048 - 128
-        )  # trying with more to avoid catastrophic forgetting
+            1024  # trying with more to avoid catastrophic forgetting
+        )
         self.val_split = 0.2
         self.max_grad_norm = 1.0
         self.log_wandb = True
