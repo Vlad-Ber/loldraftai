@@ -88,12 +88,14 @@ class FineTuningConfig:
 
     def __init__(self):
         # Fine-tuning hyperparameters - edit these directly instead of using command line flags
-        self.num_epochs = 60
+        self.num_epochs = 150
         self.learning_rate = 5e-6  # Lower learning rate for fine-tuning
         self.weight_decay = 0.05  # Much stronger regularization
         self.dropout = 0.3  # Higher dropout to prevent overfitting
         self.batch_size = 128
-        self.original_batch_size = 128
+        self.original_batch_size = (
+            2048 - 128
+        )  # trying with more to avoid catastrophic forgetting
         self.val_split = 0.2
         self.max_grad_norm = 1.0
         self.log_wandb = True
@@ -101,7 +103,7 @@ class FineTuningConfig:
 
         # New unfreezing parameters
         self.progressive_unfreezing = True  # Enable progressive unfreezing
-        self.epochs_per_unfreeze = 1  # Number of epochs before unfreezing next layer
+        self.epochs_per_unfreeze = 10  # Number of epochs before unfreezing next layer
         self.initial_frozen_layers = (
             3  # Will freeze 3 complete layer groups (3 * 4 = 12 individual layers)
         )
@@ -263,6 +265,7 @@ class ProMatchDataset(Dataset):
 
         features["queue_type"] = torch.tensor(PRO_QUEUE_INDEX, dtype=torch.long)
         # Add numerical_elo = 0 for pro games (highest skill level)
+        # TODO: could have a new elo as well
         features["elo"] = torch.tensor(0.0, dtype=torch.long)
 
         # Calculate and normalize task values
@@ -470,6 +473,7 @@ class MixedDataLoader:
     ):
         self.original_loader = original_loader
         self.finetune_loader = finetune_loader
+        self.original_iter = iter(original_loader)
         self.length = len(finetune_loader)
 
     def __len__(self):
@@ -477,7 +481,7 @@ class MixedDataLoader:
 
     def __iter__(self):
         # Create fresh iterators at the start of each epoch
-        self.original_iter = iter(self.original_loader)
+        # This is not done for original loader to have it iterated over internally
         self.finetune_iter = iter(self.finetune_loader)
         return self
 
@@ -644,19 +648,14 @@ def fine_tune_model(
 
     model = load_model_state_dict(model, device, path=pretrained_model_path)
 
-    print("\nQueue type embedding weights before initialization:")
-    print(model.embeddings["queue_type"].weight.data)
-
-    # Initialize pro play embedding (index 2) with ranked queue values
-    print("\nInitializing pro play embedding (index 2) with ranked queue values...")
     with torch.no_grad():
         ranked_weights = (
             model.embeddings["queue_type"].weight.data[RANKED_QUEUE_INDEX].clone()
         )
-        model.embeddings["queue_type"].weight.data[PRO_QUEUE_INDEX] = ranked_weights
-
-    print("\nQueue type embedding weights after initialization:")
-    print(model.embeddings["queue_type"].weight.data)
+        noise = torch.randn_like(ranked_weights) * 0.01  # Adding small Gaussian noise
+        model.embeddings["queue_type"].weight.data[PRO_QUEUE_INDEX] = (
+            ranked_weights + noise
+        )
 
     # Initially freeze ALL embeddings including queue_type
     print("Initially freezing all embedding layers...")
