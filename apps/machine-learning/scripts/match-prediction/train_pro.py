@@ -27,7 +27,11 @@ from utils.match_prediction import (
 )
 from utils.match_prediction.match_dataset import MatchDataset, dataloader_config
 from utils.match_prediction.model import Model
-from utils.match_prediction.train_utils import set_random_seeds, collate_fn
+from utils.match_prediction.train_utils import (
+    set_random_seeds,
+    collate_fn,
+    get_optimizer_grouped_parameters,
+)
 from utils.match_prediction.config import (
     TrainingConfig,
 )
@@ -88,7 +92,7 @@ class FineTuningConfig:
 
     def __init__(self):
         # Fine-tuning hyperparameters - edit these directly instead of using command line flags
-        self.num_epochs = 150
+        self.num_epochs = 300
         self.learning_rate = 5e-6  # Lower learning rate for fine-tuning
         self.weight_decay = 0.05  # Much stronger regularization
         self.dropout = 0.3  # Higher dropout to prevent overfitting
@@ -103,22 +107,20 @@ class FineTuningConfig:
 
         # New unfreezing parameters
         self.progressive_unfreezing = True  # Enable progressive unfreezing
-        self.epochs_per_unfreeze = 10  # Number of epochs before unfreezing next layer
-        self.initial_frozen_layers = (
-            3  # Will freeze 3 complete layer groups (3 * 4 = 12 individual layers)
-        )
+        self.epochs_per_unfreeze = 150
+        self.initial_frozen_layers = 3
 
         # Data augmentation options
         self.use_team_symmetry = True  # Enable team symmetry augmentation
 
         # Label smoothing options
         self.use_label_smoothing = True  # Enable label smoothing
-        self.smooth_low = 0.1  # Value to smooth 0 labels to
-        self.smooth_high = 0.9  # Value to smooth 1 labels to
+        self.smooth_low = 0.2  # Value to smooth 0 labels to
+        self.smooth_high = 0.8  # Value to smooth 1 labels to
 
         # Loss balancing parameters
         self.pro_loss_weight = 5.0  # Weight multiplier for pro data losses
-        self.original_loss_weight = 0.5  # Weight multiplier for original data losses
+        self.original_loss_weight = 1.0  # Weight multiplier for original data losses
 
     def __str__(self):
         return "\n".join(f"{key}: {value}" for key, value in vars(self).items())
@@ -652,14 +654,14 @@ def fine_tune_model(
 
     model = load_model_state_dict(model, device, path=pretrained_model_path)
 
-    with torch.no_grad():
-        ranked_weights = (
-            model.embeddings["queue_type"].weight.data[RANKED_QUEUE_INDEX].clone()
-        )
-        noise = torch.randn_like(ranked_weights) * 0.01  # Adding small Gaussian noise
-        model.embeddings["queue_type"].weight.data[PRO_QUEUE_INDEX] = (
-            ranked_weights + noise
-        )
+    # with torch.no_grad():
+    # ranked_weights = (
+    # model.embeddings["queue_type"].weight.data[RANKED_QUEUE_INDEX].clone()
+    # )
+    # noise = torch.randn_like(ranked_weights) * 0.01  # Adding small Gaussian noise
+    # model.embeddings["queue_type"].weight.data[PRO_QUEUE_INDEX] = (
+    # ranked_weights + noise
+    # )
 
     # Initially freeze ALL embeddings including queue_type
     print("Initially freezing all embedding layers...")
@@ -716,9 +718,8 @@ def fine_tune_model(
 
     # Initialize optimizer with initially trainable parameters
     optimizer = optim.AdamW(
-        [p for p in model.parameters() if p.requires_grad],
+        get_optimizer_grouped_parameters(model, finetune_config.weight_decay),
         lr=finetune_config.learning_rate,
-        weight_decay=finetune_config.weight_decay,
     )
 
     train_loader, val_pro_loader, val_original_loader = create_dataloaders(
@@ -750,9 +751,8 @@ def fine_tune_model(
 
             # Reinitialize optimizer with newly unfrozen parameters
             optimizer = optim.AdamW(
-                [p for p in model.parameters() if p.requires_grad],
+                get_optimizer_grouped_parameters(model, finetune_config.weight_decay),
                 lr=finetune_config.learning_rate,
-                weight_decay=finetune_config.weight_decay,
             )
             print(f"\nUnfroze layer group. Remaining frozen groups: {frozen_layers}")
 
