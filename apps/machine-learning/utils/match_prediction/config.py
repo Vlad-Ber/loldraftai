@@ -10,6 +10,7 @@ class TrainingConfig:
         self.num_epochs = 25
         self.annealing_epoch = 10
         self.hidden_dims = [1536, 768, 384, 192]  # Both wider and one layer deeper
+        self.dropout = 0.25
         self.learning_rate = 5e-4
         self.champion_embed_dim = 256
         self.queue_type_embed_dim = 64
