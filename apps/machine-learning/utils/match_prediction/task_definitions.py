@@ -283,7 +283,7 @@ def get_final_tasks() -> Dict[str, TaskDefinition]:
 
     # Add total gold tasks for all positions and teams
     gold_tasks_count = len(POSITIONS) * len(TEAMS)  # 5 positions * 2 teams = 10 tasks
-    gold_task_weight = 0.01 / gold_tasks_count  # Split 1% among gold tasks
+    gold_task_weight = 0.05 / gold_tasks_count  # Split 5% among gold tasks
 
     for position in POSITIONS:
         for team_id in TEAMS:
