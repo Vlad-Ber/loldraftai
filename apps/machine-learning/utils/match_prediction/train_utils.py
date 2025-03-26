@@ -294,11 +294,11 @@ def init_model(
 
         # Patch embeddings initialization (half random, half similar)
         patch_embeddings = torch.randn(model.num_patches, config.patch_embed_dim) * 0.02
-        half_dim = config.patch_embed_dim // 2
-        base_patch_vector = torch.randn(half_dim) * 0.1
+        half_dim_patch = config.patch_embed_dim // 2
+        base_patch_vector = torch.randn(half_dim_patch) * 0.1
         for i in range(model.num_patches):
-            noise = torch.randn(half_dim) * 0.01
-            patch_embeddings[i, half_dim:] = base_patch_vector + noise
+            noise = torch.randn(half_dim_patch) * 0.01
+            patch_embeddings[i, half_dim_patch:] = base_patch_vector + noise
         model.patch_embedding.weight.data = patch_embeddings
 
         # Champion+patch embeddings initialization (half random, half class-based)
@@ -306,23 +306,26 @@ def init_model(
             torch.randn(num_champions * model.num_patches, config.champion_embed_dim)
             * 0.02
         )
+        half_dim_champion_patch = config.champion_embed_dim // 2
         for c in range(num_champions):
-            base_vector = base_embeddings[c, half_dim:]  # Use the biased half
+            base_vector = base_embeddings[c, half_dim_champion_patch:]  # Use the biased half
             for p in range(model.num_patches):
                 idx = c * model.num_patches + p
-                noise = torch.randn(half_dim) * 0.01
-                champion_patch_embeddings[idx, half_dim:] = base_vector + noise
+                noise = torch.randn(half_dim_champion_patch) * 0.01
+                champion_patch_embeddings[idx, half_dim_champion_patch:] = (
+                    base_vector + noise
+                )
         model.champion_patch_embedding.weight.data = champion_patch_embeddings
 
         # Log embedding statistics
         if config.log_wandb:
-            patch_embed_mean = patch_embeddings[:, half_dim:].mean().item()
-            patch_embed_std = patch_embeddings[:, half_dim:].std().item()
+            patch_embed_mean = patch_embeddings[:, half_dim_patch:].mean().item()
+            patch_embed_std = patch_embeddings[:, half_dim_patch:].std().item()
 
             # Handle single patch case
             if model.num_patches > 1:
                 patch_embed_max_diff = torch.max(
-                    torch.pdist(patch_embeddings[:, half_dim:])
+                    torch.pdist(patch_embeddings[:, half_dim_patch:])
                 ).item()
             else:
                 print(
@@ -331,16 +334,16 @@ def init_model(
                 patch_embed_max_diff = 0.0
 
             champ_patch_embed_mean = (
-                champion_patch_embeddings[:, half_dim:].mean().item()
+                champion_patch_embeddings[:, half_dim_champion_patch:].mean().item()
             )
-            champ_patch_embed_std = champion_patch_embeddings[:, half_dim:].std().item()
+            champ_patch_embed_std = champion_patch_embeddings[:, half_dim_champion_patch:].std().item()
 
             # Handle single patch case for champion embeddings
             max_diff = 0.0
             if model.num_patches > 1:
                 for c in range(num_champions):
                     champ_embeds = champion_patch_embeddings[
-                        c * model.num_patches : (c + 1) * model.num_patches, half_dim:
+                        c * model.num_patches : (c + 1) * model.num_patches, half_dim_champion_patch:
                     ]
                     diff = torch.max(torch.pdist(champ_embeds)).item()
                     max_diff = max(max_diff, diff)
