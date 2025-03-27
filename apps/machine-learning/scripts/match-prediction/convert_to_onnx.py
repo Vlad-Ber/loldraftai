@@ -1,4 +1,6 @@
 # scripts/match-prediction/convert_to_onnx.py
+# This file converts the PyTorch model to an ONNX model
+# Converting to ONNX makes inference faster on the cpu based docker deployment
 import torch
 import pickle
 from pathlib import Path

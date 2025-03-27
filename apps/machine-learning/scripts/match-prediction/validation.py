@@ -1,3 +1,5 @@
+# scripts/match-prediction/validation.py
+# TODO: needs to be updated for new model architecture
 import argparse
 import pickle
 from collections import defaultdict

@@ -1,6 +1,7 @@
 from enum import Enum
 
 
+# classes used for biased initialization, see train_utils.py
 class ChampionClass(Enum):
     MAGE = "mage"
     TANK = "tank"

@@ -1,4 +1,9 @@
 # scripts/match-prediction/prepare_data.py
+# Prepares data for training
+# - Filters out outliers
+# - Creates train/test split
+# - Creates encoders for categorical columns and normalizes numerical columns
+# (normalization is important, especially with auxiliary tasks, to avoid tasks losses having different scales)
 import os
 import glob
 import pickle

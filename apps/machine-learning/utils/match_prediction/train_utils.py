@@ -131,7 +131,18 @@ def collate_fn(
 
 
 def _initialize_queue_embeddings(embed_dim: int) -> torch.Tensor:
-    """Initialize queue embeddings with half random, half biased initialization."""
+    """Initialize queue type embeddings with a hybrid approach.
+
+    The embeddings are split into two halves:
+    - First half: Random initialization for diversity
+    - Second half: Biased initialization where all queue types share a similar base vector
+    with small noise, encouraging some commonality between queue types
+
+    Half random init is to have some ability to dinstinguish between champions,
+    inspired by the paper:
+    The Unreasonable Effectiveness of Random Target Embeddings for Continuous-Output Neural Machine Translation
+    https://arxiv.org/abs/2310.20620
+    """
     half_dim = embed_dim // 2
     queue_embeddings = (
         torch.randn(len(possible_values_queue_type), embed_dim) * 0.02
@@ -155,7 +166,20 @@ def _initialize_champion_embeddings(
     champ_to_class: dict,
     champ_display_names: dict,
 ) -> tuple[torch.Tensor, dict[ChampionClass, int], list[str]]:
-    """Initialize champion embeddings with half random, half class-based biases."""
+    """
+    Initialize champion embeddings using class-based biased initialization.
+
+    The embeddings are split into two halves:
+    - First half: Random initialization for champion-specific features
+    - Second half: Class-based initialization where champions of the same class
+    (e.g., MAGE, TANK) share a similar base vector with small noise, encouraging
+    champions of the same class to have similar representations
+
+    Half random init is to have some ability to dinstinguish between champions,
+    inspired by the paper:
+    The Unreasonable Effectiveness of Random Target Embeddings for Continuous-Output Neural Machine Translation
+    https://arxiv.org/abs/2310.20620
+    """
     half_dim = embed_dim // 2
     # Initialize all embeddings with random values
     base_embeddings = torch.randn(num_champions, embed_dim) * 0.02
@@ -308,7 +332,9 @@ def init_model(
         )
         half_dim_champion_patch = config.champion_embed_dim // 2
         for c in range(num_champions):
-            base_vector = base_embeddings[c, half_dim_champion_patch:]  # Use the biased half
+            base_vector = base_embeddings[
+                c, half_dim_champion_patch:
+            ]  # Use the biased half
             for p in range(model.num_patches):
                 idx = c * model.num_patches + p
                 noise = torch.randn(half_dim_champion_patch) * 0.01
@@ -336,14 +362,17 @@ def init_model(
             champ_patch_embed_mean = (
                 champion_patch_embeddings[:, half_dim_champion_patch:].mean().item()
             )
-            champ_patch_embed_std = champion_patch_embeddings[:, half_dim_champion_patch:].std().item()
+            champ_patch_embed_std = (
+                champion_patch_embeddings[:, half_dim_champion_patch:].std().item()
+            )
 
             # Handle single patch case for champion embeddings
             max_diff = 0.0
             if model.num_patches > 1:
                 for c in range(num_champions):
                     champ_embeds = champion_patch_embeddings[
-                        c * model.num_patches : (c + 1) * model.num_patches, half_dim_champion_patch:
+                        c * model.num_patches : (c + 1) * model.num_patches,
+                        half_dim_champion_patch:,
                     ]
                     diff = torch.max(torch.pdist(champ_embeds)).item()
                     max_diff = max(max_diff, diff)

@@ -1,3 +1,8 @@
+# scripts/match-prediction/generate_playrates.py
+# Generates champion play rates for the latest 10 patches
+# Playrates are used by the frontend to :
+# - Determine in what role to place a champion automatically
+# - Show a warning for rare champion/role combinations
 import os
 import glob
 import json

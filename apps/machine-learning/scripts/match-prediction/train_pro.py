@@ -1,4 +1,6 @@
-#!/usr/bin/env python3
+# scripts/match-prediction/train_pro.py
+# Finetunes the model on professional data
+# (Doesn't work well, might be removed soon, it is a research area)
 
 import os
 import argparse
@@ -44,6 +46,8 @@ from utils.match_prediction.task_definitions import (
     TaskType,
 )
 
+# Attempting to finetune on multiple tasks, could perhaps make the model "understand" the domain adaptations better
+# (for example, pro games have less drastic gold leads and less kills)
 FINE_TUNE_TASKS = {
     "win_prediction": TaskDefinition(
         name="win_prediction",

@@ -1,3 +1,5 @@
+# scripts/match-prediction/download_data.py
+# Downloads latest raw data from Azure Blob Storage
 import os
 import argparse
 from datetime import datetime, timedelta
