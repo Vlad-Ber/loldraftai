@@ -482,6 +482,7 @@ def train_model(
             **dataloader_config,
             collate_fn=collate_fn,
             persistent_workers=device.type == "cuda",
+            drop_last=True,  # otherwise, because of large batch size, the last batch can have way less samples
         )
         for dataset in [train_dataset, test_dataset, test_masked_dataset]
     )
