@@ -160,47 +160,49 @@ def validate_with_subgroups(
     # could refactor code in common with train.py
     for task_name, task_def in TASKS.items():
         if task_def.task_type == TaskType.BINARY_CLASSIFICATION:
-            criterions[task_name] = nn.BCEWithLogitsLoss()
+            criterions[task_name] = nn.BCEWithLogitsLoss(reduction="none")
         elif task_def.task_type == TaskType.REGRESSION:
-            criterions[task_name] = nn.MSELoss()
+            criterions[task_name] = nn.MSELoss(reduction="none")
 
     with torch.no_grad():
         for features_batch, labels_batch in tqdm(test_loader, desc="Validating"):
             # Move features and labels to device
             features_batch = {k: v.to(device) for k, v in features_batch.items()}
-            labels_batch = {k: v.to(device) for k, v in labels_batch.items()}
+            labels_batch = {k: labels_batch[k].to(device) for k in TASKS.keys()}
 
-            batch_size = next(iter(labels_batch.values())).size(
-                0
-            )  # Number of samples in batch
+            batch_size = labels_batch["win_prediction"].size(0)
             total_samples += batch_size
 
             # Compute model outputs
             outputs_batch = model(features_batch)  # Outputs are dict of tensors
 
+            # Compute losses for entire batch at once
+            batch_losses = []
+            for task_name in task_names:
+                output = outputs_batch[task_name].view(
+                    batch_size, -1
+                )  # [batch_size, feat_dim]
+                label = labels_batch[task_name].view(
+                    batch_size, -1
+                )  # [batch_size, feat_dim]
+                task_loss = criterions[task_name](output, label)  # [batch_size]
+                batch_losses.append(task_loss)
+
+            # Stack and compute total loss for all samples at once
+            batch_losses_tensor = torch.stack(
+                batch_losses, dim=1
+            )  # [batch_size, num_tasks]
+            total_losses = (batch_losses_tensor * task_weights).sum(
+                dim=1
+            )  # [batch_size]
+
             # For each sample in the batch
             for i in range(batch_size):
                 # Extract sample data
                 sample_features = {k: v[i] for k, v in features_batch.items()}
-                sample_labels = {k: v[i] for k, v in labels_batch.items()}
-                sample_outputs = {k: v[i] for k, v in outputs_batch.items()}
-
-                # Compute loss per task
-                # TODO: could parralelize loss calculation
-                sample_losses = []
-                for task_name in task_names:
-                    output = sample_outputs[task_name]
-                    label = sample_labels[task_name]
-                    # If the output is multi-dimensional, reduce it
-                    if output.dim() > 0:
-                        output = output.view(-1)  # Flatten
-                        label = label.view(-1)  # Flatten
-                    task_loss = criterions[task_name](output, label)
-                    sample_losses.append(task_loss)
 
                 # Total loss for the sample
-                sample_losses_tensor = torch.stack(sample_losses)  # Shape: [num_tasks]
-                total_loss = (sample_losses_tensor * task_weights).sum().item()
+                total_loss = total_losses[i]
 
                 # Get subgroups for the sample
                 elo_subgroup = get_elo_subgroup(sample_features["elo"])  # Shape: scalar
