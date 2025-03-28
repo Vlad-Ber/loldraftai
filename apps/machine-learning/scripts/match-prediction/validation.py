@@ -57,66 +57,64 @@ def get_patch_subgroup(feature: torch.Tensor) -> str:
     return subgroup_name
 
 
-def get_playrate_subgroup(
-    champion_ids: torch.Tensor,
+def get_playrate_subgroup_batch(
+    champion_ids_batch: torch.Tensor,  # Shape: [batch_size, 10]
     play_rates: Dict[str, Dict[str, Dict[str, float]]],
-    patch: str,
-) -> str:
+    patches_batch: torch.Tensor,  # Shape: [batch_size]
+) -> List[str]:
     """
-    Assign a subgroup based on the rarest champion in the game.
-
-    Parameters:
-        champion_ids (torch.Tensor): Tensor of champion IDs for the sample. Shape: [10]
-        play_rates (Dict[str, Dict[str, Dict[str, float]]]): Play rates for champion-role combinations. format: {patch: {champion_id: {role: play_rate}}}
-        patch (str): Patch number.
-
-    Returns:
-        str: Subgroup name.
+    Vectorized version that processes entire batch at once.
     """
-    # Define play rate buckets (in decimals), ordered from lowest to highest threshold
+    batch_size = champion_ids_batch.shape[0]
+
     play_rate_buckets = [
-        (0.000001, "almost_never"),  # <= 0.001%
-        (0.00005, "ultra_rare"),  # <= 0.001%
-        (0.0001, "very_rare"),  # <= 0.01%
-        (0.0005, "rare"),  # <= 0.05%
-        (0.001, "quite_rare"),  # <= 0.1%
-        (0.005, "moderately_common"),  # <= 0.5%
-        (0.01, "common"),  # <= 1%
-        (1.0, "very_common"),  # > 1%
+        (0.000001, "almost_never"),
+        (0.00005, "ultra_rare"),
+        (0.0001, "very_rare"),
+        (0.0005, "rare"),
+        (0.001, "quite_rare"),
+        (0.005, "moderately_common"),
+        (0.01, "common"),
+        (1.0, "very_common"),
     ]
+    role_names = ["TOP", "JUNGLE", "MIDDLE", "BOTTOM", "UTILITY"]
 
-    min_play_rate = 1.0  # Initialize with maximum possible play rate
+    # Convert champion IDs for entire batch at once
+    champion_ids_flat = champion_ids_batch.view(-1)  # Shape: [batch_size * 10]
+    champion_names = champion_id_encoder.inverse_transform(
+        champion_ids_flat.cpu().numpy()
+    )
 
-    roles = [
-        "TOP",
-        "JUNGLE",
-        "MIDDLE",
-        "BOTTOM",
-        "UTILITY",
-        "TOP",
-        "JUNGLE",
-        "MIDDLE",
-        "BOTTOM",
-        "UTILITY",
-    ]
+    # Initialize play rate tensor
+    play_rates_tensor = torch.ones(
+        batch_size, 10, dtype=torch.float32
+    )  # Shape: [batch_size, 10]
 
-    # Find the minimal play rate among champions in the game
-    for pos_idx, champ_id in enumerate(champion_ids):
-        role_idx = pos_idx % 5
-        role = roles[role_idx]
-        champ_id = champion_id_encoder.inverse_transform([champ_id.item()])[0]
-        play_rate = play_rates.get(patch, {}).get(champ_id, {}).get(role, 0.0)
-        # TODO: why is this needed?
-        play_rate = max(play_rate, 1e-7)  # Avoid zero play rates
-        if play_rate < min_play_rate:
-            min_play_rate = play_rate
+    patches = patches_batch.cpu().numpy()
+    for b in range(batch_size):
+        patch = str(patches[b])
+        for pos in range(10):
+            champ_name = champion_names[b * 10 + pos]
+            role = role_names[pos % 5]
+            play_rates_tensor[b, pos] = (
+                play_rates.get(patch, {}).get(champ_name, {}).get(role, 0.0)
+            )
 
-    # Determine the bucket for the minimal play rate
-    for threshold, bucket_name in play_rate_buckets:
-        if min_play_rate <= threshold:
-            subgroup_name = f"playrate_{bucket_name}"
-            return subgroup_name
-    return "playrate_unknown"
+    # Ensure minimum play rate and find minimum per sample
+    play_rates_tensor = torch.maximum(play_rates_tensor, torch.tensor(1e-7))
+    min_play_rates, _ = play_rates_tensor.min(dim=1)  # Shape: [batch_size]
+
+    # Vectorized bucket assignment
+    result = []
+    for min_rate in min_play_rates.cpu().numpy():
+        for threshold, bucket_name in play_rate_buckets:
+            if min_rate <= threshold:
+                result.append(f"playrate_{bucket_name}")
+                break
+        else:
+            result.append("playrate_unknown")
+
+    return result
 
 
 def validate_with_subgroups(
@@ -197,22 +195,13 @@ def validate_with_subgroups(
             )  # [batch_size]
 
             # Vectorized subgroup assignment
-            # Get subgroups for all samples in batch at once
-            elo_subgroups = [
-                get_elo_subgroup(features_batch["elo"][i]) for i in range(batch_size)
-            ]
+            elo_subgroups = [f"elo_{elo}" for elo in features_batch["elo"].tolist()]
             patch_subgroups = [
-                get_patch_subgroup(features_batch["patch"][i])
-                for i in range(batch_size)
+                f"patch_{patch}" for patch in features_batch["patch"].tolist()
             ]
-            playrate_subgroups = [
-                get_playrate_subgroup(
-                    features_batch["champion_ids"][i],
-                    play_rates,
-                    features_batch["patch"][i].item(),
-                )
-                for i in range(batch_size)
-            ]
+            playrate_subgroups = get_playrate_subgroup_batch(
+                features_batch["champion_ids"], play_rates, features_batch["patch"]
+            )
 
             # Process all subgroups at once using numpy operations
             all_subgroups = elo_subgroups + patch_subgroups + playrate_subgroups
