@@ -1,7 +1,9 @@
 # scripts/match-prediction/validation.py
 # TODO: needs to be updated for new model architecture
 import argparse
+import json
 import pickle
+from sklearn.preprocessing import LabelEncoder
 from collections import defaultdict
 from typing import Dict, List, Callable, Any, Tuple
 
@@ -14,56 +16,16 @@ from tqdm import tqdm
 from utils.match_prediction import (
     get_best_device,
     MODEL_PATH,
-    MODEL_CONFIG_PATH,
     TRAIN_BATCH_SIZE,
-    ENCODERS_PATH,
+    CHAMPION_ID_ENCODER_PATH,
+    load_model_state_dict,
 )
-from utils.match_prediction.column_definitions import CATEGORICAL_COLUMNS
+from utils.match_prediction.config import TrainingConfig
 from utils.match_prediction.match_dataset import MatchDataset
 from utils.match_prediction.model import Model
-from utils.match_prediction.task_definitions import TASKS
-from utils.match_prediction.train_utils import get_num_champions, collate_fn
-from utils import DATA_DIR
-
-
-def calculate_play_rates(data_loader: DataLoader) -> Dict[Tuple[int, int], float]:
-    """
-    Calculate play rates for each champion-role combination.
-
-    Parameters:
-        data_loader (DataLoader): DataLoader for the dataset.
-
-    Returns:
-        Dict[Tuple[int, int], float]: Play rates for each (champion_id, role_idx).
-    """
-    play_counts: Dict[Tuple[int, int], int] = defaultdict(int)
-    total_counts_per_role: Dict[int, int] = defaultdict(int)
-    total_games = 0
-
-    print("Calculating play rates...")
-    for features_batch, _ in tqdm(data_loader):
-        champion_ids_batch = features_batch["champion_ids"]  # Shape: [batch_size, 10]
-        batch_size = champion_ids_batch.size(0)
-        total_games += batch_size
-
-        for champion_ids in champion_ids_batch:
-            # champion_ids: Tensor of shape [10]
-            for pos_idx, champ_id in enumerate(champion_ids):
-                role_idx = (
-                    pos_idx % 5
-                )  # Positions 0-4 are team1 roles, 5-9 are team2 roles
-                champ_id = champ_id.item()
-                play_counts[(champ_id, role_idx)] += 1
-                total_counts_per_role[role_idx] += 1
-
-    # Calculate play rates per role
-    play_rates = {
-        pair: count / total_counts_per_role[pair[1]]
-        for pair, count in play_counts.items()
-    }
-
-    print("\nCalculated play rates for champion-role combinations.")
-    return play_rates
+from utils.match_prediction.train_utils import collate_fn
+from utils.match_prediction.task_definitions import TaskDefinition, TaskType
+from utils import DATA_DIR, champion_play_rates_path
 
 
 def get_elo_subgroup(feature: torch.Tensor) -> str:
@@ -78,9 +40,12 @@ def get_elo_subgroup(feature: torch.Tensor) -> str:
     """
     # feature: scalar tensor
     elo = feature.item()
-    bucket = round(elo * 10) / 10  # Round to nearest 0.1
-    subgroup_name = f"elo_{bucket}"
+    subgroup_name = f"elo_{elo}"
     return subgroup_name
+
+
+with open(CHAMPION_ID_ENCODER_PATH, "rb") as f:
+    champion_id_encoder: LabelEncoder = pickle.load(f)["mapping"]
 
 
 def get_patch_subgroup(feature: torch.Tensor) -> str:
@@ -93,14 +58,17 @@ def get_patch_subgroup(feature: torch.Tensor) -> str:
 
 
 def get_playrate_subgroup(
-    champion_ids: torch.Tensor, play_rates: Dict[Tuple[int, int], float]
+    champion_ids: torch.Tensor,
+    play_rates: Dict[str, Dict[str, Dict[str, float]]],
+    patch: str,
 ) -> str:
     """
     Assign a subgroup based on the rarest champion in the game.
 
     Parameters:
         champion_ids (torch.Tensor): Tensor of champion IDs for the sample. Shape: [10]
-        play_rates (Dict[Tuple[int, int], float]): Play rates for champion-role combinations.
+        play_rates (Dict[str, Dict[str, Dict[str, float]]]): Play rates for champion-role combinations. format: {patch: {champion_id: {role: play_rate}}}
+        patch (str): Patch number.
 
     Returns:
         str: Subgroup name.
@@ -119,11 +87,26 @@ def get_playrate_subgroup(
 
     min_play_rate = 1.0  # Initialize with maximum possible play rate
 
+    roles = [
+        "TOP",
+        "JUNGLE",
+        "MIDDLE",
+        "BOTTOM",
+        "UTILITY",
+        "TOP",
+        "JUNGLE",
+        "MIDDLE",
+        "BOTTOM",
+        "UTILITY",
+    ]
+
     # Find the minimal play rate among champions in the game
     for pos_idx, champ_id in enumerate(champion_ids):
         role_idx = pos_idx % 5
-        champ_id = champ_id.item()
-        play_rate = play_rates.get((champ_id, role_idx), 0.0)
+        role = roles[role_idx]
+        champ_id = champion_id_encoder.inverse_transform([champ_id.item()])[0]
+        play_rate = play_rates.get(patch, {}).get(champ_id, {}).get(role, 0.0)
+        # TODO: why is this needed?
         play_rate = max(play_rate, 1e-7)  # Avoid zero play rates
         if play_rate < min_play_rate:
             min_play_rate = play_rate
@@ -140,7 +123,7 @@ def validate_with_subgroups(
     model: Model,
     test_loader: DataLoader,
     device: torch.device,
-    play_rates: Dict[Tuple[int, int], float],
+    play_rates: Dict[str, Dict[str, Dict[str, float]]],
 ) -> pd.DataFrame:
     """
     Validate the model and perform subgroup analysis.
@@ -160,12 +143,26 @@ def validate_with_subgroups(
     subgroup_counts: Dict[str, int] = defaultdict(int)
     total_samples = 0
 
+    TASKS = {
+        "win_prediction": TaskDefinition(
+            name="win_prediction",
+            task_type=TaskType.BINARY_CLASSIFICATION,
+            weight=1,
+        ),
+    }
+
     task_names = list(TASKS.keys())
     task_weights = torch.tensor(
         [TASKS[name].weight for name in task_names], device=device
     )  # Shape: [num_tasks]
 
-    loss_fn = nn.MSELoss(reduction="mean")
+    criterions = {}
+    # could refactor code in common with train.py
+    for task_name, task_def in TASKS.items():
+        if task_def.task_type == TaskType.BINARY_CLASSIFICATION:
+            criterions[task_name] = nn.BCEWithLogitsLoss()
+        elif task_def.task_type == TaskType.REGRESSION:
+            criterions[task_name] = nn.MSELoss()
 
     with torch.no_grad():
         for features_batch, labels_batch in tqdm(test_loader, desc="Validating"):
@@ -189,6 +186,7 @@ def validate_with_subgroups(
                 sample_outputs = {k: v[i] for k, v in outputs_batch.items()}
 
                 # Compute loss per task
+                # TODO: could parralelize loss calculation
                 sample_losses = []
                 for task_name in task_names:
                     output = sample_outputs[task_name]
@@ -197,7 +195,7 @@ def validate_with_subgroups(
                     if output.dim() > 0:
                         output = output.view(-1)  # Flatten
                         label = label.view(-1)  # Flatten
-                    task_loss = loss_fn(output, label)
+                    task_loss = criterions[task_name](output, label)
                     sample_losses.append(task_loss)
 
                 # Total loss for the sample
@@ -205,13 +203,13 @@ def validate_with_subgroups(
                 total_loss = (sample_losses_tensor * task_weights).sum().item()
 
                 # Get subgroups for the sample
-                elo_subgroup = get_elo_subgroup(
-                    sample_features["numerical_elo"]
-                )  # Shape: scalar
+                elo_subgroup = get_elo_subgroup(sample_features["elo"])  # Shape: scalar
+                patch_subgroup = get_patch_subgroup(sample_features["patch"])
                 playrate_subgroup = get_playrate_subgroup(
-                    sample_features["champion_ids"], play_rates
+                    sample_features["champion_ids"],
+                    play_rates,
+                    sample_features["patch"],
                 )  # Shape: scalar
-                patch_subgroup = get_patch_subgroup(sample_features["numerical_patch"])
 
                 # Accumulate loss and counts for each subgroup
                 for subgroup_name in [elo_subgroup, playrate_subgroup, patch_subgroup]:
@@ -247,19 +245,16 @@ def main():
 
     device = get_best_device()
 
-    # TODO: this file is outdated, need to update it if we want to use it again
-
     # Initialize model
-    model = Model(
-        embed_dim=model_config["embed_dim"],
-        dropout=model_config["dropout"],
-    )
-    model.load_state_dict(torch.load(MODEL_PATH, map_location=device))
-    model.to(device)
+    config = TrainingConfig()
+    model = Model(config=config, dropout=0, hidden_dims=config.hidden_dims)
+    model = load_model_state_dict(model, device=device, path=MODEL_PATH)
     model.eval()
 
     # Initialize test dataset and loader
-    test_dataset = MatchDataset(train_or_test="test", small_dataset=args.small)
+    test_dataset = MatchDataset(
+        train_or_test="test", dataset_fraction=0.01 if args.small else 1.0
+    )
     test_loader = DataLoader(
         test_dataset,
         batch_size=TRAIN_BATCH_SIZE,
@@ -268,8 +263,8 @@ def main():
         pin_memory=True,
     )
 
-    # Calculate play rates
-    play_rates = calculate_play_rates(test_loader)
+    with open(champion_play_rates_path, "r") as f:
+        play_rates = json.load(f)
 
     # Run validation and subgroup analysis
     results_df = validate_with_subgroups(model, test_loader, device, play_rates)

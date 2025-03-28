@@ -11,6 +11,7 @@ from typing import Dict, DefaultDict
 from collections import defaultdict
 from tqdm import tqdm
 from utils.match_prediction import RAW_AZURE_DIR
+from utils import champion_play_rates_path
 from utils.match_prediction.column_definitions import (
     COLUMNS,
     get_champion_ids,
@@ -105,16 +106,12 @@ def main():
     latest_10_patches = dict(list(sorted_play_rates.items())[:10])
 
     # Save to JSON
-    current_dir = os.path.dirname(os.path.abspath(__file__))
-    output_path = os.path.join(
-        current_dir, "../../../../packages/ui/src/lib/config/champion_play_rates.json"
-    )
-    os.makedirs(os.path.dirname(output_path), exist_ok=True)
+    os.makedirs(os.path.dirname(champion_play_rates_path), exist_ok=True)
 
-    with open(output_path, "w") as f:
+    with open(champion_play_rates_path, "w") as f:
         json.dump(latest_10_patches, f, indent=2)
 
-    print(f"Play rates saved to {output_path}")
+    print(f"Play rates saved to {champion_play_rates_path}")
     print(
         f"Processed {len(play_rates)} patches, saved {len(latest_10_patches)} most recent patches"
     )
