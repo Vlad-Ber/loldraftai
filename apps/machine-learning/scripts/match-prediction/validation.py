@@ -18,6 +18,7 @@ from utils.match_prediction import (
     MODEL_PATH,
     TRAIN_BATCH_SIZE,
     CHAMPION_ID_ENCODER_PATH,
+    PATCH_MAPPING_PATH,
     load_model_state_dict,
 )
 from utils.match_prediction.config import TrainingConfig
@@ -46,6 +47,11 @@ def get_elo_subgroup(feature: torch.Tensor) -> str:
 
 with open(CHAMPION_ID_ENCODER_PATH, "rb") as f:
     champion_id_encoder: LabelEncoder = pickle.load(f)["mapping"]
+
+with open(PATCH_MAPPING_PATH, "rb") as f:
+    patch_mapping = pickle.load(f)["mapping"]
+
+reverse_patch_mapping = {v: k for k, v in patch_mapping.items()}
 
 
 def get_patch_subgroup(feature: torch.Tensor) -> str:
@@ -81,7 +87,7 @@ def get_playrate_subgroup_batch(
 
     # Convert champion IDs for entire batch at once
     champion_ids_flat = champion_ids_batch.view(-1)  # Shape: [batch_size * 10]
-    champion_names = champion_id_encoder.inverse_transform(
+    champion_original_ids = champion_id_encoder.inverse_transform(
         champion_ids_flat.cpu().numpy()
     )
 
@@ -92,9 +98,9 @@ def get_playrate_subgroup_batch(
 
     patches = patches_batch.cpu().numpy()
     for b in range(batch_size):
-        patch = str(patches[b])
+        patch = reverse_patch_mapping[patches[b]]
         for pos in range(10):
-            champ_name = champion_names[b * 10 + pos]
+            champ_name = champion_original_ids[b * 10 + pos]
             role = role_names[pos % 5]
             play_rates_tensor[b, pos] = (
                 play_rates.get(patch, {}).get(champ_name, {}).get(role, 0.0)
