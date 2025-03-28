@@ -73,15 +73,16 @@ def get_playrate_subgroup_batch(
     """
     batch_size = champion_ids_batch.shape[0]
 
+    # global play rate buckets
     play_rate_buckets = [
-        (0.000001, "almost_never"),
-        (0.00005, "ultra_rare"),
-        (0.0001, "very_rare"),
-        (0.0005, "rare"),
-        (0.001, "quite_rare"),
-        (0.005, "moderately_common"),
-        (0.01, "common"),
-        (1.0, "very_common"),
+        (0.01, "almost_never"),
+        (0.05, "ultra_rare"),
+        (0.1, "very_rare"),
+        (0.5, "rare"),
+        (1.0, "quite_rare"),
+        (5.0, "moderately_common"),
+        (10.0, "common"),
+        (100.0, "very_common"),
     ]
     role_names = ["TOP", "JUNGLE", "MIDDLE", "BOTTOM", "UTILITY"]
 

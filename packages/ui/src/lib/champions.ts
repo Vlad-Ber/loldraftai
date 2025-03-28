@@ -226,6 +226,7 @@ interface ChampionPlayRates {
 const playRatesData = championPlayRates as ChampionPlayRates;
 
 // Get sorted patches for easy access to latest data
+// TODO: this can be just alpha sorter now that we zfill the minor version
 export const sortedPatches = Object.keys(playRatesData).sort((a, b) => {
   const [aMajor, aMinor] = a.split(".").map(Number);
   const [bMajor, bMinor] = b.split(".").map(Number);
