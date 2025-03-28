@@ -45,7 +45,7 @@ def calculate_play_rates(input_dir: str) -> Dict[str, Dict[str, Dict[str, float]
         df["patch"] = (
             df["gameVersionMajorPatch"].astype(str)
             + "."
-            + df["gameVersionMinorPatch"].astype(str)
+            + df["gameVersionMinorPatch"].astype(str).str.zfill(2)
         )
 
         # Count total games per patch
