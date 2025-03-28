@@ -196,27 +196,33 @@ def validate_with_subgroups(
                 dim=1
             )  # [batch_size]
 
-            # For each sample in the batch
-            for i in range(batch_size):
-                # Extract sample data
-                sample_features = {k: v[i] for k, v in features_batch.items()}
-
-                # Total loss for the sample
-                total_loss = total_losses[i]
-
-                # Get subgroups for the sample
-                elo_subgroup = get_elo_subgroup(sample_features["elo"])  # Shape: scalar
-                patch_subgroup = get_patch_subgroup(sample_features["patch"])
-                playrate_subgroup = get_playrate_subgroup(
-                    sample_features["champion_ids"],
+            # Vectorized subgroup assignment
+            # Get subgroups for all samples in batch at once
+            elo_subgroups = [
+                get_elo_subgroup(features_batch["elo"][i]) for i in range(batch_size)
+            ]
+            patch_subgroups = [
+                get_patch_subgroup(features_batch["patch"][i])
+                for i in range(batch_size)
+            ]
+            playrate_subgroups = [
+                get_playrate_subgroup(
+                    features_batch["champion_ids"][i],
                     play_rates,
-                    sample_features["patch"],
-                )  # Shape: scalar
+                    features_batch["patch"][i].item(),
+                )
+                for i in range(batch_size)
+            ]
 
-                # Accumulate loss and counts for each subgroup
-                for subgroup_name in [elo_subgroup, playrate_subgroup, patch_subgroup]:
-                    subgroup_total_loss[subgroup_name] += total_loss
-                    subgroup_counts[subgroup_name] += 1
+            # Process all subgroups at once using numpy operations
+            all_subgroups = elo_subgroups + patch_subgroups + playrate_subgroups
+            all_losses = total_losses.repeat_interleave(
+                3
+            )  # Repeat each loss 3 times for the 3 subgroup types
+
+            for sg, loss in zip(all_subgroups, all_losses):
+                subgroup_total_loss[sg] += loss.item()
+                subgroup_counts[sg] += 1
 
     # Prepare results
     data = {
