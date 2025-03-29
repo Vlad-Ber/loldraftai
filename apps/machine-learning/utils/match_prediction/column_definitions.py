@@ -67,17 +67,23 @@ def get_categorical_elo(df: pd.DataFrame) -> pd.Series:
         division = row["averageDivision"]
 
         if (tier, division) in [
-            ("DIAMOND", "II"),
-            ("DIAMOND", "I"),
             ("MASTER", "I"),
             ("GRANDMASTER", "I"),
             ("CHALLENGER", "I"),
         ]:
             return 0
-        elif (tier, division) in [("DIAMOND", "III"), ("DIAMOND", "IV")]:
+        elif (tier, division) in [
+            ("DIAMOND", "II"),
+            ("DIAMOND", "I"),
+        ]:
             return 1
-        elif (tier, division) == ("EMERALD", "I"):
+        elif (tier, division) in [
+            ("DIAMOND", "III"),
+            ("DIAMOND", "IV"),
+        ]:
             return 2
+        elif (tier, division) == ("EMERALD", "I"):
+            return 3
         else:
             raise ValueError(f"Unknown elo: {tier} {division}")
 
