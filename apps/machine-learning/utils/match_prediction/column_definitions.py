@@ -55,7 +55,6 @@ possible_values_elo = [
     0,
     1,
     2,
-    3,
 ]
 
 

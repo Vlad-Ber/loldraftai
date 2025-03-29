@@ -25,7 +25,7 @@ from utils.match_prediction import (
     TRAIN_BATCH_SIZE,
     PATCH_MAPPING_PATH,
 )
-
+from utils.match_prediction.column_definitions import possible_values_elo
 from utils.match_prediction.task_definitions import (
     TASKS,
     TaskType,
@@ -40,7 +40,6 @@ from utils.match_prediction.train_utils import (
     collate_fn,
     init_model,
 )
-from utils.match_prediction.champions import Champion, ChampionClass
 
 # Enable cuDNN auto-tuner, source https://x.com/karpathy/status/1299921324333170689/photo/1
 torch.backends.cudnn.benchmark = True
@@ -153,6 +152,18 @@ def train_epoch(
                     patch_reg_loss += torch.norm(diff, p=2)
                 patch_reg_loss /= model.num_patches - 1
 
+            # Elo regularization - add regularization for adjacent elo tiers
+            elo_reg_loss = torch.tensor(0.0, device=device)
+            num_elos = len(possible_values_elo)
+            if num_elos > 1:
+                for i in range(num_elos - 1):
+                    diff = (
+                        model.embeddings["elo"].weight[i]
+                        - model.embeddings["elo"].weight[i + 1]
+                    )
+                    elo_reg_loss += torch.norm(diff, p=2)
+                elo_reg_loss /= num_elos - 1
+
             # Champion+patch regularization
             champ_patch_reg_loss = torch.tensor(0.0, device=device)
             if model.num_patches > 1:
@@ -171,6 +182,7 @@ def train_epoch(
             total_loss = (
                 task_loss
                 + config.patch_reg_lambda * patch_reg_loss
+                + config.elo_reg_lambda * elo_reg_loss
                 + config.champ_patch_reg_lambda * champ_patch_reg_loss
             ) / config.accumulation_steps
 
@@ -202,6 +214,7 @@ def train_epoch(
                     config,
                     current_lr,
                     patch_reg_loss.item(),
+                    elo_reg_loss.item(),
                     champ_patch_reg_loss.item(),
                     model,
                 )
@@ -222,6 +235,7 @@ def log_training_step(
     config: TrainingConfig,
     current_lr: float,
     patch_reg_loss: float,
+    elo_reg_loss: float,
     champ_patch_reg_loss: float,
     model: Model,
 ) -> None:
@@ -248,6 +262,7 @@ def log_training_step(
             "grad_norm": grad_norm,
             "learning_rate": current_lr,
             "patch_reg_loss": patch_reg_loss,
+            "elo_reg_loss": elo_reg_loss,
             "champ_patch_reg_loss": champ_patch_reg_loss,
             # Parameter norms
             "categorical_embed_norm": categorical_norm,
