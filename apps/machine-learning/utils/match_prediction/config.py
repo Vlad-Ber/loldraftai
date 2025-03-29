@@ -12,17 +12,17 @@ class TrainingConfig:
         self.hidden_dims = [1536, 768, 384, 192]  # Both wider and one layer deeper
         self.dropout = 0.25
         self.learning_rate = 5e-4
-        self.champion_embed_dim = 256
-        self.queue_type_embed_dim = 64
-        self.patch_embed_dim = 128
-        self.elo_embed_dim = 64
+        self.champion_embed_dim = 128
+        self.queue_type_embed_dim = 32
+        self.patch_embed_dim = 64
+        self.elo_embed_dim = 32
 
         # weight decay didn't change much when training for a short time at 0.001, but for longer trianing runs, 0.01 might be better
         self.weight_decay = 0.01
         self.elo_reg_lambda = 0.001  # Weight for Elo regularization loss
-        self.patch_reg_lambda = 0.001  # Weight for patch regularization loss
+        self.patch_reg_lambda = 0.01  # Weight for patch regularization loss
         self.champ_patch_reg_lambda = (
-            0.001  # Regularization strength for champion+patch embeddings
+            0.01  # Regularization strength for champion+patch embeddings
         )
         self.max_grad_norm = 1.0  # because has loss spikes after adding pos embeddings
         self.accumulation_steps = 1
