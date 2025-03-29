@@ -8,7 +8,7 @@ from utils.match_prediction.column_definitions import (
     COLUMNS,
     POSITIONS,
 )
-from utils.match_prediction.task_definitions import TASKS, TaskType, CONDITIONAL_TASKS
+from utils.match_prediction.task_definitions import TASKS, TaskType
 from utils.match_prediction.config import TrainingConfig
 
 
@@ -72,7 +72,7 @@ class Model(nn.Module):
 
         # Output layers
         self.output_layers = nn.ModuleDict()
-        for task_name, task_def in [*TASKS.items(), *CONDITIONAL_TASKS.items()]:
+        for task_name, task_def in TASKS.items():
             if task_def.task_type in [
                 TaskType.BINARY_CLASSIFICATION,
                 TaskType.REGRESSION,

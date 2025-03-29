@@ -58,20 +58,6 @@ class TaskDefinition:
         self.weight = weight
 
 
-class ConditionalTaskDefinition(TaskDefinition):
-    def __init__(
-        self,
-        name: str,
-        task_type: TaskType,
-        weight: float,
-        conditional_on: str,
-        task_column: str,
-    ):
-        super().__init__(name, task_type, weight)
-        self.conditional_on = conditional_on
-        self.task_column = task_column
-
-
 def get_win_prediction(df: pd.DataFrame) -> pd.Series:
     return df["team_100_win"]
 
@@ -162,55 +148,6 @@ TASKS = {
         getter=get_total_kills_at_20,
         task_type=TaskType.REGRESSION,
         weight=0.15,
-    ),
-}
-
-# don't need to be taken into account in data preparation, only in model and loss calculation
-CONDITIONAL_TASKS = {
-    "win_prediction_if_blue_has_gold_lead_at_20": ConditionalTaskDefinition(
-        name="win_prediction_if_blue_has_gold_lead_at_20",
-        task_type=TaskType.BINARY_CLASSIFICATION,
-        weight=0.15,
-        task_column="win_prediction",
-        conditional_on="blue_has_gold_lead_at_20",
-    ),
-    "win_prediction_if_red_has_gold_lead_at_20": ConditionalTaskDefinition(
-        name="win_prediction_if_red_has_gold_lead_at_20",
-        task_type=TaskType.BINARY_CLASSIFICATION,
-        weight=0.15,
-        task_column="win_prediction",
-        conditional_on="red_has_gold_lead_at_20",
-    ),
-    "win_prediction_if_gold_is_even_at_20": ConditionalTaskDefinition(
-        name="win_prediction_if_gold_is_even_at_20",
-        task_type=TaskType.BINARY_CLASSIFICATION,
-        weight=0.15,
-        task_column="win_prediction",
-        conditional_on="gold_is_even_at_20",
-    ),
-}
-# TODO: experiment with them again later, for now removed to simplify
-CONDITIONAL_TASKS = {
-    "win_prediction_if_blue_has_gold_lead_at_20": ConditionalTaskDefinition(
-        name="win_prediction_if_blue_has_gold_lead_at_20",
-        task_type=TaskType.BINARY_CLASSIFICATION,
-        weight=0,
-        task_column="win_prediction",
-        conditional_on="blue_has_gold_lead_at_20",
-    ),
-    "win_prediction_if_red_has_gold_lead_at_20": ConditionalTaskDefinition(
-        name="win_prediction_if_red_has_gold_lead_at_20",
-        task_type=TaskType.BINARY_CLASSIFICATION,
-        weight=0,
-        task_column="win_prediction",
-        conditional_on="red_has_gold_lead_at_20",
-    ),
-    "win_prediction_if_gold_is_even_at_20": ConditionalTaskDefinition(
-        name="win_prediction_if_gold_is_even_at_20",
-        task_type=TaskType.BINARY_CLASSIFICATION,
-        weight=0,
-        task_column="win_prediction",
-        conditional_on="gold_is_even_at_20",
     ),
 }
 
