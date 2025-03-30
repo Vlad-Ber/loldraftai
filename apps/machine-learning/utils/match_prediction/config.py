@@ -20,7 +20,7 @@ class TrainingConfig:
         # weight decay didn't change much when training for a short time at 0.001, but for longer trianing runs, 0.01 might be better
         self.weight_decay = 0.01
         self.elo_reg_lambda = 0.001  # Weight for Elo regularization loss
-        self.patch_reg_lambda = 0.01  # Weight for patch regularization loss
+        self.patch_reg_lambda = 0.0005  # Weight for patch regularization loss
         self.champ_patch_reg_lambda = (
             0.01  # Regularization strength for champion+patch embeddings
         )
