@@ -12,6 +12,7 @@ import torch
 from torch import nn
 from torch.utils.data import DataLoader
 from tqdm import tqdm
+import numpy as np
 
 from utils.match_prediction import (
     get_best_device,
@@ -131,22 +132,18 @@ def validate_with_subgroups(
     play_rates: Dict[str, Dict[str, Dict[str, float]]],
 ) -> pd.DataFrame:
     """
-    Validate the model and perform subgroup analysis.
-
-    Parameters:
-        model (Model): The trained model.
-        test_loader (DataLoader): DataLoader for the test dataset.
-        device (torch.device): Device to run the computations on.
-        play_rates (Dict[Tuple[int, int], float]): Play rates for champion-role combinations.
-
-    Returns:
-        pd.DataFrame: DataFrame containing the subgroup analysis results.
+    Validate the model and perform subgroup and calibration analysis.
     """
     model.eval()
 
     subgroup_total_loss: Dict[str, float] = defaultdict(float)
     subgroup_counts: Dict[str, int] = defaultdict(int)
     total_samples = 0
+
+    # Add calibration tracking
+    confidence_buckets = np.arange(0.5, 1.01, 0.05)  # 0.5, 0.55, ..., 1.0
+    calibration_correct = defaultdict(int)  # Tracks correct predictions per bucket
+    calibration_total = defaultdict(int)  # Tracks total predictions per bucket
 
     TASKS = {
         "win_prediction": TaskDefinition(
@@ -179,7 +176,35 @@ def validate_with_subgroups(
             total_samples += batch_size
 
             # Compute model outputs
-            outputs_batch = model(features_batch)  # Outputs are dict of tensors
+            outputs_batch = model(features_batch)
+
+            # Process calibration statistics for win prediction
+            win_preds = torch.sigmoid(
+                outputs_batch["win_prediction"].squeeze()
+            )  # [batch_size]
+            win_labels = labels_batch["win_prediction"].squeeze()  # [batch_size]
+
+            # Handle both direct and inverse predictions
+            direct_probs = win_preds
+            inverse_probs = 1 - win_preds
+
+            # Fix: Create correct prediction masks properly
+            direct_correct = (win_preds >= 0.5) == win_labels
+            inverse_correct = (win_preds < 0.5) == win_labels
+
+            # Process both direct and inverse predictions
+            for probs, is_correct in [
+                (direct_probs, direct_correct),
+                (inverse_probs, inverse_correct),
+            ]:
+                for i in range(len(confidence_buckets) - 1):
+                    lower, upper = confidence_buckets[i], confidence_buckets[i + 1]
+                    bucket_name = f"{lower:.2f}-{upper:.2f}"
+
+                    # Find predictions that fall into this bucket
+                    mask = (probs >= lower) & (probs < upper)
+                    calibration_total[bucket_name] += mask.sum().item()
+                    calibration_correct[bucket_name] += (mask & is_correct).sum().item()
 
             # Compute losses for entire batch at once
             batch_losses = []
@@ -221,7 +246,7 @@ def validate_with_subgroups(
                 subgroup_counts[sg] += 1
 
     # Prepare results
-    data = {
+    subgroup_data = {
         "mean_loss": {
             k: subgroup_total_loss[k] / subgroup_counts[k] for k in subgroup_total_loss
         },
@@ -230,9 +255,41 @@ def validate_with_subgroups(
             k: 100.0 * subgroup_counts[k] / total_samples for k in subgroup_counts
         },
     }
-    df = pd.DataFrame(data)
 
-    return df
+    # Add calibration results
+    calibration_data = {
+        "confidence_bucket": [],
+        "samples": [],
+        "accuracy": [],
+        "expected_accuracy": [],
+    }
+
+    for i in range(len(confidence_buckets) - 1):
+        lower, upper = confidence_buckets[i], confidence_buckets[i + 1]
+        bucket_name = f"{lower:.2f}-{upper:.2f}"
+
+        if calibration_total[bucket_name] > 0:
+            calibration_data["confidence_bucket"].append(
+                f"{lower*100:.0f}-{upper*100:.0f}%"
+            )
+            calibration_data["samples"].append(calibration_total[bucket_name])
+            calibration_data["accuracy"].append(
+                calibration_correct[bucket_name] / calibration_total[bucket_name]
+            )
+            calibration_data["expected_accuracy"].append((lower + upper) / 2)
+
+    # Combine all results into a single DataFrame
+    df = pd.DataFrame(subgroup_data)
+    df_calibration = pd.DataFrame(calibration_data)
+
+    # Add a type column to distinguish between subgroup and calibration results
+    df["analysis_type"] = "subgroup"
+    df_calibration["analysis_type"] = "calibration"
+
+    # Combine the DataFrames
+    combined_df = pd.concat([df, df_calibration], axis=0)
+
+    return combined_df
 
 
 def main():
