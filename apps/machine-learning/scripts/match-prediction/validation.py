@@ -130,11 +130,35 @@ def validate_with_subgroups(
     test_loader: DataLoader,
     device: torch.device,
     play_rates: Dict[str, Dict[str, Dict[str, float]]],
+    test_patch_robustness: bool = False,
 ) -> pd.DataFrame:
     """
     Validate the model and perform subgroup and calibration analysis.
+
+    Parameters:
+        model: The model to validate
+        test_loader: DataLoader for test data
+        device: The device to run validation on
+        play_rates: Dictionary of champion play rates
+        test_patch_robustness: If True, simulate using patch N-1 to predict patch N outcomes
     """
     model.eval()
+
+    # For patch robustness testing
+    if test_patch_robustness:
+        # Find the first/earliest patch index to filter out
+        patch_indices = list(patch_mapping.values())
+        earliest_patch_index = min(patch_indices)
+
+        # Create mapping of patches to their previous patch
+        patch_to_previous = {}
+        sorted_patches = sorted(patch_mapping.keys())
+        for i in range(1, len(sorted_patches)):
+            current_patch = sorted_patches[i]
+            previous_patch = sorted_patches[i - 1]
+            patch_to_previous[patch_mapping[current_patch]] = patch_mapping[
+                previous_patch
+            ]
 
     subgroup_total_loss: Dict[str, float] = defaultdict(float)
     subgroup_counts: Dict[str, int] = defaultdict(int)
@@ -167,10 +191,50 @@ def validate_with_subgroups(
             criterions[task_name] = nn.MSELoss(reduction="none")
 
     with torch.no_grad():
-        for features_batch, labels_batch in tqdm(test_loader, desc="Validating"):
+        for features_batch, labels_batch in tqdm(
+            test_loader,
+            desc=f"Validating {'patch robustness' if test_patch_robustness else 'model'}",
+        ):
             # Move features and labels to device
             features_batch = {k: v.to(device) for k, v in features_batch.items()}
             labels_batch = {k: labels_batch[k].to(device) for k in TASKS.keys()}
+
+            # For patch robustness testing
+            if test_patch_robustness:
+                # Filter out samples from the earliest patch
+                patch_mask = features_batch["patch"] != earliest_patch_index
+                if not patch_mask.any():
+                    continue  # Skip this batch if all samples are from the earliest patch
+
+                # Filter the batch to include only valid patches
+                for k in features_batch:
+                    if (
+                        isinstance(features_batch[k], torch.Tensor)
+                        and features_batch[k].shape[0] == patch_mask.shape[0]
+                    ):
+                        features_batch[k] = features_batch[k][patch_mask]
+
+                for k in labels_batch:
+                    if (
+                        isinstance(labels_batch[k], torch.Tensor)
+                        and labels_batch[k].shape[0] == patch_mask.shape[0]
+                    ):
+                        labels_batch[k] = labels_batch[k][patch_mask]
+
+                if features_batch["patch"].shape[0] == 0:
+                    continue  # Skip if no samples left after filtering
+
+                # Store original patches for analysis and future reference
+                original_patches = features_batch["patch"].clone()
+
+                # Modify the patch index to simulate using previous patch's data
+                modified_patches = torch.zeros_like(features_batch["patch"])
+                for i, patch in enumerate(features_batch["patch"]):
+                    patch_idx = patch.item()
+                    modified_patches[i] = patch_to_previous.get(patch_idx, patch_idx)
+
+                # Replace the patch feature with the modified version
+                features_batch["patch"] = modified_patches
 
             batch_size = labels_batch["win_prediction"].size(0)
             total_samples += batch_size
@@ -223,11 +287,16 @@ def validate_with_subgroups(
 
             # Vectorized subgroup assignment
             elo_subgroups = [f"elo_{elo}" for elo in features_batch["elo"].tolist()]
-            patch_subgroups = [
-                f"patch_{patch}" for patch in features_batch["patch"].tolist()
-            ]
+
+            # Use original patches for subgroup assignment if in robustness testing mode,
+            # otherwise use current patches (which may be modified)
+            patch_feature = (
+                original_patches if test_patch_robustness else features_batch["patch"]
+            )
+            patch_subgroups = [f"patch_{patch}" for patch in patch_feature.tolist()]
+
             playrate_subgroups = get_playrate_subgroup_batch(
-                features_batch["champion_ids"], play_rates, features_batch["patch"]
+                features_batch["champion_ids"], play_rates, patch_feature
             )
 
             # Process all subgroups at once using numpy operations
@@ -297,6 +366,11 @@ def main():
         action="store_true",
         help="Use only a small subset of the dataset for quick iteration",
     )
+    parser.add_argument(
+        "--test-patch-robustness",
+        action="store_true",
+        help="Test model robustness by using patch N-1 to predict patch N outcomes",
+    )
     args = parser.parse_args()
 
     device = get_best_device()
@@ -323,15 +397,29 @@ def main():
         play_rates = json.load(f)
 
     # Run validation and subgroup analysis
-    results_df = validate_with_subgroups(model, test_loader, device, play_rates)
+    results_df = validate_with_subgroups(
+        model,
+        test_loader,
+        device,
+        play_rates,
+        test_patch_robustness=args.test_patch_robustness,
+    )
+
+    # Determine output filename based on mode
+    filename = (
+        "validation_patch_robustness_results.csv"
+        if args.test_patch_robustness
+        else "validation_results.csv"
+    )
+    output_file = DATA_DIR + "/" + filename
 
     # Print and save results
     print("\nValidation Results:")
     print(results_df)
 
     # Save results to CSV
-    results_df.to_csv(DATA_DIR + "/validation_results.csv")
-    print("\nSaved validation results to 'validation_results.csv'")
+    results_df.to_csv(output_file)
+    print(f"\nSaved validation results to '{output_file}'")
 
 
 if __name__ == "__main__":
