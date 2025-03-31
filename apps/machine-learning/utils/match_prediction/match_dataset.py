@@ -124,15 +124,18 @@ class MatchDataset(IterableDataset):
 
     def __iter__(self):
         worker_info = torch.utils.data.get_worker_info()
+        files = self.data_files.copy()  # Create a copy to shuffle
+        random.shuffle(files)  # Shuffle at the start of each iteration
+
         if worker_info is None:
-            iter_start, iter_end = 0, len(self.data_files)
+            iter_start, iter_end = 0, len(files)
         else:
-            per_worker = int(np.ceil(len(self.data_files) / worker_info.num_workers))
+            per_worker = int(np.ceil(len(files) / worker_info.num_workers))
             worker_id = worker_info.id
             iter_start = worker_id * per_worker
-            iter_end = min(iter_start + per_worker, len(self.data_files))
+            iter_end = min(iter_start + per_worker, len(files))
 
-        for file_path in self.data_files[iter_start:iter_end]:
+        for file_path in files[iter_start:iter_end]:
             # Use context manager to ensure file is closed
             with pq.ParquetFile(file_path) as parquet_file:
                 for batch in parquet_file.iter_batches(
