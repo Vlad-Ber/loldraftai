@@ -184,27 +184,22 @@ def validate_with_subgroups(
             )  # [batch_size]
             win_labels = labels_batch["win_prediction"].squeeze()  # [batch_size]
 
-            # Handle both direct and inverse predictions
-            direct_probs = win_preds
-            inverse_probs = 1 - win_preds
+            # Determine correctness of predictions
+            predicted_classes = (win_preds >= 0.5).float()
+            is_correct = predicted_classes == win_labels
 
-            # Fix: Create correct prediction masks properly
-            direct_correct = (win_preds >= 0.5) == win_labels
-            inverse_correct = (win_preds < 0.5) == win_labels
+            # Get the model's confidence in its prediction (always >= 0.5)
+            confidences = torch.where(win_preds >= 0.5, win_preds, 1 - win_preds)
 
-            # Process both direct and inverse predictions
-            for probs, is_correct in [
-                (direct_probs, direct_correct),
-                (inverse_probs, inverse_correct),
-            ]:
-                for i in range(len(confidence_buckets) - 1):
-                    lower, upper = confidence_buckets[i], confidence_buckets[i + 1]
-                    bucket_name = f"{lower:.2f}-{upper:.2f}"
+            # Process predictions by confidence
+            for i in range(len(confidence_buckets) - 1):
+                lower, upper = confidence_buckets[i], confidence_buckets[i + 1]
+                bucket_name = f"{lower:.2f}-{upper:.2f}"
 
-                    # Find predictions that fall into this bucket
-                    mask = (probs >= lower) & (probs < upper)
-                    calibration_total[bucket_name] += mask.sum().item()
-                    calibration_correct[bucket_name] += (mask & is_correct).sum().item()
+                # Find predictions that fall into this bucket
+                mask = (confidences >= lower) & (confidences < upper)
+                calibration_total[bucket_name] += mask.sum().item()
+                calibration_correct[bucket_name] += (mask & is_correct).sum().item()
 
             # Compute losses for entire batch at once
             batch_losses = []
