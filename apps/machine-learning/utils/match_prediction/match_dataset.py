@@ -26,14 +26,14 @@ def get_dataloader_config():
     if device.type == "cuda":
         return {
             "num_workers": 8,
-            "prefetch_factor": 4,
+            "prefetch_factor": 8,
             "pin_memory": True,
         }
     elif device.type == "mps":
         # M1/M2 Mac config
         return {
             "num_workers": 1,
-            "prefetch_factor": 1,
+            "prefetch_factor": 8,
             "pin_memory": True,
         }
     else:  # CPU
