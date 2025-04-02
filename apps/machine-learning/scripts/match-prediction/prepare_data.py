@@ -31,7 +31,7 @@ from typing import List, Dict, Tuple
 from collections import defaultdict
 
 # Constants
-NUM_RECENT_PATCHES = 4  # Number of most recent patches to use for training
+NUM_RECENT_PATCHES = 15  # Number of most recent patches to use for training
 PATCH_MIN_GAMES = 200_000  # Minimum number of games in a patch to be considered standalone(otherwise merged with previous patch)
 DEBUG = False
 DEBUG_FILE_LIMIT = 100  # Maximum number of files to process in debug mode
