@@ -66,8 +66,92 @@ async function getLeagueCredentials(): Promise<LeagueCredentials | null> {
     }
   } else if (platform === "win32") {
     try {
-      // Try lockfile method first
-      const paths = [
+      // First try finding the installation directory from process information
+      console.log("Attempting to find League installation directory...");
+
+      const getExecutablePath = async (): Promise<string | null> => {
+        // Try with WMIC first
+        try {
+          const wmicResult = await new Promise<string | null>((resolve) => {
+            exec(
+              'wmic PROCESS WHERE name="LeagueClientUx.exe" GET ExecutablePath',
+              (error, stdout) => {
+                if (error || !stdout.trim()) {
+                  console.log(
+                    "WMIC ExecutablePath method failed:",
+                    error?.message || "No output"
+                  );
+                  resolve(null);
+                  return;
+                }
+
+                const execPath = stdout.trim().split("\n")[1]?.trim();
+                if (!execPath) {
+                  console.log("No executable path found in WMIC output");
+                  resolve(null);
+                  return;
+                }
+
+                resolve(execPath);
+              }
+            );
+          });
+
+          if (wmicResult) return wmicResult;
+        } catch (e) {
+          console.log("WMIC error:", e);
+        }
+
+        // Fallback to PowerShell
+        return await new Promise<string | null>((resolve) => {
+          const psCommand =
+            "(Get-Process LeagueClientUx -ErrorAction SilentlyContinue).Path";
+          exec(`powershell.exe -Command "${psCommand}"`, (error, stdout) => {
+            if (error || !stdout.trim()) {
+              console.log(
+                "PowerShell Path method failed:",
+                error?.message || "No output"
+              );
+              resolve(null);
+              return;
+            }
+
+            const execPath = stdout.trim();
+            if (!execPath) {
+              console.log("No executable path found in PowerShell output");
+              resolve(null);
+              return;
+            }
+
+            resolve(execPath);
+          });
+        });
+      };
+
+      const execPath = await getExecutablePath();
+
+      // The path will be something like "C:\Riot Games\League of Legends\LeagueClientUx.exe"
+      // We need the directory containing the lockfile (League of Legends folder)
+      let installDir = null;
+      if (execPath) {
+        installDir = path.dirname(execPath);
+        console.log("Found League installation directory:", installDir);
+      }
+
+      // If found installation directory, try to read lockfile from there
+      if (installDir) {
+        const lockfilePath = path.join(installDir, "lockfile");
+        if (fs.existsSync(lockfilePath)) {
+          console.log("Found lockfile at:", lockfilePath);
+          const lockfile = fs.readFileSync(lockfilePath, "utf8");
+          const [, , port, password] = lockfile.split(":");
+          return { port, password };
+        }
+      }
+
+      // Fall back to checking common installation paths
+      console.log("Trying common League installation paths...");
+      const commonPaths = [
         path.join("C:", "Riot Games", "League of Legends", "lockfile"),
         path.join(
           process.env.LOCALAPPDATA || "",
@@ -78,8 +162,7 @@ async function getLeagueCredentials(): Promise<LeagueCredentials | null> {
         path.join("D:", "Riot Games", "League of Legends", "lockfile"),
       ];
 
-      // Try reading lockfile first
-      for (const lockfilePath of paths) {
+      for (const lockfilePath of commonPaths) {
         if (fs.existsSync(lockfilePath)) {
           console.log("Found lockfile at:", lockfilePath);
           const lockfile = fs.readFileSync(lockfilePath, "utf8");
@@ -88,41 +171,56 @@ async function getLeagueCredentials(): Promise<LeagueCredentials | null> {
         }
       }
 
-      // If lockfile not found, try both wmic and PowerShell
-      console.log("Lockfile not found, trying process commands...");
+      // If lockfile still not found, try getting the command line arguments as last resort
+      console.log("Lockfile not found, trying process command line...");
 
-      const credentials = await Promise.any([
-        // Try PowerShell
-        new Promise<LeagueCredentials | null>((resolve) => {
-          const command =
-            "Get-Process LeagueClientUx -ErrorAction SilentlyContinue | Select-Object CommandLine | Format-List";
-          exec(`powershell.exe -Command "${command}"`, (error, stdout) => {
-            if (error) {
-              console.log("PowerShell method failed:", error);
-              resolve(null);
-              return;
-            }
+      const getCommandLine = async (): Promise<{
+        port?: string;
+        password?: string;
+      } | null> => {
+        // Try with WMIC first
+        try {
+          const wmicResult = await new Promise<{
+            port?: string;
+            password?: string;
+          } | null>((resolve) => {
+            exec(
+              'wmic PROCESS WHERE name="LeagueClientUx.exe" GET commandline',
+              (error, stdout) => {
+                if (error) {
+                  console.log("WMIC command line method failed:", error);
+                  resolve(null);
+                  return;
+                }
 
-            const port = stdout.match(/--app-port=([0-9]+)/)?.[1];
-            const password = stdout.match(
-              /--remoting-auth-token=([\w-]+)/
-            )?.[1];
+                const port = stdout.match(/--app-port=([0-9]+)/)?.[1];
+                const password = stdout.match(
+                  /--remoting-auth-token=([\w-]+)/
+                )?.[1];
 
-            if (port && password) {
-              console.log("Found credentials using PowerShell");
-              resolve({ port, password });
-            } else {
-              resolve(null);
-            }
+                if (port && password) {
+                  console.log("Found credentials using WMIC command line");
+                  resolve({ port, password });
+                } else {
+                  resolve(null);
+                }
+              }
+            );
           });
-        }),
-        // Try wmic
-        new Promise<LeagueCredentials | null>((resolve) => {
-          exec(
-            'wmic PROCESS WHERE name="LeagueClientUx.exe" GET commandline',
-            (error, stdout) => {
+
+          if (wmicResult?.port && wmicResult?.password) return wmicResult;
+        } catch (e) {
+          console.log("WMIC error:", e);
+        }
+
+        // Fallback to PowerShell
+        return await new Promise<{ port?: string; password?: string } | null>(
+          (resolve) => {
+            const psCommand =
+              "Get-Process LeagueClientUx -ErrorAction SilentlyContinue | Select-Object CommandLine | Format-List";
+            exec(`powershell.exe -Command "${psCommand}"`, (error, stdout) => {
               if (error) {
-                console.log("WMIC method failed:", error);
+                console.log("PowerShell command line method failed:", error);
                 resolve(null);
                 return;
               }
@@ -133,18 +231,23 @@ async function getLeagueCredentials(): Promise<LeagueCredentials | null> {
               )?.[1];
 
               if (port && password) {
-                console.log("Found credentials using WMIC");
+                console.log("Found credentials using PowerShell command line");
                 resolve({ port, password });
               } else {
                 resolve(null);
               }
-            }
-          );
-        }),
-      ]).catch(() => null); // If all methods fail, return null
+            });
+          }
+        );
+      };
 
-      if (credentials) {
-        return credentials;
+      const commandLineCredentials = await getCommandLine();
+
+      if (commandLineCredentials?.port && commandLineCredentials?.password) {
+        return {
+          port: commandLineCredentials.port,
+          password: commandLineCredentials.password,
+        };
       }
 
       console.log("All methods failed to find League credentials");
