@@ -31,7 +31,7 @@ from typing import List, Dict, Tuple
 from collections import defaultdict
 
 # Constants
-NUM_RECENT_PATCHES = 20  # Number of most recent patches to use for training
+NUM_RECENT_PATCHES = 4  # Number of most recent patches to use for training
 PATCH_MIN_GAMES = 200_000  # Minimum number of games in a patch to be considered standalone(otherwise merged with previous patch)
 DEBUG = False
 DEBUG_FILE_LIMIT = 100  # Maximum number of files to process in debug mode
@@ -90,10 +90,17 @@ def compute_task_stats(data_files):
     return task_means, task_stds
 
 
-def compute_patch_mapping(input_files: List[str]) -> Dict[float, int]:
+def compute_patch_mapping(
+    input_files: List[str], next_patch_test: bool = False
+) -> Dict[float, int]:
     """
     Analyze all files to create a mapping for patch numbers.
     Takes the NUM_RECENT_PATCHES most recent patches, mapping any patch with <200k games to the previous patch.
+
+    If next_patch_test is True:
+        - The 2 most recent patches will be mapped to the same value as the 3rd most recent patch
+        - This allows testing how well the model generalizes to future patches
+
     Returns a dictionary mapping original patch numbers to normalized ones (1-NUM_RECENT_PATCHES).
     """
     patch_counts = defaultdict(int)
@@ -104,8 +111,7 @@ def compute_patch_mapping(input_files: List[str]) -> Dict[float, int]:
         raw_patches = get_patch_from_raw_data(df)
         for patch in raw_patches:
             patch_counts[patch] += 1
-    # All patches in chronological order, works because patches are 0 padded
-    # "14.01" < "14.02" < "14.10" in lexicographical order.
+    # All patches in chronological order
     all_patches = sorted(patch_counts.keys())
 
     # Get the last NUM_RECENT_PATCHES patches
@@ -129,7 +135,18 @@ def compute_patch_mapping(input_files: List[str]) -> Dict[float, int]:
     previous_significant_patch = None
 
     # Process patches from oldest to newest of the recent patches
-    for patch in recent_patches:
+    for i, patch in enumerate(recent_patches):
+        # Handle next_patch_test logic for the most recent patches
+        if next_patch_test and i >= len(recent_patches) - 2:
+            # Map the 2 most recent patches to the same value as the 3rd most recent patch
+            if len(recent_patches) >= 3 and previous_significant_patch is not None:
+                patch_mapping[patch] = patch_mapping[previous_significant_patch]
+                continue
+            else:
+                raise ValueError(
+                    "Not enough patches for next-patch testing. Need at least 3 recent patches."
+                )
+
         if (
             patch_counts[patch] > PATCH_MIN_GAMES or DEBUG
         ):  # In debug mode, accept all patches
@@ -154,7 +171,9 @@ def compute_patch_mapping(input_files: List[str]) -> Dict[float, int]:
     print("\nPatch mapping (last NUM_RECENT_PATCHES patches):")
     for patch in sorted(patch_mapping.keys()):
         mapped_value = patch_mapping[patch]
-        print(f"Patch {patch} -> {mapped_value} ({patch_counts[patch]} games)")
+        is_test = next_patch_test and patch in recent_patches[-2:]
+        status = " (test set)" if is_test else ""
+        print(f"Patch {patch} -> {mapped_value}{status} ({patch_counts[patch]} games)")
 
     return patch_mapping, patch_counts
 
@@ -255,6 +274,7 @@ def prepare_data(
     task_means,
     task_stds,
     target_file_size: int = 50000,  # Target number of rows per output file
+    next_patch_test: bool = False,
 ):
     os.makedirs(os.path.join(output_dir, "train"), exist_ok=True)
     os.makedirs(os.path.join(output_dir, "test"), exist_ok=True)
@@ -283,6 +303,19 @@ def prepare_data(
         df = pd.DataFrame(buffer)
         df.to_parquet(output_path, index=False)
         return file_counter + 1
+
+    # Load patch mapping to identify recent patches
+    with open(PATCH_MAPPING_PATH, "rb") as f:
+        patch_info = pickle.load(f)
+
+    patch_mapping = patch_info["mapping"]
+
+    # Find the 2 most recent patches if next_patch_test is True
+    recent_patches = []
+    if next_patch_test:
+        all_patches = sorted(patch_mapping.keys())
+        recent_patches = all_patches[-2:]
+        print(f"Using patches {recent_patches} for test set (future patch evaluation)")
 
     # Shuffle input files for better data distribution
     rng = np.random.default_rng(42)  # Use seeded RNG for reproducibility
@@ -316,18 +349,16 @@ def prepare_data(
             )
             continue
 
-        # Can just copy, it was already processed(because categories are known)
+        # Apply all the column processing from the original code
         new_df[KNOWN_CATEGORICAL_COLUMNS_NAMES] = old_df[
             KNOWN_CATEGORICAL_COLUMNS_NAMES
         ].astype("int32")
-        # Special handling columns(patch and champion ids)
-        # Patch was already mapped, just copy
         new_df["patch"] = old_df["patch"].astype("int32")
-        # Champion mapping was just created, need to apply it
         new_df["champion_ids"] = old_df["champion_ids"].apply(
             lambda x: champion_encoder.transform(x)
         )
-        # Process all numerical tasks at once
+
+        # Process regression tasks
         regression_tasks = [
             task
             for task, task_def in TASKS.items()
@@ -348,26 +379,52 @@ def prepare_data(
             if task_def.task_type == TaskType.BINARY_CLASSIFICATION
         ]
         for task in binary_tasks:
-            # TODO: this is actually done by the getter, so not needed!
-            # For win prediction, we need to convert from team_100_win to win_prediction
             if task == "win_prediction":
                 new_df[task] = old_df["team_100_win"].astype("float32")
             else:
                 new_df[task] = old_df[task].astype("float32")
 
-        # Split into train/test
-        if len(new_df) < 10:
-            df_train = new_df.iloc[:-1]
-            df_test = new_df.iloc[-1:]
+        # If next_patch_test is True, handle special test set creation
+        if next_patch_test:
+            # Get raw patches to identify most recent ones
+            raw_patches = get_patch_from_raw_data(old_df)
+
+            # Check if this file contains data from the 2 most recent patches
+            if any(patch in recent_patches for patch in raw_patches.unique()):
+                # For files with recent patch data, check each row
+                is_recent_patch = raw_patches.isin(recent_patches)
+
+                # Add data from recent patches to test set
+                if is_recent_patch.any():
+                    test_rows = new_df[is_recent_patch]
+                    test_buffer.extend(test_rows.to_dict("records"))
+                    test_count += len(test_rows)
+
+                # Add all other data to train set
+                if (~is_recent_patch).any():
+                    train_rows = new_df[~is_recent_patch]
+                    train_buffer.extend(train_rows.to_dict("records"))
+                    train_count += len(train_rows)
+            else:
+                # Files without recent patch data go entirely to train set
+                train_buffer.extend(new_df.to_dict("records"))
+                train_count += len(new_df)
         else:
-            df_train, df_test = train_test_split(new_df, test_size=0.1, random_state=42)
+            # Original train/test split logic
+            if len(new_df) < 10:
+                df_train = new_df.iloc[:-1]
+                df_test = new_df.iloc[-1:]
+            else:
+                df_train, df_test = train_test_split(
+                    new_df, test_size=0.1, random_state=42
+                )
 
-        # Add to buffers
-        train_buffer.extend(df_train.to_dict("records"))
-        test_buffer.extend(df_test.to_dict("records"))
+            # Add to buffers
+            train_buffer.extend(df_train.to_dict("records"))
+            test_buffer.extend(df_test.to_dict("records"))
 
-        train_count += len(df_train)
-        test_count += len(df_test)
+            train_count += len(df_train)
+            test_count += len(df_test)
 
         # Write buffers if they exceed target size
         if len(train_buffer) >= target_file_size:
@@ -403,21 +460,33 @@ def prepare_data(
     )
 
 
-def add_computed_columns(input_files: List[str], output_dir: str) -> List[str]:
+def add_computed_columns(
+    input_files: List[str], output_dir: str, next_patch_test: bool = False
+) -> List[str]:
     """
     Add computed columns to parquet files and save them to a new directory.
     Only includes games from the last NUM_RECENT_PATCHES patches.
     Returns the list of new file paths.
+
+    If next_patch_test is True, the 2 most recent patches will be mapped to the same value
+    as the 3rd most recent for test set creation.
     """
     os.makedirs(output_dir, exist_ok=True)
     new_files = []
 
     # First, compute the patch mapping from the entire dataset
-    patch_mapping, patch_counts = compute_patch_mapping(input_files)
+    patch_mapping, patch_counts = compute_patch_mapping(input_files, next_patch_test)
 
     # Save the patch mapping and counts for future reference
     with open(PATCH_MAPPING_PATH, "wb") as f:
-        pickle.dump({"mapping": patch_mapping, "counts": patch_counts}, f)
+        pickle.dump(
+            {
+                "mapping": patch_mapping,
+                "counts": patch_counts,
+                "next_patch_test": next_patch_test,
+            },
+            f,
+        )
 
     # Track cumulative stats
     cumulative_stats = {
@@ -539,6 +608,11 @@ def main():
         action="store_true",
         help="Enable debug mode (limits to 100 files and enables verbose output)",
     )
+    parser.add_argument(
+        "--next-patch-test",
+        action="store_true",
+        help="Create test set from 2 newest patches, mapping them to 3rd newest patch",
+    )
     args = parser.parse_args()
 
     # Set global DEBUG flag based on args
@@ -556,7 +630,7 @@ def main():
     temp_dir = os.path.join(args.output_dir, "temp")
 
     print("Adding computed columns...")
-    enhanced_files = add_computed_columns(input_files, temp_dir)
+    enhanced_files = add_computed_columns(input_files, temp_dir, args.next_patch_test)
 
     print("Creating encoders...")
     champion_encoder = create_champion_id_encoder(enhanced_files)
@@ -577,6 +651,7 @@ def main():
         champion_encoder,
         task_means,
         task_stds,
+        next_patch_test=args.next_patch_test,
     )
 
     # Clean up temporary files
