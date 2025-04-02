@@ -18,6 +18,15 @@ export class RateLimit {
 
       // Check if rate limit is exceeded
       if (recentRequests.length >= this.MAX_REQUESTS) {
+        // Check if this IP's rate limit violation has been logged before
+        const logKey = `ratelimit-logged:${ip}`;
+        const hasLogged = await kv.get(logKey);
+
+        if (!hasLogged) {
+          console.warn(`Rate limit exceeded for IP: ${ip}`);
+          // Mark this IP as logged with 24h expiration
+          await kv.set(logKey, true, { ex: 24 * 60 * 60 });
+        }
         return false;
       }
 
