@@ -3,10 +3,7 @@ import fsPromises from "fs/promises";
 import path from "path";
 import https from "https";
 
-const ICON_PATHS = [
-  "../public/icons/champions",
-  "../../../apps/desktop/public/icons/champions",
-];
+const ICON_PATHS = ["../../../apps/desktop/public/icons/champions"];
 
 async function downloadAndCompareImage(
   url: string,
