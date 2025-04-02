@@ -436,7 +436,7 @@ def prepare_data(
             test_buffer = []
 
         # Clear memory
-        del old_df, new_df, df_train, df_test
+        del old_df, new_df
 
     # Write remaining buffers
     if train_buffer:
