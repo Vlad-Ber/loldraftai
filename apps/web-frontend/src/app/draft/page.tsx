@@ -53,7 +53,19 @@ export default function Draft() {
     }
   );
 
-  const [showHelpModal, setShowHelpModal] = useState(false);
+  const [showHelpModal, setShowHelpModal] = useState(() => {
+    // Check if running in browser environment and if we're on desktop
+    if (typeof window !== "undefined") {
+      const isDesktop = window.innerWidth >= 768; // md breakpoint is 768px
+      const hasVisited = localStorage.getItem("hasVisitedBefore");
+
+      if (!hasVisited && isDesktop) {
+        localStorage.setItem("hasVisitedBefore", "true");
+        return true;
+      }
+    }
+    return false;
+  });
   const [selectedDraftOrder, setSelectedDraftOrder] =
     useState<DraftOrderKey>("Draft Order");
   const { currentPatch } = useDraftStore();
@@ -66,7 +78,7 @@ export default function Draft() {
     setTeamOne(emptyTeam);
     setTeamTwo(emptyTeam);
     setSelectedSpot(null);
-    setResetAnalysisTrigger(prev => prev + 1);
+    setResetAnalysisTrigger((prev) => prev + 1);
   };
 
   const handleSpotSelection = (index: ChampionIndex, team: TeamIndex) => {
@@ -160,7 +172,7 @@ export default function Draft() {
             <div className="flex w-full p-1 sm:w-auto">
               <div className="flex-1">
                 <Button variant="outline" onClick={openHelpModal}>
-                  Help
+                  How to use
                 </Button>
               </div>
             </div>

@@ -339,7 +339,7 @@ function App() {
                     variant="outline"
                     onClick={() => setShowHelpModal(true)}
                   >
-                    Help
+                    How to use
                   </Button>
                 </div>
               </div>

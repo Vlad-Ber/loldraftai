@@ -35,8 +35,8 @@ export const HelpModal: React.FC<HelpModalProps> = ({
           <p className="flex items-center">
             <ArrowsRightLeftIcon className="mr-2 h-6 w-6 flex-shrink-0" />
             <span className="flex-grow">
-              Select a team position to swap champions or add a new champion to
-              the position
+              Click on a team position to swap champions or add a new champion
+              to the position
             </span>
           </p>
           <p className="flex items-center">
@@ -63,8 +63,8 @@ export const HelpModal: React.FC<HelpModalProps> = ({
           <p className="flex items-center">
             <LightBulbIcon className="mr-2 h-6 w-6 flex-shrink-0" />
             <span className="flex-grow">
-              Use the suggest champion button and favorites to get suggestions
-              for a selected position
+              Use the "Suggest Champion" button to get suggestions for a
+              selected position, suggestions can be filtered by favorites only
             </span>
           </p>
         </div>
