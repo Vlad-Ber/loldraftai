@@ -465,11 +465,9 @@ def add_computed_columns(
 ) -> List[str]:
     """
     Add computed columns to parquet files and save them to a new directory.
-    Only includes games from the last NUM_RECENT_PATCHES patches.
+    Only includes games from the last NUM_RECENT_PATCHES patches and
+    where matchId prefix matches the region.
     Returns the list of new file paths.
-
-    If next_patch_test is True, the 2 most recent patches will be mapped to the same value
-    as the 3rd most recent for test set creation.
     """
     os.makedirs(output_dir, exist_ok=True)
     new_files = []
@@ -490,7 +488,8 @@ def add_computed_columns(
 
     # Track cumulative stats
     cumulative_stats = {
-        "total_raw": 0,  # Total games before patch filtering
+        "total_raw": 0,  # Total games before any filtering
+        "region_mismatch": 0,  # Games filtered due to region mismatch
         "patch_filtered": 0,  # Games filtered due to old patches
         "processed_in_patch": 0,  # Games processed after patch filtering
         "filtered": 0,
@@ -506,6 +505,18 @@ def add_computed_columns(
         original_count = len(df)
         cumulative_stats["total_raw"] += original_count
 
+        # Filter out games where matchId prefix doesn't match region
+        df["match_prefix"] = df["matchId"].str.split("_").str[0]
+        region_match_mask = df["match_prefix"] == df["region"]
+        region_mismatch_count = (~region_match_mask).sum()
+        cumulative_stats["region_mismatch"] += region_mismatch_count
+        df = df[region_match_mask]
+        df = df.drop("match_prefix", axis=1)  # Clean up temporary column
+
+        # Skip if no data left after region filtering
+        if len(df) == 0:
+            continue
+
         # Calculate raw patch numbers
         raw_patches = get_patch_from_raw_data(df)
 
@@ -514,7 +525,9 @@ def add_computed_columns(
         df = df[df["patch"] > 0]  # Remove games from old patches
 
         # Track how many games were filtered due to patches
-        cumulative_stats["patch_filtered"] += original_count - len(df)
+        cumulative_stats["patch_filtered"] += (
+            original_count - region_mismatch_count - len(df)
+        )
 
         # Skip empty dataframes
         if len(df) == 0:
@@ -541,15 +554,15 @@ def add_computed_columns(
             if cumulative_stats["processed_in_patch"] > 0
             else 0
         )
+        region_mismatch_pct = (
+            cumulative_stats["region_mismatch"] / cumulative_stats["total_raw"] * 100
+        )
         pbar.set_description(
-            f"Processed (in patch): {cumulative_stats['processed_in_patch']:,d} | Filtered: {filtered_pct:.1f}%"
+            f"Processed: {cumulative_stats['processed_in_patch']:,d} | Region mismatch: {region_mismatch_pct:.1f}% | Filtered: {filtered_pct:.1f}%"
         )
 
         # Skip if no data left after filtering
         if len(df) <= 1:
-            print(
-                f"Skipping file {file_path} after filtering - insufficient samples ({len(df)} rows)"
-            )
             continue
 
         # Apply all getters to create new columns
@@ -573,6 +586,7 @@ def add_computed_columns(
         final_summary = [
             f"\nFinal filtering statistics:",
             f"├─ Total raw games: {cumulative_stats['total_raw']:,d}",
+            f"├─ Region mismatch filtered: {cumulative_stats['region_mismatch']:,d} ({cumulative_stats['region_mismatch']/cumulative_stats['total_raw']*100:.1f}%)",
             f"├─ Games from old patches: {cumulative_stats['patch_filtered']:,d} ({cumulative_stats['patch_filtered']/cumulative_stats['total_raw']*100:.1f}%)",
             f"├─ Games in recent patches: {cumulative_stats['processed_in_patch']:,d}",
             f"├─ Filtering results (for games in recent patches only):",
