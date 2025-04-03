@@ -449,6 +449,7 @@ def train_model(
             unknown_champion_id=unknown_champion_id,
             train_or_test=train_or_test,
             dataset_fraction=config.dataset_fraction,
+            patch_augmentation_prob=0.1 if split == "train" else 0.0,
         )
         datasets.append(dataset)
 

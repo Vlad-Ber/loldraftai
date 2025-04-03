@@ -64,7 +64,7 @@ class MatchDataset(IterableDataset):
         unknown_champion_id=None,
         train_or_test="train",
         dataset_fraction: float = 1.0,
-        patch_augmentation_prob: float = 0.1,
+        patch_augmentation_prob: float = 0.0,
     ):
         self.data_files = sorted(
             glob.glob(
