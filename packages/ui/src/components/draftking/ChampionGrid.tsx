@@ -15,6 +15,11 @@ import {
   TooltipTrigger,
 } from "../ui/tooltip";
 import type { ImageComponent } from "@draftking/ui/lib/types";
+import {
+  getChampionPlayRates,
+  sortedPatches,
+  type PlayRates,
+} from "@draftking/ui/lib/champions";
 
 // Types that should be moved to a shared types package
 export interface Champion {
@@ -79,6 +84,14 @@ const SearchBar = ({
   );
 };
 
+const roles = [
+  { key: "TOP", label: "Top" },
+  { key: "JUNGLE", label: "Jungle" },
+  { key: "MIDDLE", label: "Mid" },
+  { key: "BOTTOM", label: "Bot" },
+  { key: "UTILITY", label: "Support" },
+];
+
 export const ChampionGrid: React.FC<ChampionGridProps> = ({
   champions,
   addChampion,
@@ -87,6 +100,8 @@ export const ChampionGrid: React.FC<ChampionGridProps> = ({
   ImageComponent,
 }) => {
   const [searchTerm, setSearchTerm] = useState("");
+  const [selectedRole, setSelectedRole] = useState<string | null>(null);
+  const [showOnlyFavorites, setShowOnlyFavorites] = useState(false);
   const [filteredChampions, setFilteredChampions] = useState(champions);
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -102,28 +117,66 @@ export const ChampionGrid: React.FC<ChampionGridProps> = ({
     return () => document.removeEventListener("click", handleGlobalClick);
   }, []);
 
+  // Get the latest patch for play rates
+  const latestPatch = sortedPatches[0] as string;
+
+  const isChampionPlayedInRole = useCallback(
+    (championId: number, role: string): boolean => {
+      // Check if champion is favorited for this role
+      const roleMap: Record<string, keyof FavoriteChampions> = {
+        TOP: "top",
+        JUNGLE: "jungle",
+        MIDDLE: "mid",
+        BOTTOM: "bot",
+        UTILITY: "support",
+      };
+
+      const favoriteRole = roleMap[role];
+      if (favoriteRole && favorites[favoriteRole].includes(championId)) {
+        return true;
+      }
+
+      // Check play rates if not favorited
+      const playRates = getChampionPlayRates(championId, latestPatch);
+      if (!playRates) return false;
+      return playRates[role as keyof PlayRates] >= 0.5;
+    },
+    [latestPatch, favorites]
+  );
+
+  const isChampionFavorite = useCallback(
+    (championId: number): boolean => {
+      return Object.values(favorites).some((roleList) =>
+        roleList.includes(championId)
+      );
+    },
+    [favorites]
+  );
+
   const debouncedFilter = useCallback(
-    (term: string) => {
-      const results = champions.filter((champion) =>
+    (term: string, role: string | null, favoritesOnly: boolean) => {
+      let results = champions.filter((champion) =>
         champion.searchName.includes(term.toLowerCase())
       );
+
+      if (favoritesOnly) {
+        results = results.filter((champion) => isChampionFavorite(champion.id));
+      }
+
+      if (role) {
+        results = results.filter((champion) =>
+          isChampionPlayedInRole(champion.id, role)
+        );
+      }
+
       setFilteredChampions(results);
     },
-    [champions]
+    [champions, isChampionPlayedInRole, isChampionFavorite]
   );
 
   useEffect(() => {
-    debouncedFilter(searchTerm);
-  }, [searchTerm, debouncedFilter]);
-  /*
-  useEffect(() => {
-    const timeoutId = setTimeout(() => {
-      debouncedFilter(searchTerm);
-    }, 10);
-
-    return () => clearTimeout(timeoutId);
-  }, [searchTerm, debouncedFilter]);
-  */
+    debouncedFilter(searchTerm, selectedRole, showOnlyFavorites);
+  }, [searchTerm, selectedRole, showOnlyFavorites, debouncedFilter]);
 
   const handleAddToFavorites = (
     champion: Champion,
@@ -158,6 +211,14 @@ export const ChampionGrid: React.FC<ChampionGridProps> = ({
     }
   };
 
+  const handleRoleClick = (role: string) => {
+    setSelectedRole(selectedRole === role ? null : role);
+  };
+
+  const handleFavoritesClick = () => {
+    setShowOnlyFavorites(!showOnlyFavorites);
+  };
+
   return (
     <div className="h-[560px] rounded border border-gray-200 bg-zinc-800">
       <SearchBar
@@ -167,7 +228,54 @@ export const ChampionGrid: React.FC<ChampionGridProps> = ({
         filteredChampions={filteredChampions}
         inputRef={inputRef}
       />
-      <div className="h-[505px] overflow-y-auto p-1">
+
+      {/* Filter buttons */}
+      <div className="flex items-center gap-3 p-2 border-b border-border">
+        <span className="text-sm text-muted-foreground">Filters:</span>
+        <div className="flex gap-2">
+          <button
+            onClick={handleFavoritesClick}
+            className={`
+              p-1.5 rounded flex items-center justify-center
+              transition-colors duration-200 min-w-[32px]
+              ${
+                showOnlyFavorites
+                  ? "bg-primary text-primary-foreground"
+                  : "bg-secondary hover:bg-secondary/80 text-secondary-foreground"
+              }
+            `}
+            title="Show Favorites"
+          >
+            <StarIcon className="h-5 w-5 text-yellow-500" />
+          </button>
+          {roles.map(({ key, label }) => (
+            <button
+              key={key}
+              onClick={() => handleRoleClick(key)}
+              className={`
+                p-1.5 rounded flex items-center justify-center
+                transition-colors duration-200 min-w-[32px]
+                ${
+                  selectedRole === key
+                    ? "bg-primary text-primary-foreground"
+                    : "bg-secondary hover:bg-secondary/80 text-secondary-foreground"
+                }
+              `}
+              title={key}
+            >
+              <ImageComponent
+                src={`/icons/roles/Position_Challenger-${label}.png`}
+                alt={label}
+                width={20}
+                height={20}
+                className="w-5 h-5"
+              />
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <div className="h-[455px] overflow-y-auto p-1">
         <div className="grid grid-cols-[repeat(auto-fill,80px)] justify-center gap-2">
           {champions.map((champion) => (
             <ContextMenu key={champion.id}>

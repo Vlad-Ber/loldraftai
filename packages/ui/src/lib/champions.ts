@@ -207,7 +207,7 @@ export const getChampionById = (id: number): Champion | undefined => {
   return champions.find((champion) => champion.id === id);
 };
 
-interface PlayRates {
+export interface PlayRates {
   TOP: number;
   JUNGLE: number;
   MIDDLE: number;
@@ -215,11 +215,11 @@ interface PlayRates {
   UTILITY: number;
 }
 
-interface PatchPlayRates {
+export interface PatchPlayRates {
   [championId: string]: PlayRates;
 }
 
-interface ChampionPlayRates {
+export interface ChampionPlayRates {
   [patch: string]: PatchPlayRates;
 }
 
