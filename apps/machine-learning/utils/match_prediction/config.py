@@ -7,7 +7,7 @@ from utils.match_prediction.masking_strategies import MASKING_STRATEGIES
 class TrainingConfig:
     def __init__(self):
         # Default values
-        self.num_epochs = 25
+        self.num_epochs = 50
         self.annealing_epoch = 10
         self.hidden_dims = [1536, 768, 384, 192]  # Both wider and one layer deeper
         self.dropout = 0.25
@@ -19,10 +19,10 @@ class TrainingConfig:
 
         # weight decay didn't change much when training for a short time at 0.001, but for longer trianing runs, 0.01 might be better
         self.weight_decay = 0.01
-        self.elo_reg_lambda = 0.001  # Weight for Elo regularization loss
-        self.patch_reg_lambda = 0.0005  # Weight for patch regularization loss
+        self.elo_reg_lambda = 0  # Weight for Elo regularization loss
+        self.patch_reg_lambda = 0  # Weight for patch regularization loss
         self.champ_patch_reg_lambda = (
-            0.01  # Regularization strength for champion+patch embeddings
+            0  # Regularization strength for champion+patch embeddings
         )
         self.max_grad_norm = 1.0  # because has loss spikes after adding pos embeddings
         self.accumulation_steps = 1
