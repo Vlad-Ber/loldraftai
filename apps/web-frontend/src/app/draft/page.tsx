@@ -33,6 +33,7 @@ import {
 } from "@draftking/ui/lib/draftLogic";
 import { StatusMessage } from "@draftking/ui/components/draftking/StatusMessage";
 import { usePersistedState } from "@draftking/ui/hooks/usePersistedState";
+import { ChangelogModal } from "./ChangelogModal";
 
 export default function Draft() {
   const [remainingChampions, setRemainingChampions] =
@@ -70,8 +71,23 @@ export default function Draft() {
     useState<DraftOrderKey>("Draft Order");
   const { currentPatch } = useDraftStore();
 
+  const [showChangelogModal, setShowChangelogModal] = useState(() => {
+    // Check if running in browser environment
+    if (typeof window !== "undefined") {
+      const lastSeenVersion = localStorage.getItem("lastSeenVersion");
+      const currentVersion = "1.0.0"; // Replace with your actual version
+
+      if (!lastSeenVersion || lastSeenVersion !== currentVersion) {
+        localStorage.setItem("lastSeenVersion", currentVersion);
+        return true;
+      }
+    }
+    return false;
+  });
+
   const openHelpModal = () => setShowHelpModal(true);
   const closeHelpModal = () => setShowHelpModal(false);
+  const closeChangelogModal = () => setShowChangelogModal(false);
 
   const resetDraft = () => {
     setRemainingChampions(champions);
@@ -178,6 +194,11 @@ export default function Draft() {
             </div>
           </div>
           <HelpModal isOpen={showHelpModal} closeHandler={closeHelpModal} />
+          <ChangelogModal
+            isOpen={showChangelogModal}
+            closeHandler={closeChangelogModal}
+            version="1.0.0" // Replace with your actual version
+          />
 
           <div className="text-center text-lg font-semibold mb-4">
             <StatusMessage

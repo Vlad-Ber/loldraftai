@@ -245,9 +245,18 @@ export default async function RootLayout({
               <div className="container p-4 text-center text-sm text-muted-foreground mx-auto">
                 <div className="mb-2">
                   Last model update: {lastModified} on patch {latestPatch}.
-                  After a new patch, expect a few days of delay before an
-                  update. <Link href="https://discord.gg/MpbtNEwTT7" className="text-blue-400 hover:underline" target="_blank" rel="noopener noreferrer">Join our Discord</Link> for bug reports or feature
-                  requests.
+                  Expect a few days delay after new patches. Early patch data
+                  may be combined with the previous patch data for better
+                  predictions.{" "}
+                  <Link
+                    href="https://discord.gg/MpbtNEwTT7"
+                    className="text-blue-400 hover:underline"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    Join our Discord
+                  </Link>{" "}
+                  for bug reports or feature requests.
                 </div>
                 <div className="text-xs">
                   LoLDraftAI isn&apos;t endorsed by Riot Games and doesn&apos;t
