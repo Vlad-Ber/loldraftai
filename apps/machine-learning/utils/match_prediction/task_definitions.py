@@ -123,31 +123,31 @@ TASKS = {
         name="blue_has_gold_lead_at_20",
         getter=blue_has_gold_lead_at_20,
         task_type=TaskType.BINARY_CLASSIFICATION,
-        weight=0.15,
+        weight=0.02,
     ),
     "red_has_gold_lead_at_20": TaskDefinition(
         name="red_has_gold_lead_at_20",
         getter=red_has_gold_lead_at_20,
         task_type=TaskType.BINARY_CLASSIFICATION,
-        weight=0.15,
+        weight=0.02,
     ),
     "gold_is_even_at_20": TaskDefinition(
         name="gold_is_even_at_20",
         getter=gold_is_even_at_20,
         task_type=TaskType.BINARY_CLASSIFICATION,
-        weight=0.15,
+        weight=0.02,
     ),
     "gold_diff_at_20": TaskDefinition(
         name="gold_diff_at_20",
         getter=get_gold_diff_at_20,
         task_type=TaskType.REGRESSION,
-        weight=0.15,
+        weight=0.02,
     ),
     "total_kills_at_20": TaskDefinition(
         name="total_kills_at_20",
         getter=get_total_kills_at_20,
         task_type=TaskType.REGRESSION,
-        weight=0.15,
+        weight=0.02,
     ),
 }
 
@@ -220,7 +220,7 @@ def get_final_tasks() -> Dict[str, TaskDefinition]:
 
     # Add total gold tasks for all positions and teams
     gold_tasks_count = len(POSITIONS) * len(TEAMS)  # 5 positions * 2 teams = 10 tasks
-    gold_task_weight = 0.05 / gold_tasks_count  # Split 5% among gold tasks
+    gold_task_weight = 0.01 / gold_tasks_count  # Split 5% among gold tasks
 
     for position in POSITIONS:
         for team_id in TEAMS:
