@@ -16,7 +16,6 @@ export interface ChangelogModalProps {
 export const ChangelogModal: React.FC<ChangelogModalProps> = ({
   isOpen,
   closeHandler,
-  version,
 }) => {
   return (
     <Dialog open={isOpen} onOpenChange={closeHandler}>
@@ -30,8 +29,9 @@ export const ChangelogModal: React.FC<ChangelogModalProps> = ({
         <div className="space-y-4">
           <div className="space-y-2">
             <p className="text-sm leading-relaxed">
-              We've fixed a bug in our model training process that was causing
-              predictions to be overconfident. The new model should now provide:
+              We&apos;ve fixed a bug in our model training process that was
+              causing predictions to be overconfident. The new model should now
+              provide:
             </p>
             <ul className="list-disc pl-5 space-y-1 text-sm">
               <li>More moderate win probability predictions</li>
