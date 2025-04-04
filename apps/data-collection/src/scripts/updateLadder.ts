@@ -30,7 +30,7 @@ if (!apiKey) {
   throw new Error("X_RIOT_API_KEY is not set");
 }
 
-const riotApiClient = new RiotAPIClient(apiKey);
+const riotApiClient = new RiotAPIClient(apiKey, region);
 const prisma = new PrismaClient();
 
 const tiersDivisions: TierDivisionPair[] = [

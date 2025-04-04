@@ -27,7 +27,7 @@ if (!apiKey) {
   throw new Error("X_RIOT_API_KEY is not set");
 }
 
-const riotApiClient = new RiotAPIClient(apiKey);
+const riotApiClient = new RiotAPIClient(apiKey, region);
 const prisma = new PrismaClient();
 
 // We do the same limiter as processMatches.ts as there is not point going faster

@@ -48,7 +48,7 @@ export class RiotAPIClient {
 
   constructor(
     apiKey: string,
-    region: Region = "EUW1",
+    region: Region,
     maxRetries: number = 3,
     baseDelay: number = 10000
   ) {
