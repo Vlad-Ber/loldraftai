@@ -7,8 +7,8 @@ from utils.match_prediction.masking_strategies import MASKING_STRATEGIES
 class TrainingConfig:
     def __init__(self):
         # Default values
-        self.num_epochs = 25
-        self.annealing_epoch = 10
+        self.num_epochs = 50
+        self.annealing_epoch = 15
         self.hidden_dims = [1536, 768, 384, 192]  # Both wider and one layer deeper
         self.dropout = 0.25
         self.learning_rate = 5e-4
