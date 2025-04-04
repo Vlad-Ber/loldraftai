@@ -13,12 +13,12 @@ class TrainingConfig:
         self.dropout = 0.25
         self.learning_rate = 5e-4
         self.champion_embed_dim = 256
-        self.queue_type_embed_dim = 256
-        self.patch_embed_dim = 256
-        self.elo_embed_dim = 256
+        self.queue_type_embed_dim = 64
+        self.patch_embed_dim = 128
+        self.elo_embed_dim = 64
 
         # weight decay didn't change much when training for a short time at 0.001, but for longer trianing runs, 0.01 might be better
-        self.weight_decay = 0.001
+        self.weight_decay = 0.01
         self.elo_reg_lambda = 0  # Weight for Elo regularization loss
         self.patch_reg_lambda = 0  # Weight for patch regularization loss
         self.champ_patch_reg_lambda = (
