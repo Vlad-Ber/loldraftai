@@ -78,7 +78,7 @@ model Summoner {
 
 model Match {
   id                    String    @id @default(cuid())
-  matchId               String
+  matchId               String    @unique
   queueId               Int?
   region                Region
   averageTier           Tier
@@ -102,8 +102,6 @@ model Match {
   // Whether the match has been exported to Azure storage
   exported Boolean @default(false)
 
-  // TODO: can probably change to just unique, because starts with region name ex: EUW1_7117841287
-  @@unique([matchId, region])
   // processMatches.ts query: processed first (highest selectivity)
   @@index([processed, region, processingErrored])
   // extractToAzure.ts query: processed and exported first (highest selectivity)
