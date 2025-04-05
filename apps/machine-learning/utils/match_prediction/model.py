@@ -50,9 +50,10 @@ class Model(nn.Module):
         # Patch embedding (general meta changes)
         self.patch_embedding = nn.Embedding(self.num_patches, config.patch_embed_dim)
         mlp_input_dim += config.patch_embed_dim
-        # Champion+patch embeddings (champion-specific changes)
-        self.champion_patch_embedding = nn.Embedding(
-            self.num_champions * self.num_patches, config.champion_embed_dim
+
+        # Champion embeddings
+        self.champion_embedding = nn.Embedding(
+            self.num_champions, config.champion_embed_dim
         )
         mlp_input_dim += config.champion_embed_dim * 10  # 10 champions
 
@@ -97,18 +98,12 @@ class Model(nn.Module):
         )  # (batch_size, config.patch_embed_dim)
         embeddings_list.append(patch_embed)
 
-        # Champion+patch embeddings
+        # Champion embeddings
         champion_ids = features["champion_ids"]  # (batch_size, 10)
-        patch_indices_expanded = patch_indices.unsqueeze(1).expand(
-            -1, 10
-        )  # (batch_size, 10)
-        combined_indices = (
-            champion_ids * self.num_patches + patch_indices_expanded
-        )  # (batch_size, 10)
-        champ_patch_embeds = self.champion_patch_embedding(
-            combined_indices
+        champion_embeds = self.champion_embedding(
+            champion_ids
         )  # (batch_size, 10, config.champion_embed_dim)
-        champion_features = champ_patch_embeds.view(
+        champion_features = champion_embeds.view(
             batch_size, -1
         )  # (batch_size, 10*config.champion_embed_dim)
         embeddings_list.append(champion_features)
