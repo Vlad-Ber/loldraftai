@@ -11,7 +11,7 @@ class TrainingConfig:
         self.annealing_epoch = 15
         self.hidden_dims = [512, 256, 128, 64]
         self.dropout = 0.25
-        self.learning_rate = 1e-3
+        self.learning_rate = 5e-4
         self.champion_embed_dim = 120
         self.champion_patch_embed_dim = 8  # Small dimension to avoid overfitting
         self.queue_type_embed_dim = 32  # Reduced from 64
