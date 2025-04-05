@@ -130,7 +130,7 @@ def train_epoch(
                     patch_reg_loss += torch.norm(diff, p=2)
                 patch_reg_loss /= model.num_patches - 1
 
-            # Elo regularization - add regularization for adjacent elo tiers
+            # Elo regularization
             elo_reg_loss = torch.tensor(0.0, device=device)
             num_elos = len(possible_values_elo)
             if num_elos > 1:
@@ -142,11 +142,26 @@ def train_epoch(
                     elo_reg_loss += torch.norm(diff, p=2)
                 elo_reg_loss /= num_elos - 1
 
+            # Champion+patch regularization
+            champ_patch_reg_loss = torch.tensor(0.0, device=device)
+            if model.num_patches > 1:
+                for c in range(model.num_champions):
+                    for p in range(model.num_patches - 1):
+                        idx1 = c * model.num_patches + p
+                        idx2 = c * model.num_patches + p + 1
+                        diff = (
+                            model.champion_patch_embedding.weight[idx1]
+                            - model.champion_patch_embedding.weight[idx2]
+                        )
+                        champ_patch_reg_loss += torch.norm(diff, p=2)
+                champ_patch_reg_loss /= model.num_champions * (model.num_patches - 1)
+
             # Combine losses with regularization weights
             total_loss = (
                 task_loss
                 + config.patch_reg_lambda * patch_reg_loss
                 + config.elo_reg_lambda * elo_reg_loss
+                + config.champ_patch_reg_lambda * champ_patch_reg_loss
             ) / config.accumulation_steps
 
         total_loss.backward()
@@ -177,6 +192,7 @@ def train_epoch(
                     current_lr,
                     patch_reg_loss.item(),
                     elo_reg_loss.item(),
+                    champ_patch_reg_loss.item(),
                     model,
                 )
 
@@ -196,6 +212,7 @@ def log_training_step(
     current_lr: float,
     patch_reg_loss: float,
     elo_reg_loss: float,
+    champ_patch_reg_loss: float,
     model: Model,
 ) -> None:
     if config.log_wandb:
@@ -207,6 +224,7 @@ def log_training_step(
         ).item()
         patch_norm = torch.norm(model.patch_embedding.weight.data).item()
         champion_norm = torch.norm(model.champion_embedding.weight.data).item()
+        champ_patch_norm = torch.norm(model.champion_patch_embedding.weight.data).item()
 
         mlp_norm = torch.norm(
             torch.cat([p.data.view(-1) for p in model.mlp.parameters()])
@@ -222,10 +240,12 @@ def log_training_step(
             "learning_rate": current_lr,
             "patch_reg_loss": patch_reg_loss,
             "elo_reg_loss": elo_reg_loss,
+            "champ_patch_reg_loss": champ_patch_reg_loss,
             # Parameter norms
             "categorical_embed_norm": categorical_norm,
             "patch_embed_norm": patch_norm,
             "champion_embed_norm": champion_norm,
+            "champ_patch_embed_norm": champ_patch_norm,
             "mlp_norm": mlp_norm,
             "output_layers_norm": output_norm,
         }

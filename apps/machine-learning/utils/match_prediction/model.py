@@ -51,11 +51,17 @@ class Model(nn.Module):
         self.patch_embedding = nn.Embedding(self.num_patches, config.patch_embed_dim)
         mlp_input_dim += config.patch_embed_dim
 
-        # Champion embeddings
+        # Champion embeddings (general champion characteristics)
         self.champion_embedding = nn.Embedding(
             self.num_champions, config.champion_embed_dim
         )
         mlp_input_dim += config.champion_embed_dim * 10  # 10 champions
+
+        # Champion+patch embeddings (champion-specific patch changes)
+        self.champion_patch_embedding = nn.Embedding(
+            self.num_champions * self.num_patches, config.champion_patch_embed_dim
+        )
+        mlp_input_dim += config.champion_patch_embed_dim * 10  # 10 champions
 
         print(f"MLP input dimension: {mlp_input_dim}")
 
@@ -98,7 +104,7 @@ class Model(nn.Module):
         )  # (batch_size, config.patch_embed_dim)
         embeddings_list.append(patch_embed)
 
-        # Champion embeddings
+        # Champion embeddings (general champion characteristics)
         champion_ids = features["champion_ids"]  # (batch_size, 10)
         champion_embeds = self.champion_embedding(
             champion_ids
@@ -107,6 +113,21 @@ class Model(nn.Module):
             batch_size, -1
         )  # (batch_size, 10*config.champion_embed_dim)
         embeddings_list.append(champion_features)
+
+        # Champion+patch embeddings (champion-specific patch changes)
+        patch_indices_expanded = patch_indices.unsqueeze(1).expand(
+            -1, 10
+        )  # (batch_size, 10)
+        combined_indices = (
+            champion_ids * self.num_patches + patch_indices_expanded
+        )  # (batch_size, 10)
+        champ_patch_embeds = self.champion_patch_embedding(
+            combined_indices
+        )  # (batch_size, 10, config.champion_patch_embed_dim)
+        champ_patch_features = champ_patch_embeds.view(
+            batch_size, -1
+        )  # (batch_size, 10*config.champion_patch_embed_dim)
+        embeddings_list.append(champ_patch_features)
 
         # Concatenate all features
         combined_features = torch.cat(embeddings_list, dim=1)

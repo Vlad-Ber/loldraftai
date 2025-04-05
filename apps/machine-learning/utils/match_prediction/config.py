@@ -9,10 +9,11 @@ class TrainingConfig:
         # Default values
         self.num_epochs = 50
         self.annealing_epoch = 15
-        self.hidden_dims = [1024, 512, 256, 128]  # Reduced width while keeping 4 layers
+        self.hidden_dims = [512, 256, 128, 64]
         self.dropout = 0.25
         self.learning_rate = 5e-4
-        self.champion_embed_dim = 128  # Reduced from 256
+        self.champion_embed_dim = 120
+        self.champion_patch_embed_dim = 8  # Small dimension to avoid overfitting
         self.queue_type_embed_dim = 32  # Reduced from 64
         self.patch_embed_dim = 64  # Reduced from 128
         self.elo_embed_dim = 32  # Reduced from 64
@@ -21,9 +22,7 @@ class TrainingConfig:
         self.weight_decay = 0.01
         self.elo_reg_lambda = 0.001  # Weight for Elo regularization loss
         self.patch_reg_lambda = 0.0005  # Weight for patch regularization loss
-        self.champ_patch_reg_lambda = (
-            0.01  # Regularization strength for champion+patch embeddings
-        )
+        self.champ_patch_reg_lambda = 0.0
         self.max_grad_norm = 1.0  # because has loss spikes after adding pos embeddings
         self.accumulation_steps = 1
         self.masking_strategy = {

@@ -301,9 +301,27 @@ def init_model(
                 champ_display_names=champ_display_names,
             )
         )
-
-        # Set the champion embeddings
         model.champion_embedding.weight.data = champion_embeddings
+
+        # Initialize champion+patch embeddings (half random, half class-based)
+        champion_patch_embeddings = (
+            torch.randn(
+                num_champions * model.num_patches, config.champion_patch_embed_dim
+            )
+            * 0.02
+        )
+        half_dim_champion_patch = config.champion_patch_embed_dim // 2
+        for c in range(num_champions):
+            base_vector = champion_embeddings[
+                c, :half_dim_champion_patch
+            ]  # Use first half of champion embedding
+            for p in range(model.num_patches):
+                idx = c * model.num_patches + p
+                noise = torch.randn(half_dim_champion_patch) * 0.01
+                champion_patch_embeddings[idx, half_dim_champion_patch:] = (
+                    base_vector + noise
+                )
+        model.champion_patch_embedding.weight.data = champion_patch_embeddings
 
         _log_initialization_stats(
             num_champions, class_counts, missing_class_names, config
@@ -346,6 +364,8 @@ def init_model(
                     ).item(),
                     "init_queue_embed_mean": queue_embeddings.mean().item(),
                     "init_queue_embed_std": queue_embeddings.std().item(),
+                    "init_champion_patch_embed_mean": champion_patch_embeddings.mean().item(),
+                    "init_champion_patch_embed_std": champion_patch_embeddings.std().item(),
                 }
             )
     else:
