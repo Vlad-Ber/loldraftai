@@ -9,13 +9,13 @@ class TrainingConfig:
         # Default values
         self.num_epochs = 50
         self.annealing_epoch = 15
-        self.hidden_dims = [1536, 768, 384, 192]  # Both wider and one layer deeper
+        self.hidden_dims = [1024, 512, 256, 128]  # Reduced width while keeping 4 layers
         self.dropout = 0.25
         self.learning_rate = 5e-4
-        self.champion_embed_dim = 256
-        self.queue_type_embed_dim = 64
-        self.patch_embed_dim = 128
-        self.elo_embed_dim = 64
+        self.champion_embed_dim = 128  # Reduced from 256
+        self.queue_type_embed_dim = 32  # Reduced from 64
+        self.patch_embed_dim = 64  # Reduced from 128
+        self.elo_embed_dim = 32  # Reduced from 64
 
         # weight decay didn't change much when training for a short time at 0.001, but for longer trianing runs, 0.01 might be better
         self.weight_decay = 0.01
