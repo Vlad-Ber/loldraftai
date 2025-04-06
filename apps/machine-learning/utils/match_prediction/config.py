@@ -9,14 +9,14 @@ class TrainingConfig:
         # Default values
         self.num_epochs = 50
         self.annealing_epoch = 15
-        self.hidden_dims = [512, 256, 128, 64]
+        self.hidden_dims = [512, 384, 256, 192, 128, 96, 64]
         self.dropout = 0.25
         self.learning_rate = 5e-4
-        self.champion_embed_dim = 120
+        self.champion_embed_dim = 64 - 8
         self.champion_patch_embed_dim = 8  # Small dimension to avoid overfitting
-        self.queue_type_embed_dim = 32  # Reduced from 64
-        self.patch_embed_dim = 32  # Reduced from 128
-        self.elo_embed_dim = 64  # Reduced from 64
+        self.queue_type_embed_dim = 16  # Reduced from 64
+        self.patch_embed_dim = 16  # Reduced from 128
+        self.elo_embed_dim = 32  # Reduced from 64
 
         # weight decay didn't change much when training for a short time at 0.001, but for longer trianing runs, 0.01 might be better
         self.weight_decay = 0.01
@@ -38,7 +38,7 @@ class TrainingConfig:
         # Add OneCycleLR parameters
         self.use_one_cycle_lr = True
         self.max_lr = self.learning_rate
-        self.pct_start = 0.2  # 15% of training for warmup
+        self.pct_start = 0.2
         self.div_factor = 5  # initial_lr = max_lr/div_factor
         self.final_div_factor = 1e3  # final_lr = max_lr/(div_factor * final_div_factor)
 
