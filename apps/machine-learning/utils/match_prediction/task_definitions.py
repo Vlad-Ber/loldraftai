@@ -220,11 +220,12 @@ def get_final_tasks() -> Dict[str, TaskDefinition]:
 
     # Add total gold tasks for all positions and teams
     gold_tasks_count = len(POSITIONS) * len(TEAMS)  # 5 positions * 2 teams = 10 tasks
-    gold_task_weight = 0.05 / gold_tasks_count  # Split 5% among gold tasks
+    gold_task_weight = 0.01 / gold_tasks_count
 
     for position in POSITIONS:
         for team_id in TEAMS:
-            for timestamp in TIMESTAMPS:
+            # we only use gold @15 in ui
+            for timestamp in ["900000"]:
                 task_name = f"team_{team_id}_{position}_totalGold_at_{timestamp}"
                 if task_name in TASKS:
                     final_tasks[task_name] = TaskDefinition(

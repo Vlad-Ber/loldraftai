@@ -12,10 +12,10 @@ class TrainingConfig:
         self.hidden_dims = [512, 384, 256, 192, 128, 96, 64]
         self.dropout = 0.25
         self.learning_rate = 5e-4
-        self.champion_embed_dim = 64 - 16
-        self.champion_patch_embed_dim = 16  # Small dimension to avoid overfitting
-        self.queue_type_embed_dim = 32  # Reduced from 64
-        self.patch_embed_dim = 32  # Reduced from 128
+        self.champion_patch_embed_dim = 4  # Small dimension to avoid overfitting
+        self.champion_embed_dim = 256 - self.champion_patch_embed_dim
+        self.queue_type_embed_dim = 64  # Reduced from 64
+        self.patch_embed_dim = 128  # Reduced from 128
         self.elo_embed_dim = 64  # Reduced from 64
 
         # weight decay didn't change much when training for a short time at 0.001, but for longer trianing runs, 0.01 might be better
