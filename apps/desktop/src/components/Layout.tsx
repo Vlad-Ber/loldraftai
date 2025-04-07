@@ -61,6 +61,13 @@ export function Layout() {
             >
               Join our Discord
             </a>{" "}
+            or email us at{" "}
+            <a
+              href="mailto:support@loldraftai.com"
+              className="text-blue-400 hover:underline"
+            >
+              support@loldraftai.com
+            </a>{" "}
             for bug reports or feature requests.
           </div>
           <div className="text-xs">
