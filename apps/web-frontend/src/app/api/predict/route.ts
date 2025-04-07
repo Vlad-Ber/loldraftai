@@ -1,5 +1,4 @@
 import { RateLimit } from "@/app/lib/rate-limit";
-import { headers } from "next/headers";
 import { NextResponse } from "next/server";
 
 const backendUrl = process.env.INFERENCE_BACKEND_URL ?? "http://127.0.0.1:8000";
