@@ -31,8 +31,9 @@ export const ChangelogModal: React.FC<ChangelogModalProps> = ({
           <div className="space-y-2">
             <p className="text-sm leading-relaxed">
               We&apos;ve fixed a bug in our model training process that was
-              causing predictions to be overconfident. The new model should now
-              provide:
+              causing predictions to be overconfident, it also led to
+              incorrectly report an accuracy of 62% in a reddit post. The new
+              model should now provide:
             </p>
             <ul className="list-disc pl-5 space-y-1 text-sm">
               <li>More moderate win probability predictions</li>
