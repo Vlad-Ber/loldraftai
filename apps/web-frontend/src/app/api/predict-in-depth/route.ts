@@ -1,5 +1,4 @@
 import { RateLimit } from "@/app/lib/rate-limit";
-import { headers } from "next/headers";
 import { NextResponse } from "next/server";
 
 const backendUrl = process.env.INFERENCE_BACKEND_URL ?? "http://127.0.0.1:8000";
@@ -17,11 +16,7 @@ export async function OPTIONS() {
 }
 
 export async function POST(request: Request) {
-  const headersList = headers();
-  const ip = (await headersList).get("x-forwarded-for") || "unknown";
-
-  // Check rate limit
-  const isAllowed = await RateLimit.checkRateLimit(ip);
+  const isAllowed = await RateLimit.checkRateLimit();
   if (!isAllowed) {
     return new NextResponse(
       JSON.stringify({ error: "Too many requests. Please try again later." }),
