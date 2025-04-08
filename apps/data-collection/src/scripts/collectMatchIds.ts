@@ -78,7 +78,8 @@ async function collectMatchIds() {
               {
                 // queue: 700, // Summoner's rift clash, 420, // Ranked Solo/Duo queue
                 queue: 420, // TODO: automatically collect both queues, instead of manually changing this
-                count: 100, // max count
+                // Less games for lower elos(to avoid having to many low elo games)
+                count: summoner.tier === "PLATINUM" ? 10 : 100, // max count
               }
             );
 
