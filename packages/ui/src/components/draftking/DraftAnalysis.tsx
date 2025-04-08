@@ -109,12 +109,9 @@ export const DraftAnalysis = ({
               <p className="mb-2">Understanding the analysis:</p>
               <ul className="list-disc pl-4 space-y-1">
                 <li>
-                  <strong>Impact Score:</strong> Shows how much each champion
-                  influences their team's chances of winning. A positive score
-                  means the champion increases their team's win chance, while a
-                  negative score means they decrease it. Calculated by comparing
-                  team's win probability with each champion minus the win
-                  probability with that position left empty.
+                  <strong>Impact Score:</strong> Shows how a champion changes
+                  your team's win chance. Calculated as the difference between
+                  the win rate with the champion and without them.
                   <div className="mt-2 text-sm text-blue-600 dark:text-blue-400 font-medium">
                     Pro tip: Focus your gameplay around champions with high
                     impact scores - they are your win conditions!

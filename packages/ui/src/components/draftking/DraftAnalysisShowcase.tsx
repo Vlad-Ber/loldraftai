@@ -51,10 +51,9 @@ export const DraftAnalysisShowcase = ({
                     </TooltipTrigger>
                     <TooltipContent className="max-w-[250px] text-center whitespace-normal space-y-2">
                       <p>
-                        Shows how much each champion influences their team's
-                        chances of winning. A positive score means the champion
-                        increases their team's win chance, while a negative
-                        score means they decrease it.
+                        Shows how a champion changes your team's win chance.
+                        Calculated as the difference between the win rate with
+                        the champion and without them
                       </p>
                       <div className="text-sm text-blue-600 dark:text-blue-400 font-medium">
                         Pro tip: Play around champions with high impact scores -
@@ -102,10 +101,9 @@ export const DraftAnalysisShowcase = ({
                     </TooltipTrigger>
                     <TooltipContent className="max-w-[250px]  text-center whitespace-normal space-y-2">
                       <p>
-                        Shows how much each champion influences their team's
-                        chances of winning. A positive score means the champion
-                        increases their team's win chance, while a negative
-                        score means they decrease it.
+                        Shows how a champion changes your team's win chance.
+                        Calculated as the difference between the win rate with
+                        the champion and without them
                       </p>
                       <div className="text-sm text-blue-600 dark:text-blue-400 font-medium">
                         Pro tip: Play around champions with high impact scores -
