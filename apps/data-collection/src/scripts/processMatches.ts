@@ -4,7 +4,7 @@ import Bottleneck from "bottleneck";
 import { sleep } from "../utils";
 import { RegionSchema } from "@draftking/riot-api";
 import { RiotAPIClient } from "@draftking/riot-api";
-import { Match, PrismaClient } from "@draftking/riot-database";
+import { Match, PrismaClient, Prisma } from "@draftking/riot-database";
 import { config } from "dotenv";
 import { processMatchData } from "../utils/matchProcessing";
 import { telemetry } from "../utils/telemetry";
@@ -81,32 +81,51 @@ async function processMatches() {
 
         const matches = await (nextMatchesPromise ??
           (prisma.$queryRaw`
-          SELECT *
-          FROM "Match"
-          WHERE processed = false 
-          AND "processingErrored" = false
-          AND region = ${region}::text::"Region"
-          LIMIT 500
-        ` as Promise<Match[]>));
+            SELECT *
+            FROM "Match"
+            WHERE processed = false 
+            AND "processingErrored" = false
+            AND region = ${region}::text::"Region"
+            LIMIT 500
+          ` as Promise<Match[]>));
 
         log("INFO", `Found ${matches.length} matches to process`);
 
         // Start fetching next batch immediately
-        const currentlyProcessingIds = new Set(matches.map((m) => m.id));
+        const currentlyProcessingIds = matches.map((m) => m.id);
         log(
           "DEBUG",
-          `Pre-fetching next batch, excluding ${currentlyProcessingIds.size} currently processing IDs`
+          `Pre-fetching next batch, excluding ${currentlyProcessingIds.length} currently processing IDs`
         );
 
-        nextMatchesPromise = prisma.$queryRaw`
-          SELECT *
-          FROM "Match"
-          WHERE processed = false 
-          AND "processingErrored" = false
-          AND region = ${region}::text::"Region"
-          AND id NOT IN (${Array.from(currentlyProcessingIds)})
-          LIMIT 500
-        ` as Promise<Match[]>;
+        if (currentlyProcessingIds.length === 0) {
+          // If no IDs to exclude, just run the basic query
+          nextMatchesPromise = prisma.$queryRaw`
+            SELECT *
+            FROM "Match"
+            WHERE processed = false 
+            AND "processingErrored" = false
+            AND region = ${region}::text::"Region"
+            LIMIT 500
+          ` as Promise<Match[]>;
+        } else {
+          // When we have IDs to exclude, we need to properly format them for SQL
+          // Convert the array to SQL-safe string values with quotes around each ID
+          const idList = currentlyProcessingIds
+            .map((id) => `'${id}'`)
+            .join(",");
+
+          // Use the formatted string in the query
+          nextMatchesPromise = prisma.$queryRaw`
+            SELECT *
+            FROM "Match"
+            WHERE processed = false 
+            AND "processingErrored" = false
+            AND region = ${region}::text::"Region"
+            AND id NOT IN (${Prisma.raw(idList)})
+            LIMIT 500
+          ` as Promise<Match[]>;
+        }
 
         if (matches.length === 0) {
           log("INFO", "No matches found, sleeping for 60 seconds");
