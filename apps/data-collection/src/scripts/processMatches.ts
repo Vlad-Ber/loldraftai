@@ -13,7 +13,8 @@ config();
 
 // Enhance logging to always show timestamp and add log levels
 const log = (level: "INFO" | "ERROR" | "DEBUG", message: string) => {
-  console.log(`[${new Date().toISOString()}] [${level}] ${message}`);
+  // logs disabled
+  // console.log(`[${new Date().toISOString()}] [${level}] ${message}`);
 };
 
 const argv = await yargs(hideBin(process.argv))
