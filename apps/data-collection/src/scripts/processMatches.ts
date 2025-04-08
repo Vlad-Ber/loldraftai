@@ -39,7 +39,7 @@ const prisma = new PrismaClient();
 
 // Rate limiter settings based on the API rate limits
 const limiter = new Bottleneck({
-  minTime: 100,
+  minTime: 40,
   // Limit: 2000 requests every 10 seconds, but we'll use 500 to be safe
   reservoir: 250,
   reservoirRefreshAmount: 250,
