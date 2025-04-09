@@ -30,6 +30,16 @@ from utils.match_prediction.task_definitions import TaskDefinition, TaskType
 from utils import DATA_DIR, champion_play_rates_path
 
 
+class FixedMaskCount:
+    """Returns a fixed number of champions to mask."""
+
+    def __init__(self, count: int):
+        self.count = count
+
+    def __call__(self) -> int:
+        return self.count
+
+
 def get_elo_subgroup(feature: torch.Tensor) -> str:
     """
     Determine the ELO subgroup for a sample based on its ELO feature.
@@ -393,8 +403,7 @@ def main():
     # Define masking function if needed
     masking_function = None
     if args.mask_champions > 0:
-        # Create a function that always returns the specified number of champions to mask
-        masking_function = lambda: args.mask_champions
+        masking_function = FixedMaskCount(args.mask_champions)
         print(f"Masking {args.mask_champions} champions in each team composition")
 
     # Initialize test dataset and loader
