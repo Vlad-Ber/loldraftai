@@ -249,7 +249,7 @@ export const ChampionGrid: React.FC<ChampionGridProps> = ({
                     : "bg-secondary hover:bg-secondary/80 text-secondary-foreground"
                 }
               `}
-              title={key}
+              title={`Show ${label}`}
             >
               <ImageComponent
                 src={`/icons/roles/Position_Challenger-${label}.png`}
