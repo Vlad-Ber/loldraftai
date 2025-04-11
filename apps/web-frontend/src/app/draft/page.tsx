@@ -71,11 +71,11 @@ export default function Draft() {
     useState<DraftOrderKey>("Draft Order");
   const { currentPatch } = useDraftStore();
 
+  const currentVersion = "1.0.1";
   const [showChangelogModal, setShowChangelogModal] = useState(() => {
     // Check if running in browser environment
     if (typeof window !== "undefined") {
       const lastSeenVersion = localStorage.getItem("lastSeenVersion");
-      const currentVersion = "1.0.0"; // Replace with your actual version
 
       if (!lastSeenVersion || lastSeenVersion !== currentVersion) {
         localStorage.setItem("lastSeenVersion", currentVersion);
@@ -197,7 +197,6 @@ export default function Draft() {
           <ChangelogModal
             isOpen={showChangelogModal}
             closeHandler={closeChangelogModal}
-            version="1.0.0" // Replace with your actual version
           />
 
           <div className="text-center text-lg font-semibold mb-4">
