@@ -45,8 +45,8 @@ const tiersDivisions: TierDivisionPair[] = [
   ["PLATINUM", "I"],
   ["GOLD", "I"],
   ["SILVER", "I"],
-] as const; // we get high ranks because draft matters more in high elo
-const lowEloMaxPages = 100;
+] as const;
+const lowEloMaxPages = 120;
 const lowEloTiers = ["PLATINUM", "GOLD", "SILVER"];
 const queue = "RANKED_SOLO_5x5";
 
