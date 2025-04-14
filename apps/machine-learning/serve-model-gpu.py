@@ -188,6 +188,8 @@ class InDepthPrediction(BaseModel):
     win_probability: float
     gold_diff_15min: List[float]  # [TOP, JUNGLE, MIDDLE, BOTTOM, UTILITY]
     champion_impact: List[float]  # [champ1_impact, champ2_impact, ..., champ10_impact]
+    time_bucketed_predictions: Dict[str, float]  # Side normalized predictions
+    raw_time_bucketed_predictions: Dict[str, float]  # Non-normalized predictions
 
 
 class ModelMetadata(BaseModel):
@@ -246,12 +248,62 @@ async def predict_in_depth(api_input: APIInput, api_key: str = Depends(verify_ap
     base_win_pred = base_outputs["win_prediction"]
     base_win_prob = float(torch.sigmoid(base_win_pred).cpu().numpy()[0])
 
+    # Debug logs for time-bucketed win predictions
+    time_bucket_tasks = [
+        "win_prediction_0_25",
+        "win_prediction_25_30",
+        "win_prediction_30_35",
+        "win_prediction_35_inf",
+    ]
+
+    # Create reversed champion order input to get opposite team perspective
+    reversed_champion_ids = api_input.champion_ids[5:] + api_input.champion_ids[:5]
+    # TODO: could include this in a batch for performance
+    reversed_input = APIInput(
+        champion_ids=reversed_champion_ids,
+        numerical_elo=api_input.numerical_elo,
+        patch=api_input.patch,
+        queue_type=api_input.queue_type,
+    )
+
+    # Get predictions for reversed team positions
+    reversed_model_inputs = preprocess_batch([reversed_input])
+    with torch.no_grad():
+        if use_mixed_precision:
+            with torch.amp.autocast(device.type):
+                reversed_outputs = model(reversed_model_inputs)
+        else:
+            reversed_outputs = model(reversed_model_inputs)
+
+    # Store the raw (non-normalized) predictions first
+    raw_time_bucketed_predictions = {}
+    for task in time_bucket_tasks:
+        if task in base_outputs:
+            blue_pred = base_outputs[task]
+            blue_prob = float(torch.sigmoid(blue_pred).cpu().numpy()[0])
+            raw_time_bucketed_predictions[task] = blue_prob
+
+    # Create balanced time-bucketed predictions dictionary by averaging both perspectives
+    time_bucketed_predictions = {}
+    for task in time_bucket_tasks:
+        if task in base_outputs and task in reversed_outputs:
+            # Get original blue side prediction
+            blue_pred = base_outputs[task]
+            blue_prob = float(torch.sigmoid(blue_pred).cpu().numpy()[0])
+
+            # Get reversed blue side prediction (original red side perspective)
+            reversed_pred = reversed_outputs[task]
+            reversed_prob = float(torch.sigmoid(reversed_pred).cpu().numpy()[0])
+
+            # Average the blue side prob with (1 - red side prob from reversed perspective)
+            balanced_prob = (blue_prob + (1 - reversed_prob)) / 2
+            time_bucketed_predictions[task] = balanced_prob
+
     # Calculate gold differences
     gold_diffs = calculate_gold_differences(base_outputs)
 
     # Champion impact analysis
     champion_impact = [0.0] * 10
-    unknown_champion_id = champion_id_encoder.transform(["UNKNOWN"])[0]
 
     # Find which champions are known and can be masked
     champion_ids = api_input.champion_ids
@@ -294,6 +346,8 @@ async def predict_in_depth(api_input: APIInput, api_key: str = Depends(verify_ap
         win_probability=base_win_prob,
         gold_diff_15min=gold_diffs,
         champion_impact=champion_impact,
+        time_bucketed_predictions=time_bucketed_predictions,
+        raw_time_bucketed_predictions=raw_time_bucketed_predictions,
     )
 
 

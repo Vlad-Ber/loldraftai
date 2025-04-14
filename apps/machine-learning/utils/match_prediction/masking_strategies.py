@@ -30,15 +30,28 @@ class StrategicMaskingDistribution:
         self.probabilities = np.zeros(self.max_value + 1)
 
         # Set fixed scenario probabilities
-        self.probabilities[0] = 0.45  # No masking
-        self.probabilities[5] = 0.05  # One full team
+        remaining_prob = 1
+        self.probabilities[0] = 0.20  # No masking
+        remaining_prob -= self.probabilities[0]
         self.probabilities[10] = 0.01  # Everything masked
+        remaining_prob -= self.probabilities[10]
 
-        # Distribute remaining probability (0.495) across 1-4, 6-9 using linear distribution
-        remaining_indices = [i for i in range(1, 10)]
+        # In master tier, the model seems undertrained when only seeing  1 to 3 champions.
+        # For this reason, we increase the probabilities to only have 1 to 3 champions visible.
+        # To force the model to learn patterns when only 1 to 3 champions are visible
+        self.probabilities[9] = 0.15
+        remaining_prob -= self.probabilities[9]
+        self.probabilities[8] = 0.15
+        remaining_prob -= self.probabilities[8]
+        self.probabilities[7] = 0.15
+        remaining_prob -= self.probabilities[7]
+
+        # Distribute remaining probability across remaining indices using linear distribution
+        remaining_indices = [i for i in range(1, 7)]
         linear_probs = np.ones(len(remaining_indices))  # Equal probabilities
-        linear_probs = linear_probs / linear_probs.sum() * 0.49
+        linear_probs = linear_probs / linear_probs.sum() * remaining_prob
 
+        # Assign the linearly distributed probabilities
         # Assign the linearly distributed probabilities
         for idx, prob in zip(remaining_indices, linear_probs):
             self.probabilities[idx] = prob
@@ -47,6 +60,7 @@ class StrategicMaskingDistribution:
         self.probabilities = self.probabilities / self.probabilities.sum()
 
     def __call__(self) -> int:
+        # TODO: should maybe return indices, to allow masking of 1 full team, instead of random 5 champions
         return np.random.choice(self.max_value + 1, p=self.probabilities)
 
     def get_distribution(self) -> np.ndarray:

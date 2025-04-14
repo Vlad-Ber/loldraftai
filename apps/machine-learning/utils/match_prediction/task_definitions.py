@@ -112,12 +112,33 @@ TASKS = {
         name="win_prediction",
         getter=get_win_prediction,
         task_type=TaskType.BINARY_CLASSIFICATION,
-        weight=1,
+        weight=0.9,
     ),
     "gameDuration": TaskDefinition(
         name="gameDuration",
         task_type=TaskType.REGRESSION,
         weight=0.05,
+    ),
+    # Add win prediction tasks based on game duration buckets
+    "win_prediction_0_25": TaskDefinition(
+        name="win_prediction_0_25",
+        task_type=TaskType.BINARY_CLASSIFICATION,
+        weight=0.1,
+    ),
+    "win_prediction_25_30": TaskDefinition(
+        name="win_prediction_25_30",
+        task_type=TaskType.BINARY_CLASSIFICATION,
+        weight=0.1,
+    ),
+    "win_prediction_30_35": TaskDefinition(
+        name="win_prediction_30_35",
+        task_type=TaskType.BINARY_CLASSIFICATION,
+        weight=0.1,
+    ),
+    "win_prediction_35_inf": TaskDefinition(
+        name="win_prediction_35_inf",
+        task_type=TaskType.BINARY_CLASSIFICATION,
+        weight=0.1,
     ),
 }
 
@@ -126,6 +147,10 @@ for stat in INDIVIDUAL_STATS:
     for position in POSITIONS:
         for team_id in TEAMS:
             for timestamp in TIMESTAMPS:
+                # Skip totalGold at 900000 as we'll handle it separately
+                if stat == "totalGold" and timestamp == "900000":
+                    continue
+
                 task_name = f"team_{team_id}_{position}_{stat}_at_{timestamp}"
                 TASKS[task_name] = TaskDefinition(
                     name=task_name,
@@ -138,6 +163,17 @@ for stat in INDIVIDUAL_STATS:
                         * len(TIMESTAMPS)
                     ),
                 )
+
+# Add total gold at 15 separately with its specific weight
+for position in POSITIONS:
+    for team_id in TEAMS:
+        task_name = f"team_{team_id}_{position}_totalGold_at_900000"
+        TASKS[task_name] = TaskDefinition(
+            name=task_name,
+            task_type=TaskType.REGRESSION,
+            weight=0.01
+            / (len(POSITIONS) * len(TEAMS)),  # Same weight as in final_tasks
+        )
 
 # For damage stats
 for damage_type in DAMAGE_STATS:
@@ -184,7 +220,28 @@ def get_final_tasks() -> Dict[str, TaskDefinition]:
             name="win_prediction",
             getter=get_win_prediction,
             task_type=TaskType.BINARY_CLASSIFICATION,
-            weight=1,
+            weight=0.9,
+        ),
+        # Add win prediction tasks based on game duration buckets
+        "win_prediction_0_25": TaskDefinition(
+            name="win_prediction_0_25",
+            task_type=TaskType.BINARY_CLASSIFICATION,
+            weight=0.1,
+        ),
+        "win_prediction_25_30": TaskDefinition(
+            name="win_prediction_25_30",
+            task_type=TaskType.BINARY_CLASSIFICATION,
+            weight=0.1,
+        ),
+        "win_prediction_30_35": TaskDefinition(
+            name="win_prediction_30_35",
+            task_type=TaskType.BINARY_CLASSIFICATION,
+            weight=0.1,
+        ),
+        "win_prediction_35_inf": TaskDefinition(
+            name="win_prediction_35_inf",
+            task_type=TaskType.BINARY_CLASSIFICATION,
+            weight=0.1,
         ),
     }
 

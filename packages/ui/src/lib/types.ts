@@ -49,13 +49,21 @@ export type SelectedSpot = {
   championIndex: ChampionIndex;
 };
 
-export const elos = ["emerald", "diamond", "master +"] as const;
+export const elos = [
+  "silver",
+  "gold",
+  "platinum",
+  "emerald",
+  "diamond",
+  "master +",
+] as const;
 export type Elo = (typeof elos)[number];
-export const eloToNumerical = (elo: Elo) => elos.indexOf(elo);
 
 export type SuggestionMode = "favorites" | "meta" | "all";
 export interface DetailedPrediction {
   win_probability: number;
   gold_diff_15min: number[];
   champion_impact: number[];
+  time_bucketed_predictions: Record<string, number>;
+  raw_time_bucketed_predictions: Record<string, number>;
 }
