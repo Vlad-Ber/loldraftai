@@ -27,14 +27,14 @@ export default function DownloadPage() {
           </span>{" "}
           game tracking.
         </p>
-        <div className="bg-yellow-200 text-yellow-950 p-3 sm:p-4 rounded-md border border-yellow-300 space-y-2">
+        <div className="bg-slate-100 dark:bg-slate-800 p-3 sm:p-4 rounded-md border border-slate-200 dark:border-slate-700 space-y-2">
           <h2 className="font-semibold text-base sm:text-lg flex items-center gap-2">
-            <AlertTriangle className="h-4 w-4 sm:h-5 sm:w-5" />
+            <AlertTriangle className="h-4 w-4 sm:h-5 sm:w-5 text-blue-500" />
             Before You Install
           </h2>
           <p className="text-xs sm:text-sm">
-            Since <span className="brand-text">LoLDraftAI</span> is currently in
-            beta, Windows SmartScreen might display a warning during
+            Since <span className="brand-text">LoLDraftAI</span> is new to the
+            Windows ecosystem, Windows SmartScreen might display a prompt during
             installation. This is normal because:
           </p>
           <ul className="text-xs sm:text-sm list-disc list-inside space-y-1">
@@ -45,6 +45,9 @@ export default function DownloadPage() {
             <li>
               The app only needs access to read your League client data -
               nothing else
+            </li>
+            <li>
+              Thousands of players are already using LoLDraftAI successfully
             </li>
           </ul>
           <p className="text-xs sm:text-sm mt-2">
