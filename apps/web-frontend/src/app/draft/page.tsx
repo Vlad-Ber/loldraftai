@@ -34,6 +34,7 @@ import {
 import { StatusMessage } from "@draftking/ui/components/draftking/StatusMessage";
 import { usePersistedState } from "@draftking/ui/hooks/usePersistedState";
 import { ChangelogModal } from "./ChangelogModal";
+import Link from "next/link";
 
 export default function Draft() {
   const [remainingChampionsBase, setRemainingChampionsBase] =
@@ -253,8 +254,18 @@ export default function Draft() {
               </div>
             </div>
           </div>
+          {/* Add pro tip here */}
+          <div className="text-center mt-4 mb-0">
+            <p className="text-sm text-blue-600 dark:text-blue-400">
+              Pro tip:{" "}
+              <Link href="/download" className="underline hover:text-blue-500">
+                Download the LoLDraftAI app
+              </Link>{" "}
+              for automatic champion live tracking
+            </p>
+          </div>
           {/* Draft Analysis */}
-          <div className="mt-4">
+          <div className="mt-0">
             <AnalysisParent
               team1={teamOne}
               team2={teamTwo}
