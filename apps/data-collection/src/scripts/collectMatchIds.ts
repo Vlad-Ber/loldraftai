@@ -53,9 +53,9 @@ async function collectMatchIds() {
         WHERE puuid IS NOT NULL
         AND region = ${region}::text::"Region"
         AND (
-          "matchesFetchedAt" IS NULL -- Older than 2 days
+          "matchesFetchedAt" IS NULL -- Older than 1 days TODO: trying this, because we cycle over all summoners every day now(it seems)
           OR "matchesFetchedAt" < ${new Date(
-            Date.now() - 2 * 24 * 60 * 60 * 1000
+            Date.now() - 1 * 24 * 60 * 60 * 1000
           )}
         )
         AND "rankUpdateTime" > ${new Date(
