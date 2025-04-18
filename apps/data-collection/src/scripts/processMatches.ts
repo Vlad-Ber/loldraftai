@@ -49,6 +49,12 @@ const limiter = new Bottleneck({
   maxConcurrent: 10,
 });
 
+// Add database rate limiter with matching settings to prevent database connection pool exhaustion
+const dbLimiter = new Bottleneck({
+  minTime: 40, // Match the API limiter
+  maxConcurrent: 10, // Match the API limiter
+});
+
 let isShuttingDown = false;
 
 // Add rate limiter monitoring
@@ -179,32 +185,42 @@ async function processMatches() {
                   "INFO",
                   `Skipping non-ranked/clash match ${match.matchId} (queueId: ${processedData.queueId})`
                 );
-                await prisma.match.update({
-                  where: { id: match.id },
-                  data: {
-                    processed: true,
-                    processingErrored: true,
-                    queueId: processedData.queueId,
-                  },
+
+                // Rate limit the database operation
+                await dbLimiter.schedule(async () => {
+                  await prisma.match.update({
+                    where: { id: match.id },
+                    data: {
+                      processed: true,
+                      processingErrored: true,
+                      queueId: processedData.queueId,
+                    },
+                  });
                 });
+
                 return;
               }
 
               const updateStart = Date.now();
-              await prisma.match.update({
-                where: { id: match.id },
-                data: {
-                  processed: true,
-                  gameDuration: processedData.gameDuration,
-                  gameStartTimestamp: new Date(
-                    processedData.gameStartTimestamp
-                  ),
-                  queueId: processedData.queueId,
-                  gameVersionMajorPatch: processedData.gameVersionMajorPatch,
-                  gameVersionMinorPatch: processedData.gameVersionMinorPatch,
-                  teams: processedData.teams,
-                },
+
+              // Rate limit the database operation
+              await dbLimiter.schedule(async () => {
+                await prisma.match.update({
+                  where: { id: match.id },
+                  data: {
+                    processed: true,
+                    gameDuration: processedData.gameDuration,
+                    gameStartTimestamp: new Date(
+                      processedData.gameStartTimestamp
+                    ),
+                    queueId: processedData.queueId,
+                    gameVersionMajorPatch: processedData.gameVersionMajorPatch,
+                    gameVersionMinorPatch: processedData.gameVersionMinorPatch,
+                    teams: processedData.teams,
+                  },
+                });
               });
+
               log(
                 "DEBUG",
                 `Database update completed in ${
@@ -220,12 +236,15 @@ async function processMatches() {
               log("ERROR", `Error processing match ${match.matchId}: ${error}`);
 
               try {
-                await prisma.match.update({
-                  where: { id: match.id },
-                  data: {
-                    processed: true,
-                    processingErrored: true,
-                  },
+                // Rate limit the database operation
+                await dbLimiter.schedule(async () => {
+                  await prisma.match.update({
+                    where: { id: match.id },
+                    data: {
+                      processed: true,
+                      processingErrored: true,
+                    },
+                  });
                 });
                 log("DEBUG", `Marked match ${match.matchId} as errored`);
               } catch (updateError) {
