@@ -36,17 +36,16 @@ if (!apiKey) {
 const riotApiClient = new RiotAPIClient(apiKey, region);
 const prisma = new PrismaClient();
 
-// Rate limiter settings based on the API rate limits
+// Rate limiter settings
 const limiter = new Bottleneck({
   minTime: 200,
-  // Limit: 2000 requests every 10 seconds, but we'll use 125 to be safe
   reservoir: 50,
   reservoirRefreshAmount: 50,
-  reservoirRefreshInterval: 10 * 1000, // 10 seconds
+  reservoirRefreshInterval: 10 * 1000,
   maxConcurrent: 10,
 });
 
-// Add database rate limiter with matching settings
+// Database rate limiter
 const dbLimiter = new Bottleneck({
   minTime: 200,
   maxConcurrent: 10,
@@ -76,6 +75,72 @@ process.on("SIGINT", () => {
   log("INFO", "Received SIGINT signal");
   isShuttingDown = true;
 });
+
+// Helper function to update match with raw SQL
+async function updateMatchWithRawSQL(
+  matchId: string,
+  data: {
+    processed: boolean;
+    processingErrored?: boolean;
+    queueId?: number;
+    gameDuration?: number;
+    gameStartTimestamp?: Date;
+    gameVersionMajorPatch?: number;
+    gameVersionMinorPatch?: number;
+    teams?: any;
+  }
+) {
+  let query = 'UPDATE "Match" SET "processed" = $1';
+  const params: any[] = [data.processed];
+  let paramIndex = 2;
+
+  if (data.processingErrored !== undefined) {
+    query += `, "processingErrored" = $${paramIndex}`;
+    params.push(data.processingErrored);
+    paramIndex++;
+  }
+
+  if (data.queueId !== undefined) {
+    query += `, "queueId" = $${paramIndex}`;
+    params.push(data.queueId);
+    paramIndex++;
+  }
+
+  if (data.gameDuration !== undefined) {
+    query += `, "gameDuration" = $${paramIndex}`;
+    params.push(data.gameDuration);
+    paramIndex++;
+  }
+
+  if (data.gameStartTimestamp !== undefined) {
+    query += `, "gameStartTimestamp" = $${paramIndex}`;
+    params.push(data.gameStartTimestamp);
+    paramIndex++;
+  }
+
+  if (data.gameVersionMajorPatch !== undefined) {
+    query += `, "gameVersionMajorPatch" = $${paramIndex}`;
+    params.push(data.gameVersionMajorPatch);
+    paramIndex++;
+  }
+
+  if (data.gameVersionMinorPatch !== undefined) {
+    query += `, "gameVersionMinorPatch" = $${paramIndex}`;
+    params.push(data.gameVersionMinorPatch);
+    paramIndex++;
+  }
+
+  if (data.teams !== undefined) {
+    query += `, "teams" = $${paramIndex}`;
+    params.push(data.teams);
+    paramIndex++;
+  }
+
+  query += `, "updatedAt" = NOW() WHERE id = $${paramIndex}`;
+  params.push(matchId);
+
+  await prisma.$executeRawUnsafe(query, ...params);
+}
 
 async function processMatches() {
   log("INFO", "processMatches function started");
@@ -185,13 +250,10 @@ async function processMatches() {
 
                 // Rate limit the database operation
                 await dbLimiter.schedule(async () => {
-                  await prisma.match.update({
-                    where: { id: match.id },
-                    data: {
-                      processed: true,
-                      processingErrored: true,
-                      queueId: processedData.queueId,
-                    },
+                  await updateMatchWithRawSQL(match.id, {
+                    processed: true,
+                    processingErrored: true,
+                    queueId: processedData.queueId,
                   });
                 });
 
@@ -202,19 +264,16 @@ async function processMatches() {
 
               // Rate limit the database operation
               await dbLimiter.schedule(async () => {
-                await prisma.match.update({
-                  where: { id: match.id },
-                  data: {
-                    processed: true,
-                    gameDuration: processedData.gameDuration,
-                    gameStartTimestamp: new Date(
-                      processedData.gameStartTimestamp
-                    ),
-                    queueId: processedData.queueId,
-                    gameVersionMajorPatch: processedData.gameVersionMajorPatch,
-                    gameVersionMinorPatch: processedData.gameVersionMinorPatch,
-                    teams: processedData.teams,
-                  },
+                await updateMatchWithRawSQL(match.id, {
+                  processed: true,
+                  gameDuration: processedData.gameDuration,
+                  gameStartTimestamp: new Date(
+                    processedData.gameStartTimestamp
+                  ),
+                  queueId: processedData.queueId,
+                  gameVersionMajorPatch: processedData.gameVersionMajorPatch,
+                  gameVersionMinorPatch: processedData.gameVersionMinorPatch,
+                  teams: processedData.teams,
                 });
               });
 
@@ -235,12 +294,9 @@ async function processMatches() {
               try {
                 // Rate limit the database operation
                 await dbLimiter.schedule(async () => {
-                  await prisma.match.update({
-                    where: { id: match.id },
-                    data: {
-                      processed: true,
-                      processingErrored: true,
-                    },
+                  await updateMatchWithRawSQL(match.id, {
+                    processed: true,
+                    processingErrored: true,
                   });
                 });
                 log("DEBUG", `Marked match ${match.matchId} as errored`);
