@@ -185,6 +185,11 @@ class MatchExtractor {
         count: matches.length,
       });
 
+      if (matches.length > 0) {
+        // Add a small delay between batches
+        await new Promise((resolve) => setTimeout(resolve, 5000));
+      }
+
       return matches.length;
     } catch (error) {
       console.error("Batch extraction failed:", error);

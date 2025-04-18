@@ -32,15 +32,13 @@ const prisma = new PrismaClient();
 
 // We do the same limiter as processMatches.ts as there is not point going faster
 // Except we get 100 matches per player, so we can go even slower
+// here it is around 2 times slower than processMatches.ts
 const limiter = new Bottleneck({
-  minTime: 500, // 20ms between requests (50 requests per second)
-  // Limit: 2000 requests every 10 seconds
-  reservoir: 250,
-  reservoirRefreshAmount: 250,
-  reservoirRefreshInterval: 10 * 1000, // 10 seconds
-
-  // Adjust maxConcurrent based on your needs and system capabilities
-  maxConcurrent: 50,
+  minTime: 400,
+  reservoir: 25,
+  reservoirRefreshAmount: 25,
+  reservoirRefreshInterval: 10 * 1000,
+  maxConcurrent: 5,
 });
 
 async function collectMatchIds() {
@@ -62,7 +60,7 @@ async function collectMatchIds() {
           Date.now() - 7 * 24 * 60 * 60 * 1000
         )} -- Updated less than 1 week ago (up to date)
         AND "matchFetchErrored" = false -- Not errored
-        LIMIT 100 -- Not too many to avoid spikes in db usage
+        LIMIT 25 -- Reduced from 100
       `) as Summoner[];
 
       if (summoners.length === 0) {

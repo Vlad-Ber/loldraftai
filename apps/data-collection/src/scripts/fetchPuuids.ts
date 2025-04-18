@@ -41,16 +41,22 @@ const limiter = new Bottleneck({
   maxConcurrent: 30,
 });
 
+// Add a database rate limiter
+const dbLimiter = new Bottleneck({
+  minTime: 200,
+  maxConcurrent: 5,
+});
+
 async function fetchPuuids() {
   try {
     while (true) {
-      // Fetch summoners without a PUUID
+      // Reduce batch size from 100 to 25
       const summoners = (await prisma.$queryRaw`
         SELECT *
         FROM "Summoner"
         WHERE puuid IS NULL
         AND region = ${region}::text::"Region"
-        LIMIT 100
+        LIMIT 25
       `) as Summoner[];
 
       if (summoners.length === 0) {
@@ -65,14 +71,16 @@ async function fetchPuuids() {
               summoner.summonerId
             );
 
-            // Update the summoner record with the fetched PUUID
-            await prisma.summoner.update({
-              where: {
-                id: summoner.id,
-              },
-              data: {
-                puuid: summonerDTO.puuid,
-              },
+            // Rate limit database operations
+            await dbLimiter.schedule(async () => {
+              await prisma.summoner.update({
+                where: {
+                  id: summoner.id,
+                },
+                data: {
+                  puuid: summonerDTO.puuid,
+                },
+              });
             });
 
             telemetry.trackEvent("PUUIDsFetched", {
@@ -87,9 +95,12 @@ async function fetchPuuids() {
           }
         });
       }
+
+      // Add a small delay between batches
+      await sleep(2000);
     }
   } catch (error) {
-    console.error("Error in convertSummonerIdsToPuuids:", error);
+    console.error("Error in fetchPuuids:", error);
   } finally {
     await prisma.$disconnect();
   }

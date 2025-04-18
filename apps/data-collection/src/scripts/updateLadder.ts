@@ -60,6 +60,12 @@ const limiter = new Bottleneck({
   maxConcurrent: 15,
 });
 
+// Add a database rate limiter
+const dbLimiter = new Bottleneck({
+  minTime: 200,
+  maxConcurrent: 5,
+});
+
 let lastUpdate: Date | null = null;
 
 async function updateLadder() {
@@ -115,7 +121,7 @@ async function updateLadder() {
 }
 
 async function batchUpsertSummoners(entries: LeagueEntryDTO[]) {
-  const batchSize = 100;
+  const batchSize = 25; // Reduced from 100
 
   for (let i = 0; i < entries.length; i += batchSize) {
     const batch = entries.slice(i, i + batchSize);
@@ -143,10 +149,12 @@ async function batchUpsertSummoners(entries: LeagueEntryDTO[]) {
       },
     }));
 
-    // Perform batch upsert for the current batch
-    await prisma.$transaction(
-      batchData.map((data) => prisma.summoner.upsert(data))
-    );
+    // Rate limit database operations
+    await dbLimiter.schedule(async () => {
+      await prisma.$transaction(
+        batchData.map((data) => prisma.summoner.upsert(data))
+      );
+    });
   }
 }
 
