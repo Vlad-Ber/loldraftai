@@ -43,13 +43,13 @@ const limiter = new Bottleneck({
   reservoir: 125,
   reservoirRefreshAmount: 125,
   reservoirRefreshInterval: 10 * 1000, // 10 seconds
-  maxConcurrent: 5,
+  maxConcurrent: 3,
 });
 
 // Add database rate limiter with matching settings
 const dbLimiter = new Bottleneck({
   minTime: 80,
-  maxConcurrent: 5,
+  maxConcurrent: 3,
 });
 
 let isShuttingDown = false;
