@@ -52,7 +52,7 @@ const limiter = new Bottleneck({
 // Add database rate limiter with matching settings to prevent database connection pool exhaustion
 const dbLimiter = new Bottleneck({
   minTime: 40, // Match the API limiter
-  maxConcurrent: 10, // Match the API limiter
+  maxConcurrent: 3, // Match the API limiter
 });
 
 let isShuttingDown = false;
