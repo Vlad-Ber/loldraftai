@@ -8,6 +8,7 @@ import { Match, PrismaClient, Prisma } from "@draftking/riot-database";
 import { config } from "dotenv";
 import { processMatchData } from "../utils/matchProcessing";
 import { telemetry } from "../utils/telemetry";
+import { DatabaseBackoff } from "../utils/databaseErrorHandling";
 
 config();
 
@@ -76,39 +77,9 @@ process.on("SIGINT", () => {
   isShuttingDown = true;
 });
 
-// Add at the top with other constants
-const INITIAL_BACKOFF_MS = 1000; // Start with 1 second
-const MAX_BACKOFF_MS = 60000; // Max 1 minute
-let currentBackoffMs = INITIAL_BACKOFF_MS;
-let consecutiveDbErrors = 0;
+const dbBackoff = new DatabaseBackoff();
 
-// Helper function for exponential backoff
-async function handleDatabaseError(error: any) {
-  if (error?.message?.includes("Can't reach database server")) {
-    consecutiveDbErrors++;
-    currentBackoffMs = Math.min(currentBackoffMs * 2, MAX_BACKOFF_MS);
-    log(
-      "ERROR",
-      `Database connection error. Backing off for ${
-        currentBackoffMs / 1000
-      } seconds. Consecutive errors: ${consecutiveDbErrors}`
-    );
-    await sleep(currentBackoffMs);
-    return true;
-  }
-  return false;
-}
-
-// Helper function to reset backoff when successful
-function resetBackoff() {
-  if (consecutiveDbErrors > 0) {
-    log("INFO", "Database connection restored. Resetting backoff.");
-    consecutiveDbErrors = 0;
-    currentBackoffMs = INITIAL_BACKOFF_MS;
-  }
-}
-
-// Helper function to update match with raw SQL
+// Modify updateMatchWithRawSQL to use DatabaseBackoff
 async function updateMatchWithRawSQL(
   matchId: string,
   data: {
@@ -122,69 +93,58 @@ async function updateMatchWithRawSQL(
     teams?: any;
   }
 ) {
-  while (true) {
-    // Keep trying until successful
-    try {
-      let query = 'UPDATE "Match" SET "processed" = $1';
-      const params: any[] = [data.processed];
-      let paramIndex = 2;
+  return dbBackoff.withRetry(async () => {
+    let query = 'UPDATE "Match" SET "processed" = $1';
+    const params: any[] = [data.processed];
+    let paramIndex = 2;
 
-      if (data.processingErrored !== undefined) {
-        query += `, "processingErrored" = $${paramIndex}`;
-        params.push(data.processingErrored);
-        paramIndex++;
-      }
-
-      if (data.queueId !== undefined) {
-        query += `, "queueId" = $${paramIndex}`;
-        params.push(data.queueId);
-        paramIndex++;
-      }
-
-      if (data.gameDuration !== undefined) {
-        query += `, "gameDuration" = $${paramIndex}`;
-        params.push(data.gameDuration);
-        paramIndex++;
-      }
-
-      if (data.gameStartTimestamp !== undefined) {
-        query += `, "gameStartTimestamp" = $${paramIndex}`;
-        params.push(data.gameStartTimestamp);
-        paramIndex++;
-      }
-
-      if (data.gameVersionMajorPatch !== undefined) {
-        query += `, "gameVersionMajorPatch" = $${paramIndex}`;
-        params.push(data.gameVersionMajorPatch);
-        paramIndex++;
-      }
-
-      if (data.gameVersionMinorPatch !== undefined) {
-        query += `, "gameVersionMinorPatch" = $${paramIndex}`;
-        params.push(data.gameVersionMinorPatch);
-        paramIndex++;
-      }
-
-      if (data.teams !== undefined) {
-        query += `, "teams" = $${paramIndex}`;
-        params.push(data.teams);
-        paramIndex++;
-      }
-
-      query += `, "updatedAt" = NOW() WHERE id = $${paramIndex}`;
-      params.push(matchId);
-
-      await prisma.$executeRawUnsafe(query, ...params);
-      resetBackoff(); // Reset backoff on success
-      return;
-    } catch (error) {
-      const isDbError = await handleDatabaseError(error);
-      if (!isDbError) {
-        throw error; // If it's not a DB connection error, rethrow
-      }
-      // For DB errors, the while loop will continue after the backoff
+    if (data.processingErrored !== undefined) {
+      query += `, "processingErrored" = $${paramIndex}`;
+      params.push(data.processingErrored);
+      paramIndex++;
     }
-  }
+
+    if (data.queueId !== undefined) {
+      query += `, "queueId" = $${paramIndex}`;
+      params.push(data.queueId);
+      paramIndex++;
+    }
+
+    if (data.gameDuration !== undefined) {
+      query += `, "gameDuration" = $${paramIndex}`;
+      params.push(data.gameDuration);
+      paramIndex++;
+    }
+
+    if (data.gameStartTimestamp !== undefined) {
+      query += `, "gameStartTimestamp" = $${paramIndex}`;
+      params.push(data.gameStartTimestamp);
+      paramIndex++;
+    }
+
+    if (data.gameVersionMajorPatch !== undefined) {
+      query += `, "gameVersionMajorPatch" = $${paramIndex}`;
+      params.push(data.gameVersionMajorPatch);
+      paramIndex++;
+    }
+
+    if (data.gameVersionMinorPatch !== undefined) {
+      query += `, "gameVersionMinorPatch" = $${paramIndex}`;
+      params.push(data.gameVersionMinorPatch);
+      paramIndex++;
+    }
+
+    if (data.teams !== undefined) {
+      query += `, "teams" = $${paramIndex}`;
+      params.push(data.teams);
+      paramIndex++;
+    }
+
+    query += `, "updatedAt" = NOW() WHERE id = $${paramIndex}`;
+    params.push(matchId);
+
+    await prisma.$executeRawUnsafe(query, ...params);
+  }, log); // Pass the log function to use our custom logger
 }
 
 async function processMatches() {
@@ -201,31 +161,22 @@ async function processMatches() {
       );
 
       try {
-        // Log the start of match fetching
         log("DEBUG", "Fetching next batch of matches");
 
-        // Fetch matches with backoff retry
-        let matches: Match[] = [];
-        while (true) {
-          try {
-            matches = await (nextMatchesPromise ??
-              (prisma.$queryRaw`
-                SELECT *
-                FROM "Match"
-                WHERE processed = false 
-                AND "processingErrored" = false
-                AND region = ${region}::text::"Region"
-                LIMIT 500
-              ` as Promise<Match[]>));
-            resetBackoff(); // Reset backoff on successful query
-            break;
-          } catch (error) {
-            const isDbError = await handleDatabaseError(error);
-            if (!isDbError) {
-              throw error;
-            }
-          }
-        }
+        // Fetch matches with retry
+        const matches = await dbBackoff.withRetry(async () => {
+          return (
+            nextMatchesPromise ??
+            (prisma.$queryRaw`
+              SELECT *
+              FROM "Match"
+              WHERE processed = false 
+              AND "processingErrored" = false
+              AND region = ${region}::text::"Region"
+              LIMIT 500
+            ` as Promise<Match[]>)
+          );
+        }, log);
 
         log("INFO", `Found ${matches.length} matches to process`);
 
@@ -236,34 +187,33 @@ async function processMatches() {
           `Pre-fetching next batch, excluding ${currentlyProcessingIds.length} currently processing IDs`
         );
 
-        if (currentlyProcessingIds.length === 0) {
-          // If no IDs to exclude, just run the basic query
-          nextMatchesPromise = prisma.$queryRaw`
-            SELECT *
-            FROM "Match"
-            WHERE processed = false 
-            AND "processingErrored" = false
-            AND region = ${region}::text::"Region"
-            LIMIT 500
-          ` as Promise<Match[]>;
-        } else {
-          // When we have IDs to exclude, we need to properly format them for SQL
-          // Convert the array to SQL-safe string values with quotes around each ID
-          const idList = currentlyProcessingIds
-            .map((id) => `'${id}'`)
-            .join(",");
+        // Wrap the next batch query in withRetry as well
+        nextMatchesPromise = dbBackoff.withRetry(async () => {
+          if (currentlyProcessingIds.length === 0) {
+            return prisma.$queryRaw`
+              SELECT *
+              FROM "Match"
+              WHERE processed = false 
+              AND "processingErrored" = false
+              AND region = ${region}::text::"Region"
+              LIMIT 500
+            ` as Promise<Match[]>;
+          } else {
+            const idList = currentlyProcessingIds
+              .map((id) => `'${id}'`)
+              .join(",");
 
-          // Use the formatted string in the query
-          nextMatchesPromise = prisma.$queryRaw`
-            SELECT *
-            FROM "Match"
-            WHERE processed = false 
-            AND "processingErrored" = false
-            AND region = ${region}::text::"Region"
-            AND id NOT IN (${Prisma.raw(idList)})
-            LIMIT 500
-          ` as Promise<Match[]>;
-        }
+            return prisma.$queryRaw`
+              SELECT *
+              FROM "Match"
+              WHERE processed = false 
+              AND "processingErrored" = false
+              AND region = ${region}::text::"Region"
+              AND id NOT IN (${Prisma.raw(idList)})
+              LIMIT 500
+            ` as Promise<Match[]>;
+          }
+        }, log);
 
         if (matches.length === 0) {
           log("INFO", "No matches found, sleeping for 60 seconds");
@@ -306,7 +256,6 @@ async function processMatches() {
                   `Skipping non-ranked/clash match ${match.matchId} (queueId: ${processedData.queueId})`
                 );
 
-                // Rate limit the database operation
                 await dbLimiter.schedule(async () => {
                   await updateMatchWithRawSQL(match.id, {
                     processed: true,
@@ -320,7 +269,6 @@ async function processMatches() {
 
               const updateStart = Date.now();
 
-              // Rate limit the database operation
               await dbLimiter.schedule(async () => {
                 await updateMatchWithRawSQL(match.id, {
                   processed: true,
@@ -350,7 +298,6 @@ async function processMatches() {
               log("ERROR", `Error processing match ${match.matchId}: ${error}`);
 
               try {
-                // Marking as errored also uses updateMatchWithRawSQL which has retry logic
                 await dbLimiter.schedule(async () => {
                   await updateMatchWithRawSQL(match.id, {
                     processed: true,
@@ -374,9 +321,7 @@ async function processMatches() {
         );
       } catch (batchError) {
         log("ERROR", `Error processing batch: ${batchError}`);
-        // Check if it's a database error
-        await handleDatabaseError(batchError);
-        // Sleep briefly before retrying to prevent rapid failure loops
+        await dbBackoff.handleDatabaseError(batchError, log);
         await sleep(5000);
       }
     }

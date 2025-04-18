@@ -6,6 +6,10 @@ import { spawn } from "child_process";
 import path from "path";
 import { config } from "dotenv";
 import { telemetry } from "../utils/telemetry";
+import {
+  DatabaseBackoff,
+  LoggerFunction,
+} from "../utils/databaseErrorHandling";
 
 config();
 
@@ -64,6 +68,7 @@ class LocalFileSaver implements FileSaver {
 class MatchExtractor {
   private prisma: PrismaClient;
   private remoteFileSaver: FileSaver;
+  private dbBackoff = new DatabaseBackoff();
 
   constructor(private config: ExtractorConfig) {
     this.prisma = new PrismaClient();
@@ -85,15 +90,17 @@ class MatchExtractor {
 
   async extractBatch() {
     try {
-      // Get batch of unprocessed matches
-      const matches = (await this.prisma.$queryRaw`
-        SELECT *
-        FROM "Match"
-        WHERE exported = false
-        AND processed = true
-        AND "processingErrored" = false
-        LIMIT ${this.config.batchSize}
-      `) as Match[];
+      // Get batch of unprocessed matches with retry
+      const matches = await this.dbBackoff.withRetry(async () => {
+        return this.prisma.$queryRaw`
+          SELECT *
+          FROM "Match"
+          WHERE exported = false
+          AND processed = true
+          AND "processingErrored" = false
+          LIMIT ${this.config.batchSize}
+        ` as Promise<Match[]>;
+      });
 
       // Process full batches only
       if (matches.length < this.config.batchSize) {
@@ -165,16 +172,18 @@ class MatchExtractor {
       const processedData = fs.readFileSync(processedLocalFilePath);
       await this.remoteFileSaver.saveFile(processedFileName, processedData);
 
-      // Mark as exported
-      await this.prisma.match.updateMany({
-        where: {
-          id: {
-            in: matches.map((m) => m.id),
+      // Mark as exported with retry
+      await this.dbBackoff.withRetry(async () => {
+        await this.prisma.match.updateMany({
+          where: {
+            id: {
+              in: matches.map((m) => m.id),
+            },
           },
-        },
-        data: {
-          exported: true,
-        },
+          data: {
+            exported: true,
+          },
+        });
       });
 
       // Clean up
@@ -224,3 +233,8 @@ const extractor = new MatchExtractor({
 });
 
 extractor.run().catch(console.error);
+
+// Add a simple logger function
+const log: LoggerFunction = (level, message) => {
+  console.log(`[${new Date().toISOString()}] [${level}] ${message}`);
+};

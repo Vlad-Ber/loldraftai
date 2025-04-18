@@ -8,6 +8,10 @@ import { RiotAPIClient } from "@draftking/riot-api";
 import { PrismaClient, Summoner } from "@draftking/riot-database";
 import { config } from "dotenv";
 import { telemetry } from "../utils/telemetry";
+import {
+  DatabaseBackoff,
+  LoggerFunction,
+} from "../utils/databaseErrorHandling";
 
 config();
 
@@ -41,27 +45,35 @@ const limiter = new Bottleneck({
   maxConcurrent: 5,
 });
 
+const dbBackoff = new DatabaseBackoff();
+
+// Add a simple logger function
+const log: LoggerFunction = (level, message) => {
+  console.log(`[${new Date().toISOString()}] [${level}] ${message}`);
+};
+
 async function collectMatchIds() {
   try {
     while (true) {
-      // Fetch summoners with a PUUID and outdated matchesFetchedAt
-      const summoners = (await prisma.$queryRaw`
-        SELECT *
-        FROM "Summoner"
-        WHERE puuid IS NOT NULL
-        AND region = ${region}::text::"Region"
-        AND (
-          "matchesFetchedAt" IS NULL -- Older than 1 days TODO: trying this, because we cycle over all summoners every day now(it seems)
-          OR "matchesFetchedAt" < ${new Date(
-            Date.now() - 1 * 24 * 60 * 60 * 1000
+      // Fetch summoners with retry
+      const summoners = await dbBackoff.withRetry(async () => {
+        return prisma.$queryRaw`
+          SELECT * FROM "Summoner"
+          WHERE puuid IS NOT NULL
+          AND region = ${region}::text::"Region"
+          AND (
+            "matchesFetchedAt" IS NULL
+            OR "matchesFetchedAt" < ${new Date(
+              Date.now() - 1 * 24 * 60 * 60 * 1000
+            )}
+          )
+          AND "rankUpdateTime" > ${new Date(
+            Date.now() - 7 * 24 * 60 * 60 * 1000
           )}
-        )
-        AND "rankUpdateTime" > ${new Date(
-          Date.now() - 7 * 24 * 60 * 60 * 1000
-        )} -- Updated less than 1 week ago (up to date)
-        AND "matchFetchErrored" = false -- Not errored
-        LIMIT 25 -- Reduced from 100
-      `) as Summoner[];
+          AND "matchFetchErrored" = false
+          LIMIT 25
+        ` as Promise<Summoner[]>;
+      });
 
       if (summoners.length === 0) {
         await sleep(60 * 1000);
@@ -92,41 +104,38 @@ async function collectMatchIds() {
               averageDivision: summoner.rank,
             }));
 
-            // Perform batch create, skipping duplicates
-            const { count } = await prisma.match.createMany({
-              data: matchCreates,
-              skipDuplicates: true,
-            });
+            // Wrap database operations in retry logic
+            await dbBackoff.withRetry(async () => {
+              const { count } = await prisma.match.createMany({
+                data: matchCreates,
+                skipDuplicates: true,
+              });
 
-            telemetry.trackEvent("MatchesCollected", {
-              count: matchIds.length,
-              region,
-            });
-            telemetry.trackEvent("NewMatchesCreated", {
-              count,
-              region,
-            });
+              telemetry.trackEvent("MatchesCollected", {
+                count: matchIds.length,
+                region,
+              });
+              telemetry.trackEvent("NewMatchesCreated", {
+                count,
+                region,
+              });
 
-            // Update the summoner's matchesFetchedAt timestamp
-            await prisma.summoner.update({
-              where: {
-                id: summoner.id,
-              },
-              data: {
-                matchesFetchedAt: new Date(),
-              },
+              await prisma.summoner.update({
+                where: { id: summoner.id },
+                data: { matchesFetchedAt: new Date() },
+              });
             });
           } catch (error: any) {
             if (axios.isAxiosError(error) && error.response?.status === 400) {
-              // Mark summoner as having match fetch errors
-              await prisma.summoner.update({
-                where: { id: summoner.id },
-                data: {
-                  matchFetchErrored: true,
-                  matchesFetchedAt: new Date(),
-                },
+              await dbBackoff.withRetry(async () => {
+                await prisma.summoner.update({
+                  where: { id: summoner.id },
+                  data: {
+                    matchFetchErrored: true,
+                    matchesFetchedAt: new Date(),
+                  },
+                });
               });
-              // TODO: could track error as event
             } else {
               // Log other errors but don't mark as errored (could be temporary API issues)
               console.error(

@@ -6,6 +6,10 @@ import { RiotAPIClient, RegionSchema } from "@draftking/riot-api";
 import { PrismaClient, Summoner } from "@draftking/riot-database";
 import { config } from "dotenv";
 import { telemetry } from "../utils/telemetry";
+import {
+  DatabaseBackoff,
+  LoggerFunction,
+} from "../utils/databaseErrorHandling";
 
 config();
 
@@ -27,6 +31,8 @@ if (!apiKey) {
 const riotApiClient = new RiotAPIClient(apiKey, region);
 const prisma = new PrismaClient();
 
+const dbBackoff = new DatabaseBackoff();
+
 // Rate limiter settings based on the API rate limits
 const limiter = new Bottleneck({
   // Short-term limit: 30 requests every 10 seconds
@@ -47,17 +53,24 @@ const dbLimiter = new Bottleneck({
   maxConcurrent: 5,
 });
 
+// Add a simple logger function
+const log: LoggerFunction = (level, message) => {
+  console.log(`[${new Date().toISOString()}] [${level}] ${message}`);
+};
+
 async function fetchPuuids() {
   try {
     while (true) {
-      // Reduce batch size from 100 to 25
-      const summoners = (await prisma.$queryRaw`
-        SELECT *
-        FROM "Summoner"
-        WHERE puuid IS NULL
-        AND region = ${region}::text::"Region"
-        LIMIT 25
-      `) as Summoner[];
+      // Fetch summoners with retry
+      const summoners = await dbBackoff.withRetry(async () => {
+        return prisma.$queryRaw`
+          SELECT *
+          FROM "Summoner"
+          WHERE puuid IS NULL
+          AND region = ${region}::text::"Region"
+          LIMIT 25
+        ` as Promise<Summoner[]>;
+      });
 
       if (summoners.length === 0) {
         await sleep(60 * 1000);
@@ -71,15 +84,12 @@ async function fetchPuuids() {
               summoner.summonerId
             );
 
-            // Rate limit database operations
             await dbLimiter.schedule(async () => {
-              await prisma.summoner.update({
-                where: {
-                  id: summoner.id,
-                },
-                data: {
-                  puuid: summonerDTO.puuid,
-                },
+              await dbBackoff.withRetry(async () => {
+                await prisma.summoner.update({
+                  where: { id: summoner.id },
+                  data: { puuid: summonerDTO.puuid },
+                });
               });
             });
 
@@ -96,7 +106,6 @@ async function fetchPuuids() {
         });
       }
 
-      // Add a small delay between batches
       await sleep(2000);
     }
   } catch (error) {

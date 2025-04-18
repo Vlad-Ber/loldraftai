@@ -12,6 +12,10 @@ import { RiotAPIClient } from "@draftking/riot-api";
 import { PrismaClient } from "@draftking/riot-database";
 import { telemetry } from "../utils/telemetry";
 import { config } from "dotenv";
+import {
+  DatabaseBackoff,
+  LoggerFunction,
+} from "../utils/databaseErrorHandling";
 
 config();
 
@@ -66,7 +70,14 @@ const dbLimiter = new Bottleneck({
   maxConcurrent: 5,
 });
 
+const dbBackoff = new DatabaseBackoff();
+
 let lastUpdate: Date | null = null;
+
+// Add a simple logger function
+const log: LoggerFunction = (level, message) => {
+  console.log(`[${new Date().toISOString()}] [${level}] ${message}`);
+};
 
 async function updateLadder() {
   try {
@@ -121,11 +132,10 @@ async function updateLadder() {
 }
 
 async function batchUpsertSummoners(entries: LeagueEntryDTO[]) {
-  const batchSize = 25; // Reduced from 100
+  const batchSize = 25;
 
   for (let i = 0; i < entries.length; i += batchSize) {
     const batch = entries.slice(i, i + batchSize);
-
     const batchData = batch.map((entry) => ({
       where: {
         summonerId_region: {
@@ -149,11 +159,12 @@ async function batchUpsertSummoners(entries: LeagueEntryDTO[]) {
       },
     }));
 
-    // Rate limit database operations
     await dbLimiter.schedule(async () => {
-      await prisma.$transaction(
-        batchData.map((data) => prisma.summoner.upsert(data))
-      );
+      await dbBackoff.withRetry(async () => {
+        await prisma.$transaction(
+          batchData.map((data) => prisma.summoner.upsert(data))
+        );
+      });
     });
   }
 }
