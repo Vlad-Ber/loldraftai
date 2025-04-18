@@ -13,8 +13,7 @@ config();
 
 // Enhance logging to always show timestamp and add log levels
 const log = (level: "INFO" | "ERROR" | "DEBUG", message: string) => {
-  // logs disabled
-  // console.log(`[${new Date().toISOString()}] [${level}] ${message}`);
+  console.log(`[${new Date().toISOString()}] [${level}] ${message}`);
 };
 
 const argv = await yargs(hideBin(process.argv))
@@ -51,6 +50,18 @@ const limiter = new Bottleneck({
 });
 
 let isShuttingDown = false;
+
+// Add rate limiter monitoring
+limiter.on("depleted", () => {
+  log(
+    "INFO",
+    `Rate limit depleted - Current reservoir: ${limiter.currentReservoir}`
+  );
+});
+
+limiter.on("failed", (error) => {
+  log("ERROR", `Rate limiter failed: ${error}`);
+});
 
 // Add signal handlers
 process.on("SIGTERM", () => {
