@@ -16,11 +16,11 @@ module.exports = {
       ["collectMatchIds", "fetchPuuids", "processMatches", "updateLadder"].map(
         (script) => ({
           name: `${script}-${region}`,
-          // Delay each region's ladder updates by 1 hour to stagger the load on the database
+          // Delay each region's ladder updates by 30 minutes to stagger the load on the database
           script:
             script === "updateLadder"
               ? `sleep ${
-                  regionIndex * 3600
+                  regionIndex * 1800
                 } && yarn tsx ./src/scripts/${script}.ts --region ${region}`
               : `yarn tsx ./src/scripts/${script}.ts --region ${region}`,
           autorestart: true,
