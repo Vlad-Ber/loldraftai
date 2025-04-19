@@ -65,12 +65,21 @@ class LocalFileSaver implements FileSaver {
   }
 }
 
+// Add a more comprehensive logger at the top of the file
+const log = (level: "INFO" | "ERROR" | "DEBUG", message: string) => {
+  console.log(`[${new Date().toISOString()}] [${level}] ${message}`);
+};
+
 class MatchExtractor {
   private prisma: PrismaClient;
   private remoteFileSaver: FileSaver;
   private dbBackoff = new DatabaseBackoff();
 
   constructor(private config: ExtractorConfig) {
+    log(
+      "INFO",
+      `Initializing MatchExtractor with batch size: ${config.batchSize}`
+    );
     this.prisma = new PrismaClient();
     const blobServiceClient = BlobServiceClient.fromConnectionString(
       AZURE_CONNECTION_STRING
@@ -82,15 +91,32 @@ class MatchExtractor {
       process.env.NODE_ENV === "development"
         ? new LocalFileSaver()
         : new AzureFileSaver(containerClient);
+
+    log(
+      "INFO",
+      `Using ${
+        process.env.NODE_ENV === "development"
+          ? "LocalFileSaver"
+          : "AzureFileSaver"
+      }`
+    );
   }
 
   async initialize() {
+    log("DEBUG", `Creating temp directory: ${this.config.tempDir}`);
     fs.mkdirSync(this.config.tempDir, { recursive: true });
+    log("INFO", "Initialization complete");
   }
 
   async extractBatch() {
     try {
+      log("DEBUG", "Starting new batch extraction");
+
       // Get batch of unprocessed matches with retry
+      log(
+        "DEBUG",
+        `Querying for up to ${this.config.batchSize} unprocessed matches`
+      );
       const matches = await this.dbBackoff.withRetry(async () => {
         return this.prisma.$queryRaw`
           SELECT *
@@ -102,8 +128,14 @@ class MatchExtractor {
         ` as Promise<Match[]>;
       });
 
+      log("INFO", `Found ${matches.length} matches to process`);
+
       // Process full batches only
       if (matches.length < this.config.batchSize) {
+        log(
+          "INFO",
+          `Incomplete batch (${matches.length} < ${this.config.batchSize}), skipping`
+        );
         return 0;
       }
 
@@ -112,17 +144,15 @@ class MatchExtractor {
       const month = (now.getMonth() + 1).toString().padStart(2, "0");
       const batchId = now.toISOString().replace(/[:.]/g, "-");
 
-      // Use hierarchical paths
       const remoteRawFileName = `${RAW_DATA_PREFIX}/${year}/${month}/${batchId}.json`;
       const processedFileName = `${PROCESSED_DATA_PREFIX}/${year}/${month}/${batchId}.parquet`;
 
-      // Save raw JSON to remote storage
+      log("DEBUG", `Saving raw data to: ${remoteRawFileName}`);
       await this.remoteFileSaver.saveFile(
         remoteRawFileName,
         JSON.stringify(matches)
       );
 
-      // Save raw JSON to local storage(to be processed by python)
       const rawLocalFilePath = path.join(
         this.config.tempDir,
         `raw_${batchId}.json`
@@ -131,10 +161,12 @@ class MatchExtractor {
         this.config.tempDir,
         `processed_${batchId}.parquet`
       );
-      fs.mkdirSync(path.dirname(rawLocalFilePath), { recursive: true }); // in case the /tmp directory was deleted automatically
+
+      log("DEBUG", `Writing temporary raw file to: ${rawLocalFilePath}`);
+      fs.mkdirSync(path.dirname(rawLocalFilePath), { recursive: true });
       fs.writeFileSync(rawLocalFilePath, JSON.stringify(matches));
 
-      // Create parquet file
+      log("DEBUG", "Spawning Python process for Parquet conversion");
       const pythonProcess = spawn("python", [
         path.join(currentFileDir, "createParquet.py"),
         "--batch-file",
@@ -148,14 +180,17 @@ class MatchExtractor {
 
       pythonProcess.stdout.on("data", (data) => {
         pythonOutput += data.toString();
+        log("DEBUG", `Python stdout: ${data.toString().trim()}`);
       });
 
       pythonProcess.stderr.on("data", (data) => {
         pythonError += data.toString();
+        log("ERROR", `Python stderr: ${data.toString().trim()}`);
       });
 
       await new Promise((resolve, reject) => {
         pythonProcess.on("exit", (code) => {
+          log("DEBUG", `Python process exited with code ${code}`);
           if (code === 0) {
             resolve(null);
           } else {
@@ -168,11 +203,13 @@ class MatchExtractor {
         });
       });
 
-      // Save processed parquet
+      log("DEBUG", `Reading processed Parquet file: ${processedLocalFilePath}`);
       const processedData = fs.readFileSync(processedLocalFilePath);
+
+      log("DEBUG", `Saving processed data to: ${processedFileName}`);
       await this.remoteFileSaver.saveFile(processedFileName, processedData);
 
-      // Mark as exported with retry
+      log("DEBUG", "Updating match records in database");
       await this.dbBackoff.withRetry(async () => {
         await this.prisma.match.updateMany({
           where: {
@@ -186,41 +223,42 @@ class MatchExtractor {
         });
       });
 
-      // Clean up
+      log("DEBUG", "Cleaning up temporary files");
       fs.rmSync(this.config.tempDir, { recursive: true, force: true });
 
-      // Track the number of matches extracted
+      log("INFO", `Successfully processed ${matches.length} matches`);
       telemetry.trackEvent("MatchesExtracted", {
         count: matches.length,
       });
 
       if (matches.length > 0) {
-        // Add a small delay between batches
+        log("DEBUG", "Adding delay between batches (5s)");
         await new Promise((resolve) => setTimeout(resolve, 5000));
       }
 
       return matches.length;
     } catch (error) {
-      console.error("Batch extraction failed:", error);
+      log("ERROR", `Batch extraction failed: ${error}`);
       throw error;
     }
   }
 
   async run() {
     try {
+      log("INFO", "Starting extractor run");
       await this.initialize();
 
       while (true) {
         const processedCount = await this.extractBatch();
 
         if (processedCount === 0) {
-          // Sleep for 1 hour
+          log("INFO", "No matches to process, sleeping for 1 hour");
           await new Promise((resolve) => setTimeout(resolve, 1000 * 60 * 60));
         }
       }
     } catch (error) {
+      log("ERROR", `Extractor crashed: ${error}`);
       await telemetry.flush();
-      console.error("Extractor crashed:", error);
       throw error;
     }
   }
@@ -233,8 +271,3 @@ const extractor = new MatchExtractor({
 });
 
 extractor.run().catch(console.error);
-
-// Add a simple logger function
-const log: LoggerFunction = (level, message) => {
-  console.log(`[${new Date().toISOString()}] [${level}] ${message}`);
-};
