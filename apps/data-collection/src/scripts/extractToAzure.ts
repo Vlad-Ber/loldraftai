@@ -121,9 +121,10 @@ class MatchExtractor {
         return this.prisma.$queryRaw`
           SELECT *
           FROM "Match"
-          WHERE exported = false
-          AND processed = true
+          WHERE processed = true
+          AND exported = false
           AND "processingErrored" = false
+          ORDER BY processed, exported, "processingErrored"
           LIMIT ${this.config.batchSize}
         ` as Promise<Match[]>;
       });
