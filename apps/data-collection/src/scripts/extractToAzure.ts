@@ -119,10 +119,6 @@ class MatchExtractor {
       );
       const matches = await this.dbBackoff.withRetry(async () => {
         return this.prisma.$queryRaw`
-          /*
-           * Force index usage (Match_processed_exported_processingErrored_idx)
-           */
-          SET enable_seqscan = off;
           SELECT *
           FROM "Match"
           WHERE exported = false
