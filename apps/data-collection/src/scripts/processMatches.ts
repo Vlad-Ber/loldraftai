@@ -39,17 +39,17 @@ const prisma = new PrismaClient();
 
 // Rate limiter settings
 const limiter = new Bottleneck({
-  minTime: 200,
-  reservoir: 50,
-  reservoirRefreshAmount: 50,
+  minTime: 100,
+  reservoir: 100,
+  reservoirRefreshAmount: 100,
   reservoirRefreshInterval: 10 * 1000,
-  maxConcurrent: 10,
+  maxConcurrent: 20,
 });
 
 // Database rate limiter
 const dbLimiter = new Bottleneck({
-  minTime: 200,
-  maxConcurrent: 10,
+  minTime: 100,
+  maxConcurrent: 20,
 });
 
 let isShuttingDown = false;
