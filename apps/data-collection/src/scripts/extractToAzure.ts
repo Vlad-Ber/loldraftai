@@ -232,8 +232,8 @@ class MatchExtractor {
       });
 
       if (matches.length > 0) {
-        log("DEBUG", "Adding delay between batches (5s)");
-        await new Promise((resolve) => setTimeout(resolve, 5000));
+        log("DEBUG", "Adding delay between batches (100ms)");
+        await new Promise((resolve) => setTimeout(resolve, 100));
       }
 
       return matches.length;
