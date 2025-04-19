@@ -248,14 +248,45 @@ class MatchExtractor {
       log("INFO", "Starting extractor run");
       await this.initialize();
 
-      while (true) {
+      // Get the maximum runtime in minutes for more precise control
+      const maxRuntimeMinutes = parseInt(
+        process.env.MAX_RUNTIME_MINUTES || "355"
+      );
+      const startTime = Date.now();
+      const endTime = startTime + maxRuntimeMinutes * 60 * 1000;
+
+      log(
+        "INFO",
+        `Will run for ${maxRuntimeMinutes} minutes (${(
+          maxRuntimeMinutes / 60
+        ).toFixed(2)} hours) until ${new Date(endTime).toISOString()}`
+      );
+
+      while (Date.now() < endTime) {
         const processedCount = await this.extractBatch();
 
         if (processedCount === 0) {
-          log("INFO", "No matches to process, sleeping for 1 hour");
-          await new Promise((resolve) => setTimeout(resolve, 1000 * 60 * 60));
+          // Calculate time left
+          const timeLeftMs = endTime - Date.now();
+          // If less than 15 minutes left, sleep for a shorter time
+          const sleepTimeMs = Math.min(15 * 60 * 1000, timeLeftMs);
+
+          if (sleepTimeMs > 0) {
+            log(
+              "INFO",
+              `No matches to process, sleeping for ${Math.round(
+                sleepTimeMs / 1000 / 60
+              )} minutes`
+            );
+            await new Promise((resolve) => setTimeout(resolve, sleepTimeMs));
+          }
         }
       }
+
+      log(
+        "INFO",
+        `Reached maximum runtime of ${maxRuntimeMinutes} minutes, exiting`
+      );
     } catch (error) {
       log("ERROR", `Extractor crashed: ${error}`);
       await telemetry.flush();

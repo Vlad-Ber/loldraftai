@@ -150,10 +150,33 @@ async function updateMatchWithRawSQL(
 async function processMatches() {
   log("INFO", "processMatches function started");
   try {
+    // Get the maximum runtime in minutes
+    const maxRuntimeMinutes = parseInt(
+      process.env.MAX_RUNTIME_MINUTES || "1075"
+    );
+    const startTime = Date.now();
+    const endTime = startTime + maxRuntimeMinutes * 60 * 1000;
+
+    log(
+      "INFO",
+      `Will run for ${maxRuntimeMinutes} minutes (${(
+        maxRuntimeMinutes / 60
+      ).toFixed(2)} hours) until ${new Date(endTime).toISOString()}`
+    );
+
     let nextMatchesPromise: Promise<Match[]> | null = null;
     let iterationCount = 0;
 
     while (!isShuttingDown) {
+      // Check if we've exceeded our runtime
+      if (Date.now() >= endTime) {
+        log(
+          "INFO",
+          `Reached maximum runtime of ${maxRuntimeMinutes} minutes, exiting`
+        );
+        break;
+      }
+
       iterationCount++;
       log(
         "DEBUG",
