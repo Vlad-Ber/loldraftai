@@ -78,7 +78,7 @@ export default function Draft() {
     useState<DraftOrderKey>("Draft Order");
   const { currentPatch } = useDraftStore();
 
-  const currentVersion = "1.0.2";
+  const currentVersion = "1.0.3";
   const [showChangelogModal, setShowChangelogModal] = useState(() => {
     // Check if running in browser environment
     if (typeof window !== "undefined") {
@@ -218,7 +218,7 @@ export default function Draft() {
           <div className="flex flex-wrap items-stretch justify-evenly">
             <div className="flex w-full justify-between">
               {/* Team Panel 1 */}
-              <div className="flex w-auto max-w-xs p-1">
+              <div className="flex w-[140px] p-1">
                 <TeamPanel
                   team={teamOne}
                   is_first_team={true}
@@ -227,6 +227,7 @@ export default function Draft() {
                   }
                   selectedSpot={selectedSpot}
                   onSpotSelected={handleSpotSelection}
+                  setTeam={setTeamOne}
                 />
               </div>
 
@@ -241,7 +242,7 @@ export default function Draft() {
               </div>
 
               {/* Team Panel 2 */}
-              <div className="flex w-auto max-w-xs p-1">
+              <div className="flex w-[140px] p-1">
                 <TeamPanel
                   team={teamTwo}
                   is_first_team={false}
@@ -250,6 +251,7 @@ export default function Draft() {
                   }
                   selectedSpot={selectedSpot}
                   onSpotSelected={handleSpotSelection}
+                  setTeam={setTeamTwo}
                 />
               </div>
             </div>

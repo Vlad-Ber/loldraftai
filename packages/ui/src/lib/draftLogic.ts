@@ -6,7 +6,11 @@ import type {
   SelectedSpot,
   Elo,
 } from "./types";
-import { getChampionRoles, roleToIndexMap } from "./champions";
+import {
+  getChampionPlayRates,
+  roleToIndexMap,
+  type PlayRates,
+} from "./champions";
 
 export const emptyTeam: Team = {
   0: undefined,
@@ -91,6 +95,14 @@ export function handleSpotSelection(
     return;
   }
 
+  // Mark both champions as manually placed if they exist
+  if (championFromSelectedSpot) {
+    championFromSelectedSpot.isManuallyPlaced = true;
+  }
+  if (targetChampion) {
+    targetChampion.isManuallyPlaced = true;
+  }
+
   if (selectedSpot.teamIndex === 1) {
     if (team === 1) {
       teamOneCopy[selectedSpot.championIndex] = targetChampion;
@@ -132,6 +144,12 @@ export function addChampion(
   setSelectedSpot: (spot: SelectedSpot | null) => void,
   handleDeleteChampion: (index: ChampionIndex, team: Team) => Champion[]
 ) {
+  // Create a copy of the champion with isManuallyPlaced set based on whether we have a selectedSpot
+  const championToAdd = {
+    ...champion,
+    isManuallyPlaced: selectedSpot !== null,
+  };
+
   if (selectedSpot !== null) {
     const team = selectedSpot.teamIndex === 1 ? teamOne : teamTwo;
     let updatedRemainingChampions = handleDeleteChampion(
@@ -141,11 +159,11 @@ export function addChampion(
 
     if (selectedSpot.teamIndex === 1) {
       const newTeam = { ...teamOne };
-      newTeam[selectedSpot.championIndex] = champion;
+      newTeam[selectedSpot.championIndex] = championToAdd;
       setTeamOne(newTeam);
     } else {
       const newTeam = { ...teamTwo };
-      newTeam[selectedSpot.championIndex] = champion;
+      newTeam[selectedSpot.championIndex] = championToAdd;
       setTeamTwo(newTeam);
     }
     updatedRemainingChampions = updatedRemainingChampions.filter(
@@ -164,31 +182,116 @@ export function addChampion(
   setRemainingChampions(champions);
 
   const teamToAddToIndex = nextTeam === "BLUE" ? 0 : 1;
-  const potentialRoles = getChampionRoles(champion.id, currentPatch);
-  const potentialRolesIndexes = potentialRoles.map(
-    (role) => roleToIndexMap[role]
-  );
+  const targetTeam = teamToAddToIndex === 0 ? teamOne : teamTwo;
 
-  for (let i = 0; i < 5; i++) {
-    if (!potentialRolesIndexes.includes(i)) {
-      potentialRolesIndexes.push(i);
+  // Get all champions including the new one
+  const allChampions: Champion[] = Object.values(targetTeam).filter(
+    (c): c is Champion => c !== undefined
+  );
+  allChampions.push(championToAdd); // Add our copy with isManuallyPlaced set
+
+  // Get play rates for all champions
+  const playRatesMap: Map<number, PlayRates> = new Map();
+  for (const champ of allChampions) {
+    const rates = getChampionPlayRates(champ.id, currentPatch);
+    if (rates) {
+      playRatesMap.set(champ.id, rates);
     }
   }
 
-  for (let i = 0; i < 5; i++) {
-    const roleIndex = potentialRolesIndexes[i];
-    if (teamToAddToIndex === 0 && !teamOne[roleIndex as keyof Team]) {
-      setTeamOne({
-        ...teamOne,
-        [roleIndex as keyof Team]: champion,
-      });
+  // Separate manually placed champions from those we can reassign
+  const reassignableChampions: Champion[] = allChampions.filter(
+    (c) => !c.isManuallyPlaced
+  );
+
+  // Generate all possible position assignments
+  type Assignment = { [roleIndex: number]: Champion };
+  let bestAssignment: Assignment | null = null;
+  let bestProbability: number = -1;
+
+  // Function to generate all permutations
+  function generateAssignments(
+    champions: Champion[],
+    currentAssignment: Assignment,
+    remainingPositions: number[]
+  ): void {
+    if (champions.length === 0) {
+      // Calculate probability of this assignment
+      let probability = 1.0;
+      for (const [roleIndex, champ] of Object.entries(currentAssignment)) {
+        const index = parseInt(roleIndex);
+        const role = Object.keys(roleToIndexMap).find(
+          (key) => roleToIndexMap[key] === index
+        ) as keyof PlayRates;
+
+        const rates = playRatesMap.get(champ.id);
+        const roleRate = rates ? rates[role] : 0.001; // Default to low probability if no data
+        probability *= roleRate;
+      }
+
+      if (probability > bestProbability) {
+        bestProbability = probability;
+        bestAssignment = { ...currentAssignment };
+      }
       return;
-    } else if (teamToAddToIndex === 1 && !teamTwo[roleIndex as keyof Team]) {
-      setTeamTwo({
-        ...teamTwo,
-        [roleIndex as keyof Team]: champion,
-      });
-      return;
+    }
+
+    const currentChamp = champions[0] as Champion;
+    const restChampions = champions.slice(1);
+
+    // Try each remaining position for the current champion
+    for (let i = 0; i < remainingPositions.length; i++) {
+      const roleIndex = remainingPositions[i] as number;
+      const updatedAssignment = {
+        ...currentAssignment,
+        [roleIndex]: currentChamp,
+      };
+      const updatedPositions = [
+        ...remainingPositions.slice(0, i),
+        ...remainingPositions.slice(i + 1),
+      ];
+
+      generateAssignments(restChampions, updatedAssignment, updatedPositions);
+    }
+  }
+
+  // Start with an assignment that includes manually placed champions
+  const initialAssignment: Assignment = {};
+  const occupiedPositions: number[] = [];
+
+  // Add manually placed champions to initial assignment
+  for (const [index, champ] of Object.entries(targetTeam)) {
+    if (champ && champ.isManuallyPlaced) {
+      const roleIndex = parseInt(index);
+      initialAssignment[roleIndex] = champ;
+      occupiedPositions.push(roleIndex);
+    }
+  }
+
+  // Determine available positions for reassignable champions
+  const allPositions = [0, 1, 2, 3, 4];
+  const availablePositions = allPositions.filter(
+    (pos) => !occupiedPositions.includes(pos)
+  );
+
+  // Generate all possible assignments for reassignable champions
+  generateAssignments(
+    reassignableChampions,
+    initialAssignment,
+    availablePositions
+  );
+
+  // Apply the best assignment
+  if (bestAssignment) {
+    const newTeam = { ...emptyTeam };
+    for (const [roleIndex, champ] of Object.entries(bestAssignment)) {
+      newTeam[parseInt(roleIndex) as keyof Team] = champ as Champion;
+    }
+
+    if (teamToAddToIndex === 0) {
+      setTeamOne(newTeam);
+    } else {
+      setTeamTwo(newTeam);
     }
   }
 }
@@ -208,6 +311,9 @@ export function handleDeleteChampion(
     return remainingChampions;
   }
 
+  // Reset isManuallyPlaced flag when removing champion
+  const championToAdd = { ...champion, isManuallyPlaced: false };
+
   // Check if the champion is already in the remaining champions list
   const isChampionAlreadyRemaining = remainingChampions.some(
     (remainingChampion) => remainingChampion.id === champion.id
@@ -215,7 +321,7 @@ export function handleDeleteChampion(
 
   let champions;
   if (!isChampionAlreadyRemaining) {
-    champions = [...remainingChampions, champion].sort((a, b) =>
+    champions = [...remainingChampions, championToAdd].sort((a, b) =>
       a.name.localeCompare(b.name)
     );
     setRemainingChampions(champions);

@@ -5,7 +5,7 @@ import { ChampionGrid } from "@draftking/ui/components/draftking/ChampionGrid";
 import { AnalysisParent } from "./components/AnalysisParent";
 import { PlainImage } from "./components/PlainImage";
 import { HelpModal } from "@draftking/ui/components/draftking/HelpModal";
-import { champions, roleToIndexMap } from "@draftking/ui/lib/champions";
+import { champions } from "@draftking/ui/lib/champions";
 import { useDraftStore } from "./stores/draftStore";
 import type {
   Team,
@@ -30,7 +30,6 @@ import {
   handleDeleteChampion as handleDeleteChampionLogic,
   type DraftOrderKey,
 } from "@draftking/ui/lib/draftLogic";
-import { getChampionRoles } from "@draftking/ui/lib/champions";
 import { StatusMessage } from "@draftking/ui/components/draftking/StatusMessage";
 import { useToast } from "@draftking/ui/hooks/use-toast";
 import { usePersistedState } from "@draftking/ui/hooks/usePersistedState";
@@ -208,7 +207,8 @@ function App() {
           );
           if (!champion) continue;
 
-          const targetTeam = player.team === 1 ? newTeamOne : newTeamTwo;
+          const forcedDraftOrder =
+            player.team === 1 ? "Blue then Red" : "Red then Blue";
 
           // Skip if champion is already in either team
           const isAlreadyInTeams = [
@@ -217,22 +217,31 @@ function App() {
           ].some((c) => c && c.id === champion.id);
           if (isAlreadyInTeams) continue;
 
-          // Get potential roles based on play rates
-          const potentialRoles = getChampionRoles(champion.id, currentPatch);
-          const potentialRolesIndexes = [
-            ...potentialRoles.map((role) => roleToIndexMap[role]),
-            ...Array.from({ length: 5 }, (_, i) => i), // Add remaining roles
-          ].filter((value, index, self) => self.indexOf(value) === index); // Remove duplicates
-
-          // Try to place champion in their most played role first
-          for (const roleIndex of potentialRolesIndexes) {
-            if (!targetTeam[roleIndex as keyof Team]) {
-              targetTeam[roleIndex as keyof Team] = champion;
+          // Add champion using existing logic
+          addChampionLogic(
+            champion,
+            null, // no selected spot since this is auto-placement
+            newTeamOne,
+            newTeamTwo,
+            remainingChampions,
+            currentPatch,
+            forcedDraftOrder, // Use the forced draft order instead of selectedDraftOrder
+            (team) => {
               hasChanges = true;
-              newlyPickedChampions.push(champion);
-              break;
-            }
-          }
+              Object.assign(newTeamOne, team);
+            },
+            (team) => {
+              hasChanges = true;
+              Object.assign(newTeamTwo, team);
+            },
+            () => {
+              if (hasChanges) {
+                newlyPickedChampions.push(champion);
+              }
+            },
+            () => {}, // setSelectedSpot is not needed in live tracking
+            handleDeleteChampion
+          );
         }
 
         // Only update teams if there were actual changes
@@ -395,7 +404,7 @@ function App() {
 
             <div className="flex flex-wrap items-stretch justify-evenly">
               <div className="flex w-full justify-between">
-                <div className="flex w-auto max-w-xs p-1">
+                <div className="flex w-[140px] p-1">
                   <TeamPanel
                     team={teamOne}
                     is_first_team={true}
@@ -404,6 +413,7 @@ function App() {
                       handleDeleteChampion(index, teamOne)
                     }
                     onSpotSelected={handleSpotSelected}
+                    setTeam={setTeamOne}
                     ImageComponent={PlainImage}
                   />
                 </div>
@@ -418,7 +428,7 @@ function App() {
                   />
                 </div>
 
-                <div className="flex w-auto max-w-xs p-1">
+                <div className="flex w-[140px] p-1">
                   <TeamPanel
                     team={teamTwo}
                     is_first_team={false}
@@ -427,6 +437,7 @@ function App() {
                       handleDeleteChampion(index, teamTwo)
                     }
                     onSpotSelected={handleSpotSelected}
+                    setTeam={setTeamTwo}
                     ImageComponent={PlainImage}
                   />
                 </div>
