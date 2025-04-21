@@ -98,8 +98,7 @@ class FineTuningConfig:
         self.initial_frozen_layers = 3
 
         # Data augmentation options
-        # TODO: try without?
-        self.use_team_symmetry = True  # Enable team symmetry augmentation
+        self.use_team_symmetry = False
 
         # Label smoothing options
         self.use_label_smoothing = True  # Enable label smoothing
