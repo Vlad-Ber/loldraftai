@@ -81,7 +81,7 @@ class FineTuningConfig:
         # Fine-tuning hyperparameters - edit these directly instead of using command line flags
         self.num_epochs = 400
         # TODO: try even lower? oriignal is 8e-4 right now
-        self.learning_rate = 1e-4  # Lower learning rate for fine-tuning
+        self.learning_rate = 5e-5  # Lower learning rate for fine-tuning
         self.weight_decay = 0.05
         self.dropout = 0.5
         self.batch_size = 1024
@@ -93,7 +93,7 @@ class FineTuningConfig:
 
         # New unfreezing parameters
         self.progressive_unfreezing = True  # Enable progressive unfreezing
-        self.epochs_per_unfreeze = 20
+        self.epochs_per_unfreeze = 40
         self.initial_frozen_layers = 4
 
         # Data augmentation options
@@ -811,6 +811,7 @@ def fine_tune_model(
         )
 
     # Save the final best model
+    # TODO: have logic that saves the best model based on validation loss
     torch.save(model.state_dict(), output_model_path)
     print(f"Final model saved to {output_model_path}")
 
