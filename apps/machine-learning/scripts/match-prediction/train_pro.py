@@ -82,11 +82,10 @@ class FineTuningConfig:
         self.num_epochs = 400
         # TODO: try even lower? oriignal is 8e-4 right now
         self.learning_rate = 1e-4  # Lower learning rate for fine-tuning
-        # TODO: try the same as original
-        self.weight_decay = 0.05  # Much stronger regularization
-        self.dropout = 0.5  # Higher dropout to prevent overfitting
+        self.weight_decay = 0.05
+        self.dropout = 0.5
         self.batch_size = 1024
-        self.original_batch_size = 1024 * 3
+        self.original_batch_size = 1024 * 15
         self.val_split = 0.2
         self.max_grad_norm = 1.0
         self.log_wandb = True
@@ -94,8 +93,8 @@ class FineTuningConfig:
 
         # New unfreezing parameters
         self.progressive_unfreezing = True  # Enable progressive unfreezing
-        self.epochs_per_unfreeze = 200
-        self.initial_frozen_layers = 3
+        self.epochs_per_unfreeze = 20
+        self.initial_frozen_layers = 4
 
         # Data augmentation options
         self.use_team_symmetry = False
