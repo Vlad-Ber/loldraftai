@@ -85,8 +85,8 @@ class FineTuningConfig:
         # TODO: try the same as original
         self.weight_decay = 0.05  # Much stronger regularization
         self.dropout = 0.5  # Higher dropout to prevent overfitting
-        self.batch_size = 1024 * 3
-        self.original_batch_size = 1024
+        self.batch_size = 1024
+        self.original_batch_size = 1024 * 3
         self.val_split = 0.2
         self.max_grad_norm = 1.0
         self.log_wandb = True
