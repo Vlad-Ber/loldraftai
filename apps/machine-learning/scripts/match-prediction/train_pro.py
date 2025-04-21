@@ -80,7 +80,9 @@ class FineTuningConfig:
     def __init__(self):
         # Fine-tuning hyperparameters - edit these directly instead of using command line flags
         self.num_epochs = 400
+        # TODO: try even lower? oriignal is 8e-4 right now
         self.learning_rate = 1e-4  # Lower learning rate for fine-tuning
+        # TODO: try the same as original
         self.weight_decay = 0.05  # Much stronger regularization
         self.dropout = 0.5  # Higher dropout to prevent overfitting
         self.batch_size = 1024 * 3
@@ -96,6 +98,7 @@ class FineTuningConfig:
         self.initial_frozen_layers = 3
 
         # Data augmentation options
+        # TODO: try without?
         self.use_team_symmetry = True  # Enable team symmetry augmentation
 
         # Label smoothing options
