@@ -158,7 +158,6 @@ function App() {
             (action: any) => action.type === "ban" && action.completed === true
           );
 
-        // TODO: i think this is not needed, we can just compare all banned champions
         const newBannedChampions = bannedActions
           .map((action: any) =>
             champions.find((c) => c.id === action.championId)
@@ -178,6 +177,17 @@ function App() {
           return isEqual(current, mergedBans) ? current : mergedBans;
         });
 
+        // Add this synchronization code, this is to avoid passing an outdated state to the addChampion function
+        const currentTeamChampionIds = new Set(
+          [...Object.values(teamOne), ...Object.values(teamTwo)]
+            .filter((c): c is Champion => c !== undefined)
+            .map((c) => c.id)
+        );
+
+        setRemainingChampions((current) =>
+          current.filter((c) => !currentTeamChampionIds.has(c.id))
+        );
+
         // Process picks
         const completedActions = champSelect.actions
           .flat()
@@ -186,14 +196,6 @@ function App() {
           );
 
         const allPlayers = [...champSelect.myTeam, ...champSelect.theirTeam];
-
-        // Build new team states first, then update only if changed
-        const newTeamOne = { ...teamOne };
-        const newTeamTwo = { ...teamTwo };
-        let hasChanges = false;
-
-        // Track newly picked champions to update remaining champions
-        const newlyPickedChampions: Champion[] = [];
 
         for (const player of allPlayers) {
           const completedAction = completedActions.find(
@@ -207,67 +209,38 @@ function App() {
           );
           if (!champion) continue;
 
-          const forcedDraftOrder =
-            player.team === 1 ? "Blue then Red" : "Red then Blue";
-
           // Skip if champion is already in either team
           const isAlreadyInTeams = [
-            ...Object.values(newTeamOne),
-            ...Object.values(newTeamTwo),
+            ...Object.values(teamOne),
+            ...Object.values(teamTwo),
           ].some((c) => c && c.id === champion.id);
+
           if (isAlreadyInTeams) continue;
+
+          const forcedDraftOrder =
+            player.team === 1 ? "Blue then Red" : "Red then Blue";
 
           // Add champion using existing logic
           addChampionLogic(
             champion,
-            null, // no selected spot since this is auto-placement
-            newTeamOne,
-            newTeamTwo,
+            null,
+            teamOne,
+            teamTwo,
             remainingChampions,
             currentPatch,
-            forcedDraftOrder, // Use the forced draft order instead of selectedDraftOrder
-            (team) => {
-              hasChanges = true;
-              Object.assign(newTeamOne, team);
+            forcedDraftOrder,
+            (newTeamOne) => {
+              setTeamOne(newTeamOne);
             },
-            (team) => {
-              hasChanges = true;
-              Object.assign(newTeamTwo, team);
+            (newTeamTwo) => {
+              setTeamTwo(newTeamTwo);
             },
-            () => {
-              if (hasChanges) {
-                newlyPickedChampions.push(champion);
-              }
+            (newRemaining) => {
+              setRemainingChampions(newRemaining);
             },
-            () => {}, // setSelectedSpot is not needed in live tracking
+            () => {},
             handleDeleteChampion
           );
-        }
-
-        // Only update teams if there were actual changes
-        if (hasChanges) {
-          if (!isEqual(teamOne, newTeamOne)) {
-            setTeamOne(newTeamOne);
-          }
-          if (!isEqual(teamTwo, newTeamTwo)) {
-            setTeamTwo(newTeamTwo);
-          }
-
-          // Update remaining champions if new picks were made
-          if (newlyPickedChampions.length > 0) {
-            setRemainingChampions((current) => {
-              const newRemaining = current.filter(
-                (c) =>
-                  !newlyPickedChampions.some((picked) => picked.id === c.id)
-              );
-              return isEqual(current, newRemaining) ? current : newRemaining;
-            });
-          }
-        }
-
-        // Check if draft is complete
-        if (champSelect.timer.phase === "GAME_STARTING") {
-          setIsLiveTracking(false);
         }
       } catch (error) {
         console.error("Error updating from live game:", error);
