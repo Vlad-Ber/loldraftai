@@ -54,31 +54,6 @@ FINE_TUNE_TASKS = {
         task_type=TaskType.BINARY_CLASSIFICATION,
         weight=1,
     ),
-    "blue_has_gold_lead_at_20": TaskDefinition(
-        name="blue_has_gold_lead_at_20",
-        task_type=TaskType.BINARY_CLASSIFICATION,
-        weight=0.15,
-    ),
-    "red_has_gold_lead_at_20": TaskDefinition(
-        name="red_has_gold_lead_at_20",
-        task_type=TaskType.BINARY_CLASSIFICATION,
-        weight=0.15,
-    ),
-    "gold_is_even_at_20": TaskDefinition(
-        name="gold_is_even_at_20",
-        task_type=TaskType.BINARY_CLASSIFICATION,
-        weight=0.15,
-    ),
-    "gold_diff_at_20": TaskDefinition(
-        name="gold_diff_at_20",
-        task_type=TaskType.REGRESSION,
-        weight=0.15,
-    ),
-    "total_kills_at_20": TaskDefinition(
-        name="total_kills_at_20",
-        task_type=TaskType.REGRESSION,
-        weight=0.15,
-    ),
 }
 
 FINE_TUNE_TASKS_LAST_EPOCHS = {
@@ -109,9 +84,7 @@ class FineTuningConfig:
         self.weight_decay = 0.05  # Much stronger regularization
         self.dropout = 0.5  # Higher dropout to prevent overfitting
         self.batch_size = 1024 * 3
-        self.original_batch_size = (
-            1024  # trying with more to avoid catastrophic forgetting
-        )
+        self.original_batch_size = 1024
         self.val_split = 0.2
         self.max_grad_norm = 1.0
         self.log_wandb = True
@@ -139,58 +112,6 @@ class FineTuningConfig:
 
     def to_dict(self):
         return {key: value for key, value in vars(self).items()}
-
-
-def get_gold_diff_at_20(df: pd.DataFrame) -> pd.Series:
-    timestamp = "1200000"  # 20 minutes
-    # Add debugging
-    debug = False
-
-    # blue gold
-    blue_gold = 0
-    if debug:
-        print("\nCalculating blue gold:")
-    for position in POSITIONS:
-        col = f"team_100_{position}_totalGold_at_{timestamp}"
-        if debug:
-            print(f"  {position}: {df[col]}")
-        blue_gold += df[col]
-
-    # red gold
-    red_gold = 0
-    if debug:
-        print("\nCalculating red gold:")
-    for position in POSITIONS:
-        col = f"team_200_{position}_totalGold_at_{timestamp}"
-        if debug:
-            print(f"  {position}: {df[col]}")
-        red_gold += df[col]
-
-    if debug:
-        print(f"\nTotal gold - Blue: {blue_gold}, Red: {red_gold}")
-        print(f"Gold diff: {blue_gold - red_gold}")
-
-    return blue_gold - red_gold
-
-
-def get_total_kills_at_20(df: pd.DataFrame) -> pd.Series:
-    kills = 0
-    timestamp = "1200000"
-    debug = False
-
-    if debug:
-        print("\nCalculating total kills:")
-    for position in POSITIONS:
-        for team_id in TEAMS:
-            col = f"team_{team_id}_{position}_kills_at_{timestamp}"
-            if debug:
-                print(f"  {team_id} {position}: {df[col]}")
-            kills += df[col]
-
-    if debug:
-        print(f"Total kills: {kills}")
-
-    return kills
 
 
 class ProMatchDataset(Dataset):
@@ -242,11 +163,6 @@ class ProMatchDataset(Dataset):
         # Define task symmetry transformations
         self.task_symmetry = {
             "win_prediction": lambda x: 1.0 - x,
-            "gold_diff_at_20": lambda x: -x,
-            "total_kills_at_20": lambda x: x,  # No change
-            "gold_is_even_at_20": lambda x: x,  # No change
-            "blue_has_gold_lead_at_20": lambda x: float(x == 0),  # Swap with red
-            "red_has_gold_lead_at_20": lambda x: float(x == 1),  # Swap with blue
         }
 
     def __len__(self):
@@ -298,63 +214,6 @@ class ProMatchDataset(Dataset):
                 self.smooth_low if win_prediction == 0 else self.smooth_high
             )
         labels["win_prediction"] = torch.tensor(win_prediction, dtype=torch.float32)
-
-        # Gold difference at 20
-        gold_diff = get_gold_diff_at_20(row)
-        # TODO: not sure this is needed, it was added when debugging NaN values, can probably remove it
-        if pd.isna(gold_diff):  # Check for NaN before normalization
-            labels["gold_diff_at_20"] = torch.tensor(float("nan"), dtype=torch.float32)
-        else:
-            if use_symmetry:
-                gold_diff = self.task_symmetry["gold_diff_at_20"](gold_diff)
-            gold_diff_norm = (
-                gold_diff - self.task_means["gold_diff_at_20"]
-            ) / self.task_stds["gold_diff_at_20"]
-            labels["gold_diff_at_20"] = torch.tensor(
-                gold_diff_norm, dtype=torch.float32
-            )
-
-        # Total kills at 20
-        total_kills = get_total_kills_at_20(row)
-        if pd.isna(total_kills):  # Check for NaN before normalization
-            labels["total_kills_at_20"] = torch.tensor(
-                float("nan"), dtype=torch.float32
-            )
-        else:
-            total_kills_norm = (
-                total_kills - self.task_means["total_kills_at_20"]
-            ) / self.task_stds["total_kills_at_20"]
-            labels["total_kills_at_20"] = torch.tensor(
-                total_kills_norm, dtype=torch.float32
-            )
-
-        # Gold lead thresholds (using the same threshold as in task_definitions.py)
-        gold_lead_threshold = 3000
-        gold_is_even = (gold_diff < gold_lead_threshold) & (
-            gold_diff > -gold_lead_threshold
-        )
-        blue_has_lead = gold_diff >= gold_lead_threshold
-        red_has_lead = gold_diff <= -gold_lead_threshold
-
-        if use_symmetry:
-            # Swap blue and red leads
-            blue_has_lead, red_has_lead = red_has_lead, blue_has_lead
-
-        labels["gold_is_even_at_20"] = torch.tensor(
-            float(gold_is_even), dtype=torch.float32
-        )
-        labels["blue_has_gold_lead_at_20"] = torch.tensor(
-            float(blue_has_lead), dtype=torch.float32
-        )
-        labels["red_has_gold_lead_at_20"] = torch.tensor(
-            float(red_has_lead), dtype=torch.float32
-        )
-
-        # Validate that all required tasks are present
-        missing_tasks = set(FINE_TUNE_TASKS.keys()) - set(labels.keys())
-        if missing_tasks:
-            print(f"\nWarning: Missing tasks in dataset: {missing_tasks}")
-            print(f"Row index: {original_idx}")
 
         return features, labels
 
@@ -666,15 +525,6 @@ def fine_tune_model(
     )
 
     model = load_model_state_dict(model, device, path=pretrained_model_path)
-
-    # with torch.no_grad():
-    # ranked_weights = (
-    # model.embeddings["queue_type"].weight.data[RANKED_QUEUE_INDEX].clone()
-    # )
-    # noise = torch.randn_like(ranked_weights) * 0.01  # Adding small Gaussian noise
-    # model.embeddings["queue_type"].weight.data[PRO_QUEUE_INDEX] = (
-    # ranked_weights + noise
-    # )
 
     # Initially freeze ALL embeddings including queue_type
     print("Initially freezing all embedding layers...")
