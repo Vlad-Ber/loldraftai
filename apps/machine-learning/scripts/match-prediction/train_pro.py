@@ -438,13 +438,16 @@ def create_dataloaders(
         train_pro_dataset,
         batch_size=config.batch_size,
         shuffle=True,
+        drop_last=True,
         collate_fn=pro_collate_fn,
     )
 
+    # TODO: add prefetch factor
     train_original_loader = DataLoader(
         train_original_dataset,
         batch_size=config.original_batch_size,
         collate_fn=collate_fn,
+        drop_last=True,
         **dataloader_config,
     )
 
