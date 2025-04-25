@@ -52,6 +52,10 @@ const log: LoggerFunction = (level, message) => {
   console.log(`[${new Date().toISOString()}] [${level}] ${message}`);
 };
 
+const PATCH_14_START = new Date("2024-01-01").getTime() / 1000; // Convert to seconds for Riot API
+const MAX_MATCHES_HIGH_ELO = 800;
+const MAX_MATCHES_LOW_ELO = 10;
+
 async function collectMatchIds() {
   try {
     while (true) {
@@ -81,70 +85,92 @@ async function collectMatchIds() {
       }
 
       for (const summoner of summoners) {
-        await limiter.schedule(async () => {
-          try {
-            const matchIds = await riotApiClient.getMatchIdsByPuuid(
-              summoner.puuid!,
-              {
-                // queue: 700, // Summoner's rift clash, 420, // Ranked Solo/Duo queue
-                queue: 420, // TODO: automatically collect both queues, instead of manually changing this
-                // Less games for lower elos(to avoid having to many low elo games)
-                count: ["PLATINUM", "GOLD", "SILVER"].includes(summoner.tier)
-                  ? 50
-                  : 100, // max count
-              }
+        try {
+          const isHighElo = ["CHALLENGER", "GRANDMASTER", "MASTER"].includes(
+            summoner.tier
+          );
+          const batchSize = isHighElo ? 100 : MAX_MATCHES_LOW_ELO; // Optimize batch size based on elo
+          let allMatchIds: string[] = [];
+          let start = 0;
+
+          // For high elo, we'll fetch multiple pages
+          const maxPages = isHighElo
+            ? Math.ceil(MAX_MATCHES_HIGH_ELO / 100)
+            : 1;
+
+          for (let page = 0; page < maxPages; page++) {
+            // Move limiter to wrap just the API call
+            const matchIds = await limiter.schedule(() =>
+              riotApiClient.getMatchIdsByPuuid(summoner.puuid!, {
+                queue: 420, // Ranked Solo/Duo queue
+                startTime: PATCH_14_START,
+                start: start,
+                count: batchSize,
+              })
             );
 
-            // Prepare batch create data
-            const matchCreates = matchIds.map((matchId) => ({
-              matchId,
-              region,
-              processed: false,
-              averageTier: summoner.tier,
-              averageDivision: summoner.rank,
-            }));
+            // If we got less than requested matches, we've reached the end
+            if (matchIds.length < batchSize) {
+              allMatchIds.push(...matchIds);
+              break;
+            }
 
-            // Wrap database operations in retry logic
-            await dbBackoff.withRetry(async () => {
-              const { count } = await prisma.match.createMany({
-                data: matchCreates,
-                skipDuplicates: true,
-              });
+            allMatchIds.push(...matchIds);
 
-              telemetry.trackEvent("MatchesCollected", {
-                count: matchIds.length,
-                region,
-              });
-              telemetry.trackEvent("NewMatchesCreated", {
-                count,
-                region,
-              });
-
-              await prisma.summoner.update({
-                where: { id: summoner.id },
-                data: { matchesFetchedAt: new Date() },
-              });
-            });
-          } catch (error: any) {
-            if (axios.isAxiosError(error) && error.response?.status === 400) {
-              await dbBackoff.withRetry(async () => {
-                await prisma.summoner.update({
-                  where: { id: summoner.id },
-                  data: {
-                    matchFetchErrored: true,
-                    matchesFetchedAt: new Date(),
-                  },
-                });
-              });
-            } else {
-              // Log other errors but don't mark as errored (could be temporary API issues)
-              console.error(
-                `Error fetching match IDs for summoner ${summoner.summonerId}:`,
-                error
-              );
+            // Only continue pagination for high elo
+            if (isHighElo) {
+              start += batchSize;
             }
           }
-        });
+
+          // Prepare batch create data
+          const matchCreates = allMatchIds.map((matchId) => ({
+            matchId,
+            region,
+            processed: false,
+            averageTier: summoner.tier,
+            averageDivision: summoner.rank,
+          }));
+
+          // Wrap database operations in retry logic
+          await dbBackoff.withRetry(async () => {
+            const { count } = await prisma.match.createMany({
+              data: matchCreates,
+              skipDuplicates: true,
+            });
+
+            telemetry.trackEvent("MatchesCollected", {
+              count: allMatchIds.length,
+              region,
+            });
+            telemetry.trackEvent("NewMatchesCreated", {
+              count,
+              region,
+            });
+
+            await prisma.summoner.update({
+              where: { id: summoner.id },
+              data: { matchesFetchedAt: new Date() },
+            });
+          });
+        } catch (error: any) {
+          if (axios.isAxiosError(error) && error.response?.status === 400) {
+            await dbBackoff.withRetry(async () => {
+              await prisma.summoner.update({
+                where: { id: summoner.id },
+                data: {
+                  matchFetchErrored: true,
+                  matchesFetchedAt: new Date(),
+                },
+              });
+            });
+          } else {
+            console.error(
+              `Error fetching match IDs for summoner ${summoner.summonerId}:`,
+              error
+            );
+          }
+        }
       }
     }
   } catch (error) {
