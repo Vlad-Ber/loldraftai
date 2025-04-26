@@ -68,7 +68,7 @@ async function collectMatchIds() {
           AND (
             "matchesFetchedAt" IS NULL
             OR "matchesFetchedAt" < ${new Date(
-              Date.now() - 1 * 24 * 60 * 60 * 1000
+              Date.now() - 2 * 24 * 60 * 60 * 1000
             )}
           )
           AND "rankUpdateTime" > ${new Date(
