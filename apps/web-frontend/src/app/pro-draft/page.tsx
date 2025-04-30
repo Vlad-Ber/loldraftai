@@ -153,6 +153,8 @@ export default function Draft() {
             <p>
               The pro model is experimental, as such final draft judgment should
               be made by humans. It also shouldn&apos;t be used for betting.
+              This is currently publicly accessible but may be taken private or
+              offline at any time without notice.
             </p>
           </div>
           <div className="flex flex-wrap items-stretch justify-start mb-4">
