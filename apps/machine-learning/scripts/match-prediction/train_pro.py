@@ -113,11 +113,11 @@ class FineTuningConfig:
         self.learning_rate = 8e-6  # Lower learning rate for fine-tuning
         self.weight_decay = 0.05
         self.dropout = 0.5
-        self.batch_size = 1024
+        self.batch_size = 1024 * 2
 
         # not including original data actually works well, there is no catastrphic forgetting
         # TODO; maybe delte logic to include original data?
-        self.original_batch_size = 1024 * 7
+        self.original_batch_size = 1024 * 7 * 2
 
         self.val_split = 0.2
         self.max_grad_norm = 1.0
@@ -566,6 +566,7 @@ class MixedDataLoader:
                             + self.game_duration_mean
                         ) / 60
 
+                        # TODO: could add time buckets here for both? instead of also having the logic in the pro dataset?
                         # Create duration mask based on bucket
                         if bucket == "0_25":
                             duration_mask = orig_duration_minutes < 25
@@ -752,7 +753,7 @@ def split_data_by_champions(
 
 
 def finetune_masking_function():
-    if np.random.rand() < 0.5:
+    if np.random.rand() < 0.25:
         return np.random.randint(1, 11)
     else:
         return 0
@@ -1222,10 +1223,7 @@ def fine_tune_model(
             val_metrics = validate(
                 model,
                 val_pro_loader,
-                val_original_loader,
-                finetune_config,
                 device,
-                epoch,
             )
             val_loss = val_metrics["val_pro_avg_loss"]
 
@@ -1311,10 +1309,7 @@ def fine_tune_model(
 def validate(
     model: Model,
     val_pro_loader: DataLoader,
-    val_original_loader: Optional[DataLoader],
-    config: TrainingConfig,
     device: torch.device,
-    epoch: int,
 ) -> Dict[str, float]:
     """Run validation on both pro and original data"""
     model.eval()
@@ -1328,14 +1323,6 @@ def validate(
     # Add accuracy accumulator for win_prediction
     pro_win_accuracy = torch.zeros(2, device=device)
 
-    # Only initialize original accumulators if we have original data
-    if val_original_loader is not None:
-        original_accumulators = {
-            task_name: torch.zeros(2, device=device)
-            for task_name in enabled_tasks.keys()
-        }
-        original_win_accuracy = torch.zeros(2, device=device)
-
     with torch.no_grad():
         # Validate on pro data
         pro_metrics = validate_loader(
@@ -1346,17 +1333,6 @@ def validate(
             device=device,
             prefix="val_pro",
         )
-
-        # don't validate on every epoch, it's slow
-        if epoch % 50 == 0 and val_original_loader is not None:
-            original_metrics = validate_loader(
-                model=model,
-                loader=val_original_loader,
-                accumulators=original_accumulators,
-                win_accuracy=original_win_accuracy,
-                device=device,
-                prefix="val_original",
-            )
 
     return pro_metrics
 
@@ -1482,10 +1458,7 @@ def validate_with_masking_levels(
         metrics = validate(
             model=model,
             val_pro_loader=val_masked_loader,
-            val_original_loader=None,
-            config=config,
             device=device,
-            epoch=epoch,
         )
 
         # Add prefix to metrics
