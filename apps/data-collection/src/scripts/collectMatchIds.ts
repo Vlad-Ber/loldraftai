@@ -53,7 +53,7 @@ const log: LoggerFunction = (level, message) => {
 };
 
 const PATCH_14_START = new Date("2024-01-01").getTime() / 1000; // Convert to seconds for Riot API
-const MAX_MATCHES_HIGH_ELO = 800;
+const MAX_MATCHES_HIGH_ELO = 100;
 const MAX_MATCHES_LOW_ELO = 10;
 
 async function collectMatchIds() {

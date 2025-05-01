@@ -67,7 +67,7 @@ class LocalFileSaver implements FileSaver {
 
 // Add a more comprehensive logger at the top of the file
 const log = (level: "INFO" | "ERROR" | "DEBUG", message: string) => {
-  console.log(`[${new Date().toISOString()}] [${level}] ${message}`);
+  // console.log(`[${new Date().toISOString()}] [${level}] ${message}`);
 };
 
 class MatchExtractor {
