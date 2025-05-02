@@ -8,12 +8,14 @@ from utils.match_prediction import (
     CHAMPION_ID_ENCODER_PATH,
 )
 from utils.match_prediction.config import TrainingConfig
-from utils.match_prediction.model import Model
+from utils.match_prediction.model import (
+    Model,
+)
 
 
 def load_model(config: TrainingConfig):
     """Initialize a new model with the current configuration."""
-    return Model(config)
+    return Model(config, hidden_dims=config.hidden_dims, dropout=config.dropout)
 
 
 def save_model(model: Model, model_path: str):
@@ -60,34 +62,58 @@ def slide_embeddings(model: Model, old_num_patches: int):
                     ].clone()
 
 
-def add_new_patch(model: Model, old_num_patches: int):
-    """Initialize new patch embeddings when the number of patches increases."""
-    with torch.no_grad():
-        # Initialize new patch embeddings with the last old patch embedding
-        if old_num_patches > 0:
-            last_patch_weight = model.patch_embedding.weight[
-                old_num_patches - 1
-            ].clone()
-            for i in range(old_num_patches, model.num_patches):
-                model.patch_embedding.weight[i] = last_patch_weight
+def modify_state_dict_for_new_patch(
+    state_dict, old_num_patches, new_num_patches, num_champions
+):
+    """Modify the state dictionary to accommodate a new patch."""
+    modified_state_dict = state_dict.copy()
 
-        # Initialize new champion_patch embeddings
-        num_champions = model.num_champions
-        for c in range(num_champions):
-            old_start_idx = c * old_num_patches
-            new_start_idx = c * model.num_patches
-            if old_num_patches > 0:
-                last_old_idx = min(
-                    old_start_idx + old_num_patches - 1,
-                    model.champion_patch_embedding.weight.size(0) - 1,
-                )
-                last_patch_weight = model.champion_patch_embedding.weight[
-                    last_old_idx
-                ].clone()
-                for i in range(old_num_patches, model.num_patches):
-                    idx = new_start_idx + i
-                    if idx < model.champion_patch_embedding.weight.size(0):
-                        model.champion_patch_embedding.weight[idx] = last_patch_weight
+    # Modify patch_embedding.weight
+    old_patch_weight = state_dict[
+        "patch_embedding.weight"
+    ]  # Shape: [old_num_patches, embed_dim]
+    embed_dim = old_patch_weight.size(1)
+    new_patch_weight = torch.zeros(
+        new_num_patches, embed_dim, dtype=old_patch_weight.dtype
+    )
+    new_patch_weight[:old_num_patches] = old_patch_weight
+    # Initialize new patch embeddings with the last old patch embedding
+    if old_num_patches > 0:
+        last_patch_weight = old_patch_weight[old_num_patches - 1]
+        new_patch_weight[old_num_patches:] = last_patch_weight.unsqueeze(0).expand(
+            new_num_patches - old_num_patches, -1
+        )
+    modified_state_dict["patch_embedding.weight"] = new_patch_weight
+
+    # Modify champion_patch_embedding.weight
+    old_champ_patch_weight = state_dict[
+        "champion_patch_embedding.weight"
+    ]  # Shape: [num_champions * old_num_patches, embed_dim]
+    champ_patch_embed_dim = old_champ_patch_weight.size(1)
+    new_champ_patch_weight = torch.zeros(
+        num_champions * new_num_patches,
+        champ_patch_embed_dim,
+        dtype=old_champ_patch_weight.dtype,
+    )
+    for c in range(num_champions):
+        old_start_idx = c * old_num_patches
+        new_start_idx = c * new_num_patches
+        # Copy existing champion-patch embeddings
+        new_champ_patch_weight[new_start_idx : new_start_idx + old_num_patches] = (
+            old_champ_patch_weight[old_start_idx : old_start_idx + old_num_patches]
+        )
+        # Initialize new patch embeddings with the last old patch embedding for this champion
+        if old_num_patches > 0:
+            last_old_idx = old_start_idx + old_num_patches - 1
+            last_patch_weight = old_champ_patch_weight[last_old_idx]
+            new_champ_patch_weight[
+                new_start_idx + old_num_patches : new_start_idx + new_num_patches
+            ] = last_patch_weight.unsqueeze(0).expand(
+                new_num_patches - old_num_patches, -1
+            )
+    modified_state_dict["champion_patch_embedding.weight"] = new_champ_patch_weight
+
+    return modified_state_dict
 
 
 def main():
@@ -122,26 +148,29 @@ def main():
     new_num_patches = len(patch_mapping)
 
     # Load pre-trained state_dict
-    state_dict = torch.load(args.model_path)
+    state_dict = torch.load(args.model_path, weights_only=True)
+    # Remove '_orig_mod.' prefix from state dict keys if present
+    fixed_state_dict = {
+        k.replace("_orig_mod.", ""): state_dict[k] for k in state_dict.keys()
+    }
 
     # Determine old_num_patches from state_dict
-    old_patch_weight = state_dict["patch_embedding.weight"]
+    old_patch_weight = fixed_state_dict["patch_embedding.weight"]
     old_num_patches = old_patch_weight.size(0)
 
     # Initialize the model with current configuration (reflects current patch mapping)
     model = load_model(config)
 
-    # Load state_dict with strict=False to handle potential size mismatches
-    model.load_state_dict(state_dict, strict=False)
-    print(
-        f"Loaded pre-trained state_dict with {old_num_patches} patches into model with {model.num_patches} patches."
-    )
+    # Get num_champions from the model
+    num_champions = model.num_champions
 
     if args.action == "slide":
         if new_num_patches != old_num_patches:
             print(
                 f"Warning: 'slide' action with new_num_patches ({new_num_patches}) != old_num_patches ({old_num_patches}). Proceeding with shift."
             )
+        # Load state_dict first
+        model.load_state_dict(fixed_state_dict, strict=False)
         slide_embeddings(model, old_num_patches)
         print("Embeddings slid successfully.")
     elif args.action == "add":
@@ -149,7 +178,12 @@ def main():
             print(
                 f"Warning: 'add' action but new_num_patches ({new_num_patches}) <= old_num_patches ({old_num_patches}). Proceeding with initialization."
             )
-        add_new_patch(model, old_num_patches)
+        # Modify state_dict to match new model shapes
+        modified_state_dict = modify_state_dict_for_new_patch(
+            fixed_state_dict, old_num_patches, new_num_patches, num_champions
+        )
+        # Load modified state_dict
+        model.load_state_dict(modified_state_dict, strict=False)
         print("New patch embeddings initialized successfully.")
 
     # Save the updated model
