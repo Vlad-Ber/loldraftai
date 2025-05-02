@@ -791,7 +791,7 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     # Initialize configuration
-    config = TrainingConfig()
+    config = TrainingConfig(continue_training=args.continue_training)
 
     # Update config with command line arguments
     config.dataset_fraction = args.dataset_fraction

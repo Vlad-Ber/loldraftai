@@ -5,13 +5,12 @@ from utils.match_prediction.masking_strategies import MASKING_STRATEGIES
 
 
 class TrainingConfig:
-    def __init__(self):
+    def __init__(self, continue_training: bool = False):
         # Default values
         self.num_epochs = 50
         self.annealing_epoch = 20
         self.hidden_dims = [1024, 512, 256, 128, 64]
         self.dropout = 0.5
-        self.learning_rate = 8e-4
         self.champion_patch_embed_dim = 4  # Small dimension to avoid overfitting
         self.champion_embed_dim = 256 - self.champion_patch_embed_dim
         self.queue_type_embed_dim = 64  # Reduced from 64
@@ -35,14 +34,19 @@ class TrainingConfig:
         self.log_wandb = True
         self.debug = False
 
-        # Add OneCycleLR parameters
-        self.use_one_cycle_lr = True
-        self.max_lr = self.learning_rate
-        self.pct_start = 0.2
-        self.div_factor = 10
-        self.final_div_factor = 3e4
+        if continue_training:
+            # Configuration for continued training (online learning)
+            self.learning_rate = 8e-5  # Lower LR for continued training
+            self.use_one_cycle_lr = False  # No one-cycle scheduler
+        else:
+            # Regular training configuration
+            self.learning_rate = 8e-4
+            self.use_one_cycle_lr = True
+            self.max_lr = self.learning_rate
+            self.pct_start = 0.2
+            self.div_factor = 10
+            self.final_div_factor = 3e4  # Add new configuration parameters
 
-        # Add new configuration parameters
         self.validation_interval = 1  # Run validation every N epochs
         self.dataset_fraction = 1.0  # Use full dataset by default
 
