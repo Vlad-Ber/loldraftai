@@ -376,7 +376,12 @@ def init_model(
 
     if continue_training and load_path and Path(load_path).exists():
         print(f"Loading model from {load_path}")
-        model.load_state_dict(torch.load(load_path, weights_only=True))
+        state_dict = torch.load(load_path, weights_only=True)
+        # Remove '_orig_mod.' prefix from state dict keys if present
+        fixed_state_dict = {
+            k.replace("_orig_mod.", ""): state_dict[k] for k in state_dict.keys()
+        }
+        model.load_state_dict(fixed_state_dict)
 
     model_params = {
         **config.to_dict(),
