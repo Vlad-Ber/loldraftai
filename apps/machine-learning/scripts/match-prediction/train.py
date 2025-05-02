@@ -766,7 +766,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "--load-path",
         type=str,
-        default=None,
+        default=MODEL_PATH,
         help="Path to load the model from (default: MODEL_PATH)",
     )
     parser.add_argument(
