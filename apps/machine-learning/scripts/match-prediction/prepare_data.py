@@ -623,6 +623,11 @@ def main():
         help="Skip filtering of outliers/griefers",
     )
     parser.add_argument(
+        "--skip-stats",
+        action="store_true",
+        help="Skip task statistics calculation and use existing files",
+    )
+    parser.add_argument(
         "--debug",
         action="store_true",
         help="Enable debug mode (limits to 100 files and enables verbose output)",
@@ -653,15 +658,28 @@ def main():
 
     print("Creating encoders...")
     champion_encoder = create_champion_id_encoder(enhanced_files)
-
-    print("Computing statistics...")
-    task_means, task_stds = compute_task_stats(enhanced_files)
-
-    print("Saving encoders and statistics...")
+    print("Saving encoders...")
     with open(CHAMPION_ID_ENCODER_PATH, "wb") as f:
         pickle.dump({"mapping": champion_encoder}, f)
-    with open(TASK_STATS_PATH, "wb") as f:
-        pickle.dump({"means": task_means, "stds": task_stds}, f)
+
+    if args.skip_stats:
+        print("Loading existing task statistics...")
+        try:
+            with open(TASK_STATS_PATH, "rb") as f:
+                stats_data = pickle.load(f)
+                task_means = stats_data["means"]
+                task_stds = stats_data["stds"]
+        except FileNotFoundError:
+            raise ValueError(
+                f"Could not find existing task statistics at {TASK_STATS_PATH}. "
+                "Please run without --skip-stats first to generate the statistics."
+            )
+    else:
+        print("Computing statistics...")
+        task_means, task_stds = compute_task_stats(enhanced_files)
+        print("Saving task statistics...")
+        with open(TASK_STATS_PATH, "wb") as f:
+            pickle.dump({"means": task_means, "stds": task_stds}, f)
 
     print("Preparing final data...")
     prepare_data(
