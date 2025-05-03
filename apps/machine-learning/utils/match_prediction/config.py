@@ -8,7 +8,7 @@ class TrainingConfig:
     def __init__(self, continue_training: bool = False):
         # Default values
         self.num_epochs = 50
-        self.annealing_epoch = 20
+        self.annealing_epoch = 0
         self.hidden_dims = [1024, 512, 256, 128, 64]
         self.dropout = 0.5
         self.champion_patch_embed_dim = 4  # Small dimension to avoid overfitting
