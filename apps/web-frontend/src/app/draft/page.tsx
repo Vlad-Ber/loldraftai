@@ -80,6 +80,7 @@ export default function Draft() {
 
   const currentVersion = "1.0.3";
   const [showChangelogModal, setShowChangelogModal] = useState(() => {
+    return false;
     // Check if running in browser environment
     if (typeof window !== "undefined") {
       const lastSeenVersion = localStorage.getItem("lastSeenVersion");
