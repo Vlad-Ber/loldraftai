@@ -102,7 +102,8 @@ async function collectMatchIds() {
             // Move limiter to wrap just the API call
             const matchIds = await limiter.schedule(() =>
               riotApiClient.getMatchIdsByPuuid(summoner.puuid!, {
-                queue: 420, // Ranked Solo/Duo queue
+                // queue: 420, // Ranked Solo/Duo queue
+                queue: 700, // Clash queue
                 startTime: PATCH_14_START,
                 start: start,
                 count: batchSize,
