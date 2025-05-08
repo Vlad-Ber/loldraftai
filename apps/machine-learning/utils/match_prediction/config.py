@@ -8,7 +8,7 @@ class TrainingConfig:
     def __init__(self, continue_training: bool = False):
         # Default values
         self.num_epochs = 50
-        self.annealing_epoch = 0
+        self.annealing_epoch = 10
         self.hidden_dims = [1024, 512, 256, 128, 64]
         self.dropout = 0.5
         self.champion_patch_embed_dim = 4  # Small dimension to avoid overfitting
@@ -36,7 +36,7 @@ class TrainingConfig:
 
         if continue_training:
             # Configuration for continued training (online learning)
-            self.learning_rate = 8e-5  # Lower LR for continued training
+            self.learning_rate = 4e-4  # Lower LR for continued training
             self.use_one_cycle_lr = False  # No one-cycle scheduler
         else:
             # Regular training configuration
