@@ -109,7 +109,7 @@ class FineTuningConfig:
     """Configuration class for fine-tuning"""
 
     def __init__(self):
-        self.num_epochs = 3000
+        self.num_epochs = 1000
         self.learning_rate = 8e-6  # Lower learning rate for fine-tuning
         self.weight_decay = 0.05
         self.dropout = 0.5
@@ -773,7 +773,43 @@ def create_dataloaders(
         config: Configuration object
         split_strategy: One of "random", "team", "patch", or "champion"
     """
-    # Split data based on strategy
+    # First calculate team winrates
+    team_stats = {}
+
+    # Process all games to calculate winrates
+    for _, row in pro_games_df.iterrows():
+        blue_team = row["blueTeamName"]
+        red_team = row["redTeamName"]
+        blue_win = row["team_100_win"]
+
+        # Update blue team stats
+        if blue_team not in team_stats:
+            team_stats[blue_team] = {"wins": 0, "total_games": 0}
+        team_stats[blue_team]["wins"] += blue_win
+        team_stats[blue_team]["total_games"] += 1
+
+        # Update red team stats
+        if red_team not in team_stats:
+            team_stats[red_team] = {"wins": 0, "total_games": 0}
+        team_stats[red_team]["wins"] += 1 - blue_win
+        team_stats[red_team]["total_games"] += 1
+
+    balanced_teams = set()
+    min_games = 5
+    min_winrate = 0.1
+    max_winrate = 0.9
+
+    for team, stats in team_stats.items():
+        if stats["total_games"] >= min_games:
+            winrate = stats["wins"] / stats["total_games"]
+            if min_winrate <= winrate <= max_winrate:
+                balanced_teams.add(team)
+
+    print(
+        f"\nFound {len(balanced_teams)} teams with winrates between {min_winrate*100}% and {max_winrate*100}%"
+    )
+
+    # Perform the regular split based on strategy
     if split_strategy == "team":
         train_df, val_df, val_teams = split_data_by_teams(
             pro_games_df, val_split=config.val_split
@@ -788,6 +824,21 @@ def create_dataloaders(
         )
     else:  # random split
         train_df, val_df = split_data_randomly(pro_games_df, val_split=config.val_split)
+
+    # Filter training set to only include games between balanced teams
+    original_train_size = len(train_df)
+    train_df = train_df[
+        train_df.apply(
+            lambda row: (row["blueTeamName"] in balanced_teams)
+            and (row["redTeamName"] in balanced_teams),
+            axis=1,
+        )
+    ].reset_index(drop=True)
+
+    print(f"\nTraining set filtering:")
+    print(f"Original training set size: {original_train_size} games")
+    print(f"Filtered training set size: {len(train_df)} games")
+    print(f"Removed {original_train_size - len(train_df)} games with unbalanced teams")
 
     # Get num_champions and unknown_champion_id using the utility function
     # TODO: this could be inside the dataset class
