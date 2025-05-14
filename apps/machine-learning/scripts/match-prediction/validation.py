@@ -441,10 +441,15 @@ def main():
         base_filename = f"{base_filename}_masked_{args.mask_champions}"
 
     output_file = DATA_DIR + "/" + base_filename + ".csv"
-
     # Print and save results
     print("\nValidation Results:")
+    pd.set_option("display.max_rows", None)
+    pd.set_option("display.max_columns", None)
+    pd.set_option("display.width", None)
     print(results_df)
+    pd.reset_option("display.max_rows")
+    pd.reset_option("display.max_columns")
+    pd.reset_option("display.width")
 
     # Save results to CSV
     results_df.to_csv(output_file)
