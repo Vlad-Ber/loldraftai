@@ -78,23 +78,11 @@ export default function Draft() {
     useState<DraftOrderKey>("Draft Order");
   const { currentPatch } = useDraftStore();
 
-  const currentVersion = "1.0.4";
-  const [showChangelogModal, setShowChangelogModal] = useState(() => {
-    // Check if running in browser environment
-    if (typeof window !== "undefined") {
-      const lastSeenVersion = localStorage.getItem("lastSeenVersion");
-
-      if (!lastSeenVersion || lastSeenVersion !== currentVersion) {
-        localStorage.setItem("lastSeenVersion", currentVersion);
-        return true;
-      }
-    }
-    return false;
-  });
+  const [showChangelogModal, setShowChangelogModal] = useState(true);
+  const closeChangelogModal = () => setShowChangelogModal(false);
 
   const openHelpModal = () => setShowHelpModal(true);
   const closeHelpModal = () => setShowHelpModal(false);
-  const closeChangelogModal = () => setShowChangelogModal(false);
 
   const resetDraft = () => {
     setTeamOne(emptyTeam);
