@@ -34,7 +34,8 @@ The model uses a neural network architecture with several key components:
 
 3. **Training Features**:
    - Masking during training to handle partial drafts(masking is applied randomly, because draft order is not acessible through the API).
-   - Multi-task learning for various predictions
+   - Multi-task learning for various predictions.
+   - Time-based masking for win prediction, where separate prediction heads are trained for different game duration buckets (0-25min, 25-30min, 30-35min, 35+min) to enable plotting the win prediction over time.
    - Other training features and ways to induce bias to the model were tried, such as custom embedding initialization depending on champion class, regularization to ensure adjacent patches are close in embedding space or having way more auxillary tasks(such as damage dealt, baron kills, total_kills etc.). They can be seen in previous commits, but were removed in the simplified version. With a lot of training data(in the tens of millions) they are not beneficial, however with less data they did bring slight improvements.
 
 ### Fine-tuning for Pro Play

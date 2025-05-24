@@ -1,17 +1,32 @@
 # LoLDraftAI monorepo
 
-Full source code for the website https://loldraftai.com/, which hosts a deep learning model that predicts and analyzes League of Legends matches from draft only.
-The website maintenance has been paused for now.
+Full source code for the website [LoLDraftAI](https://loldraftai.com/), which hosts a deep learning model that predicts and analyzes League of Legends matches from draft only.
 
-The runs for the currently online models are logged here for the solo queue model:
-https://wandb.ai/loyd-team/draftking/runs/jy5hf0bv?nw=nwuserloyd
-Model from epoch 46 is the best, with a validation loss of 0.681 and an accuracy of 56.1%.
+> **Note:** Website maintenance has been paused for now.
 
-And here for the pro model:
-https://wandb.ai/loyd-team/draftking-pro-finetune/runs/jg3ls0xp/workspace?nw=nwuserloyd
-Model from epoch 240 is the best, with a validation loss of 0.6775 and an accuracy of 56.8%.
+## Model Performance
 
-Both models obtain good metrics, because predicting from draft only is a difficult task, this is because draft is only a small part of the game.
+The project features two models trained for different scenarios:
+
+### Solo Queue Model
+
+- **Endpoint:** [loldraftai.com/draft](https://loldraftai.com/draft)
+- **Best Model:** Epoch 46
+- **Metrics:**
+  - Validation Loss: 0.681
+  - Accuracy: 56.1%
+- **Training Logs:** [View on Weights & Biases](https://wandb.ai/loyd-team/draftking/runs/jy5hf0bv?nw=nwuserloyd)
+
+### Pro Model
+
+- **Endpoint:** [loldraftai.com/pro-draft](https://loldraftai.com/pro-draft)
+- **Best Model:** Epoch 240
+- **Metrics:**
+  - Validation Loss: 0.6775
+  - Accuracy: 56.8%
+- **Training Logs:** [View on Weights & Biases](https://wandb.ai/loyd-team/draftking-pro-finetune/runs/jg3ls0xp/workspace?nw=nwuserloyd)
+
+> **Note:** Both models achieve good metrics considering the complexity of the task. Predicting match outcomes from draft alone is challenging since the draft phase represents only a small portion of the overall game.
 
 ## Repository Structure
 
