@@ -1,130 +1,52 @@
-# /README.md
+/apps/machine-learning/README.md
 
 # League of Legends Match Prediction Model
 
-## Overview
+## Architecture
 
-This repository contains a machine learning system designed to predict various aspects of League of Legends matches, including win probability and in-game statistics, based on team compositions. The model uses a combination of champion embeddings and game state features to make these predictions.
+### Data Pipeline
 
-## Key Features
+1. **Data Download** (`download_data.py`)
 
-### Multi-Task Learning
+   - Downloads raw data from Azure bucket(which is were the data_collection exports match data)
 
-The model simultaneously predicts multiple objectives:
-
-- Win probability for team 1
-- Game duration
-- Per-player statistics at different timestamps (900s, 1200s, 1500s, 1800s):
-  - KDA (Kills/Deaths/Assists)
-  - Gold
-  - Creep Score
-  - Champion Level
-  - Damage Stats (Physical/Magical/True)
-- Team-wide objectives at timestamps:
-  - Tower kills
-  - Inhibitor kills
-  - Baron/Dragon/Herald kills
+2. **Data Preparation** (`prepare_data.py`)
+   - Processes raw match data into training format
+   - Handles categorical encoding(champions_ids, patches) and normalization
+   - Creates train/test split
+   - Filters out outliers and invalid games
 
 ### Model Architecture
 
-- **Base Model**: Neural network with champion embeddings and categorical/numerical feature processing
-- **Architecture Details**:
-  - Champion embeddings (learned representations for each champion)
-  - Categorical feature embeddings
-  - Numerical feature projection
-  - Multi-layer perceptron (MLP) for feature combination
-  - Task-specific output heads
+The model uses a neural network architecture with several key components:
 
-### Training Techniques
+1. **Embeddings**:
 
-#### Strategic Masking
+   - Champion embeddings (learned representations for each champion)
+   - Patch embeddings (meta changes across patches)
+   - Champion-patch embeddings (champion-specific patch changes), this is small in dimension because could overfit easily, but in theory can slightly help represent patch specific champion changes
+   - Categorical feature embeddings for queue_type(clash or solo queue), and elo(silver,gold etc.). The main reason a queue_type embedding is trained is because the same embedding is used to finetune the pro model(which uses a third queue_type for pro play).
 
-The model employs a sophisticated masking strategy during training to handle partial drafts:
+2. **Core Network**:
 
-- 20% chance: No masking (full draft visibility)
-- 10% chance: Mask one full team (5 champions)
-- 0.5% chance: Mask all champions (baseline predictions)
-- 69.5% chance: Mask 1-9 champions with linear decay probability
+   - Multi-layer perceptron (MLP) with residual connections
+   - Task-specific output heads for different predictions(gold@15, win_prediction etc.)
 
-#### Optimization
+3. **Training Features**:
+   - Masking during training to handle partial drafts(masking is applied randomly, because draft order is not acessible through the API).
+   - Multi-task learning for various predictions
+   - Other training features and ways to induce bias to the model were tried, such as custom embedding initialization depending on champion class, regularization to ensure adjacent patches are close in embedding space or having way more auxillary tasks(such as damage dealt, baron kills, total_kills etc.). They can be seen in previous commits, but were removed in the simplified version. With a lot of training data(in the tens of millions) they are not beneficial, however with less data they did bring slight improvements.
 
-- AdamW optimizer with weight decay (0.01)
-- OneCycleLR learning rate scheduler
-- Gradient clipping
-- Mixed precision training
-- Gradient accumulation support
-- Label smoothing for binary classification tasks
+### Fine-tuning for Pro Play
 
-## Data Pipeline
+The system includes a specialized fine-tuning pipeline (`train_pro.py`) for professional matches, this model is available at https://loldraftai.com/pro-draft.
 
-### 1. Data Download (`download_data.py`)
+The finetune script uses the pre-trained model as base. A new queue_type embedding is trained for pro play, while other embeddings are frozen, the mlp layers are unfrozen. The model is finetune while keeping a significant portion of data from solo queue matches, to avoid catastrophic forgetting(which was observed if not using original data).
 
-- Downloads match data from Azure Blob Storage
-- Supports incremental updates
-- Parallel download implementation
-- Configurable time window (default: last 3 months)
+### Model serving
 
-### 2. Data Preparation (`prepare_data.py`)
+The model inference is done from an Azure docker container instance. Because the model is quite small and converted to onnx format(`convert_to_onnx.py`), it runs fast even on cpu inference. See `serve_model.py` and `serve-model-pro.py`. The models can easily be deployed with `./scripts/deploy-docker.sh` and `./scripts/deploy-docker-pro.sh`.
 
-- Processes raw match data into training format
-- Computes derived features
-- Handles categorical encoding
-- Performs train/test split
-- Normalizes numerical features
+### Online learning/model updates
 
-### 3. Play Rate Generation (`generate_playrates.py`)
-
-- Calculates champion play rates per role
-- Tracks patch-specific statistics
-- Outputs JSON for frontend consumption
-
-## Validation System (`validation.py`)
-
-Comprehensive validation system with subgroup analysis:
-
-- ELO-based subgroups
-- Patch-based subgroups
-- Play rate-based subgroups (rare vs. common picks)
-- Per-task performance metrics
-
-## Configuration System
-
-### Training Config (`config.py`)
-
-Configurable parameters include:
-
-- Model architecture (embedding dimensions, layers, etc.)
-- Training parameters (learning rate, epochs, etc.)
-- Masking strategy parameters
-- Validation settings
-
-### Task Definitions (`task_definitions.py`)
-
-- Defines prediction tasks and their types
-- Configures task weights for loss calculation
-- Supports binary classification and regression tasks
-
-## Technical Details
-
-### Performance Optimizations
-
-- CUDA support with automatic compilation
-- Apple M1/M2 (MPS) support
-- CPU fallback with optimized settings
-- Automatic batch size and worker configuration
-- Memory-efficient data loading
-
-### Development Features
-
-- Wandb integration for experiment tracking
-- Profiling support
-- Comprehensive logging
-- Model checkpointing
-- Graceful interruption handling
-
-## Requirements
-
-- Python 3.8+
-- PyTorch 2.0+
-- Azure Storage Blob (for data download)
-- Weights & Biases (optional, for experiment tracking)
+A script called `adapt_model.py` and `train.py` with the flag --continue_training can be used to update the model on a new patch without training from scratch. Can be useful if training is slow on some hardware, and was useful before training loop was optimized.

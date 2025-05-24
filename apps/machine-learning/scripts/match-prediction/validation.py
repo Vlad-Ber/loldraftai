@@ -142,15 +142,15 @@ def get_playrate_subgroup_batch(
     return result
 
 
-def compute_ece(y_true, y_prob, n_bins=10, strategy="uniform"):
+def compute_ece(y_true, y_prob, n_bins=20, strategy="quantile"):
     """
     Compute Expected Calibration Error (ECE).
 
     Parameters:
         y_true: Ground truth binary labels
         y_prob: Predicted probabilities
-        n_bins: Number of bins for calibration
-        strategy: Binning strategy ('uniform' or 'quantile')
+        n_bins: Number of bins for calibration (default: 20)
+        strategy: Binning strategy ('uniform' or 'quantile', default: 'quantile')
 
     Returns:
         ece: Expected Calibration Error
@@ -556,6 +556,7 @@ def validate_with_subgroups(
     test_patch_robustness: bool = False,
     n_calibration_bins: int = 20,
     matchup_specific_calibration: bool = False,
+    calibration_strategy: str = "quantile",
 ) -> pd.DataFrame:
     """
     Validate the model and perform subgroup and calibration analysis.
@@ -568,6 +569,7 @@ def validate_with_subgroups(
         test_patch_robustness: If True, simulate using patch N-1 to predict patch N outcomes
         n_calibration_bins: Number of bins for calibration analysis
         matchup_specific_calibration: Whether to compute matchup-specific calibration
+        calibration_strategy: Binning strategy for calibration analysis
     """
     model.eval()
 
@@ -829,7 +831,10 @@ def validate_with_subgroups(
     all_win_probs = np.array(all_win_probs)
     all_win_labels = np.array(all_win_labels)
     overall_ece, prob_true, prob_pred, bins = compute_ece(
-        all_win_labels, all_win_probs, n_bins=n_calibration_bins, strategy="uniform"
+        all_win_labels,
+        all_win_probs,
+        n_bins=n_calibration_bins,
+        strategy=calibration_strategy,
     )
 
     # Create output directory for plots
@@ -916,7 +921,10 @@ def validate_with_subgroups(
 
             # Use fewer bins for matchup-specific calibration due to smaller sample size
             matchup_ece, _, _, _ = compute_ece(
-                true_vals, pred_vals, n_bins=10, strategy="uniform"
+                true_vals,
+                pred_vals,
+                n_bins=n_calibration_bins,
+                strategy=calibration_strategy,
             )
 
             # Add both the raw matchup key and a readable version
@@ -947,7 +955,7 @@ def validate_with_subgroups(
             "metric": ["ECE"],
             "value": [overall_ece],
             "n_bins": [n_calibration_bins],
-            "strategy": ["uniform"],
+            "strategy": [calibration_strategy],
             "analysis_type": ["overall_calibration"],
         }
     )
@@ -988,6 +996,13 @@ def main():
         type=int,
         default=20,
         help="Number of bins for calibration analysis (default: 20)",
+    )
+    parser.add_argument(
+        "--calibration-strategy",
+        type=str,
+        choices=["uniform", "quantile"],
+        default="quantile",
+        help="Binning strategy for calibration analysis (default: quantile)",
     )
     parser.add_argument(
         "--matchup-calibration",
@@ -1052,6 +1067,7 @@ def main():
         test_patch_robustness=args.test_patch_robustness,
         n_calibration_bins=args.calibration_bins,
         matchup_specific_calibration=args.matchup_calibration,
+        calibration_strategy=args.calibration_strategy,
     )
 
     # Determine output filename based on mode
