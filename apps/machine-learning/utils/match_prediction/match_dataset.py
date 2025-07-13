@@ -6,19 +6,18 @@ import pickle
 import torch
 import numpy as np
 import pyarrow.parquet as pq
+import pandas as pd
 from torch.utils.data import IterableDataset
-from typing import Callable, Optional, List
+from typing import Callable, Optional, List, Dict, Any
 import psutil
 import multiprocessing
+import gc
 
 from utils.match_prediction import (
     PREPARED_DATA_DIR,
     SAMPLE_COUNTS_PATH,
     PARQUET_READER_BATCH_SIZE,
-    PATCH_MAPPING_PATH,
 )
-from utils.match_prediction.column_definitions import COLUMNS, ColumnType
-from utils.match_prediction.task_definitions import TASKS, TaskType
 from utils.match_prediction import get_best_device
 
 
@@ -26,57 +25,56 @@ def get_dataloader_config():
     device = get_best_device()
     if device.type == "cuda":
         return {
-            "num_workers": 8,
-            "prefetch_factor": 4,
+            "num_workers": 8,  # Increased back to 8 since GPU is faster now
+            "prefetch_factor": 16,  # Increased significantly for deeper pipeline
             "pin_memory": True,
+            "persistent_workers": True,
         }
     elif device.type == "mps":
         # M1/M2 Mac config
         return {
-            "num_workers": 1,
-            "prefetch_factor": 4,
+            "num_workers": 2,  # Increased for M1/M2
+            "prefetch_factor": 8,  # Increased
             "pin_memory": True,
+            "persistent_workers": True,
         }
     else:  # CPU
+        print("Using CPU dataloader config")
         # For 4 CPU machine, reserve 1 CPU for main process
         total_cpus = multiprocessing.cpu_count()
         available_memory_gb = psutil.virtual_memory().available / (1024**3)
 
-        # Use 2 workers for 4 CPU machine, leaving 2 CPUs for main process and OS
-        # Adjust prefetch_factor based on available memory
+        # Use more workers for CPU training to compensate
         return {
-            "num_workers": min(total_cpus - 2, 2),  # Use 2 workers on 4 CPU machine
+            "num_workers": min(total_cpus - 1, 6),  # Increased workers
             "prefetch_factor": (
-                2 if available_memory_gb > 8 else 1
-            ),  # Lower if memory constrained
+                4 if available_memory_gb > 8 else 2
+            ),  # Increased prefetch
             "pin_memory": False,  # False for CPU training
+            "persistent_workers": True,
         }
 
 
-# Use in DataLoader initialization
 dataloader_config = get_dataloader_config()
 
 
-class MatchDataset(IterableDataset):
+# Add this new optimized dataset class
+class HighThroughputMatchDataset(IterableDataset):
+    """Ultra-optimized dataset for maximum GPU utilization"""
+
     def __init__(
         self,
         masking_function: Optional[Callable[[], int]] = None,
         unknown_champion_id=None,
         train_or_test="train",
         dataset_fraction: float = 1.0,
-        patch_augmentation_prob: float = 0.0,
         reshuffle_fraction: bool = True,
     ):
         self.data_files = sorted(
-            glob.glob(
-                os.path.join(
-                    PREPARED_DATA_DIR, train_or_test, f"{train_or_test}*.parquet"
-                )
-            )
+            glob.glob(os.path.join(PREPARED_DATA_DIR, train_or_test, f"*.parquet"))
         )
         self.dataset_fraction = dataset_fraction
         self.train_or_test = train_or_test
-        self.patch_augmentation_prob = patch_augmentation_prob
         self.reshuffle_fraction = reshuffle_fraction
         self.all_data_files = self.data_files.copy()
 
@@ -89,29 +87,8 @@ class MatchDataset(IterableDataset):
         self.masking_function = masking_function
         self.unknown_champion_id = unknown_champion_id
 
-        # Load patch mapping if patch augmentation is enabled
-        self.patch_mapping = None
-        self.min_patch = None
-        self.max_patch = None
-        if self.patch_augmentation_prob > 0.0:
-            try:
-                with open(PATCH_MAPPING_PATH, "rb") as f:
-                    patch_info = pickle.load(f)
-                self.patch_mapping = patch_info["mapping"]
-
-                # Find the min and max patch values from the mapping
-                patches = list(set(self.patch_mapping.values()))
-                self.min_patch = min(patches)
-                self.max_patch = max(patches)
-                print(
-                    f"Patch augmentation enabled: probability={self.patch_augmentation_prob}, min_patch={self.min_patch}, max_patch={self.max_patch}"
-                )
-            except Exception as e:
-                print(f"Warning: Could not load patch mapping for augmentation: {e}")
-                self.patch_augmentation_prob = 0.0
-
-        # Shuffle the data files
-        random.seed(42)  # For reproducibility
+        # Shuffle the data files once
+        random.seed(42)
         random.shuffle(self.data_files)
 
     def _count_total_samples(self):
@@ -125,24 +102,19 @@ class MatchDataset(IterableDataset):
         except Exception as e:
             print(f"Warning: Error reading sample counts file: {e}")
 
-        # Fall back to counting if file doesn't exist or is invalid
-        print(f"Counting samples in {self.train_or_test} dataset...")
+        # Fast estimation using first few files
         total = 0
-        for file_path in self.data_files:
-            parquet_file = pq.ParquetFile(file_path)
-            total += parquet_file.metadata.num_rows
+        sample_files = self.data_files[: min(5, len(self.data_files))]
+        for file_path in sample_files:
+            try:
+                parquet_file = pq.ParquetFile(file_path)
+                total += parquet_file.metadata.num_rows
+            except Exception:
+                continue
 
-        # Try to save the count for future use
-        try:
-            counts = {}
-            if os.path.exists(SAMPLE_COUNTS_PATH):
-                with open(SAMPLE_COUNTS_PATH, "rb") as f:
-                    counts = pickle.load(f)
-            counts[self.train_or_test] = total
-            with open(SAMPLE_COUNTS_PATH, "wb") as f:
-                pickle.dump(counts, f)
-        except Exception as e:
-            print(f"Warning: Could not save sample counts: {e}")
+        # Estimate total
+        if sample_files:
+            total = total * len(self.data_files) // len(sample_files)
 
         return int(total * self.dataset_fraction)
 
@@ -152,7 +124,7 @@ class MatchDataset(IterableDataset):
     def __iter__(self):
         worker_info = torch.utils.data.get_worker_info()
 
-        # If using fraction and reshuffle is enabled, select new subset of files
+        # File selection logic
         if self.dataset_fraction < 1.0 and self.reshuffle_fraction:
             files = self.all_data_files.copy()
             random.shuffle(files)
@@ -161,7 +133,7 @@ class MatchDataset(IterableDataset):
         else:
             files = self.data_files.copy()
 
-        random.shuffle(files)  # Shuffle the selected files
+        random.shuffle(files)
 
         if worker_info is None:
             iter_start, iter_end = 0, len(files)
@@ -171,60 +143,77 @@ class MatchDataset(IterableDataset):
             iter_start = worker_id * per_worker
             iter_end = min(iter_start + per_worker, len(files))
 
+        # Use larger read buffer for better I/O performance
+        read_buffer_size = PARQUET_READER_BATCH_SIZE * 2
+
         for file_path in files[iter_start:iter_end]:
-            # Use context manager to ensure file is closed
-            with pq.ParquetFile(file_path) as parquet_file:
-                for batch in parquet_file.iter_batches(
-                    batch_size=PARQUET_READER_BATCH_SIZE
-                ):
-                    df_chunk = batch.to_pandas()
-                    df_chunk = df_chunk.sample(frac=1).reset_index(drop=True)
+            try:
+                with pq.ParquetFile(file_path) as parquet_file:
+                    for batch in parquet_file.iter_batches(batch_size=read_buffer_size):
+                        df_chunk = batch.to_pandas()
 
-                    # Process the chunk and yield individual samples
-                    samples = self._get_samples(df_chunk)
-                    for sample in samples:
-                        yield sample
+                        if len(df_chunk) == 0:
+                            continue
 
-    def _get_samples(self, df_chunk):
-        # Only handle champion masking if needed
+                        # Shuffle once
+                        df_chunk = df_chunk.sample(frac=1).reset_index(drop=True)
+
+                        # Process entire chunk at once for efficiency
+                        yield from self._process_chunk_ultra_fast(df_chunk)
+
+                        del df_chunk
+
+            except Exception as e:
+                print(f"Error processing file {file_path}: {e}")
+                continue
+
+    def _process_chunk_ultra_fast(self, df_chunk: pd.DataFrame):
+        """Ultra-fast chunk processing with minimal overhead"""
+        # Apply masking if needed - simplified approach
         if self.masking_function is not None and self.unknown_champion_id is not None:
-            df_chunk["champion_ids"] = df_chunk["champion_ids"].apply(
-                lambda x: self._mask_champions(x, self.masking_function())
-            )
+            num_to_mask = self.masking_function()
+            if num_to_mask > 0:
+                # Apply masking directly without nested functions
+                df_chunk = df_chunk.copy()
+                df_chunk["champion_ids"] = df_chunk["champion_ids"].apply(
+                    lambda x: self._mask_champions_simple(x, num_to_mask)
+                )
 
-        # Apply patch augmentation if enabled
-        if self.patch_augmentation_prob > 0.0 and self.patch_mapping is not None:
-            # Generate a random mask for rows that will have their patch augmented
-            mask = np.random.random(len(df_chunk)) < self.patch_augmentation_prob
-
-            if mask.any():
-                # For each selected row, randomly add -1 or +1 to the patch value
-                patch_changes = np.random.choice([-1, 1], size=mask.sum())
-
-                # Apply the changes to the masked rows
-                original_patches = df_chunk.loc[mask, "patch"].copy()
-                new_patches = original_patches + patch_changes
-
-                # Ensure patches stay within valid range
-                new_patches = np.clip(new_patches, self.min_patch, self.max_patch)
-
-                # Update the DataFrame with new patch values
-                df_chunk.loc[mask, "patch"] = new_patches
-
-        # Convert champion_ids to tensor(expected by collate_fn)
-        df_chunk["champion_ids"] = df_chunk["champion_ids"].apply(
-            lambda x: torch.tensor(x, dtype=torch.long)
-        )
-
-        samples = df_chunk.to_dict("records")
-        return samples
-
-    def _mask_champions(self, champion_list: List[int], num_to_mask: int) -> List[int]:
-        """Masks a specific number of champions in the list"""
-        mask_indices = np.random.choice(
-            len(champion_list), size=num_to_mask, replace=False
-        )
-        return [
-            self.unknown_champion_id if i in mask_indices else ch_id
-            for i, ch_id in enumerate(champion_list)
+        # Convert to tensors in batch - much faster than per-sample
+        champion_tensors = [
+            torch.tensor(x, dtype=torch.long) for x in df_chunk["champion_ids"].values
         ]
+
+        # Use numpy arrays for faster iteration
+        column_names = list(df_chunk.columns)
+        data_arrays = [df_chunk[col].values for col in column_names]
+
+        # Generate samples with minimal overhead
+        for i in range(len(df_chunk)):
+            sample = {}
+            for j, col in enumerate(column_names):
+                if col == "champion_ids":
+                    sample[col] = champion_tensors[i]
+                else:
+                    sample[col] = data_arrays[j][i]
+            yield sample
+
+    def _mask_champions_simple(
+        self, champion_list: List[int], num_to_mask: int
+    ) -> List[int]:
+        """Simple champion masking - must be picklable"""
+        if num_to_mask == 0 or len(champion_list) == 0:
+            return champion_list
+
+        mask_indices = np.random.choice(
+            len(champion_list), size=min(num_to_mask, len(champion_list)), replace=False
+        )
+
+        result = champion_list.copy()
+        for idx in mask_indices:
+            result[idx] = self.unknown_champion_id
+        return result
+
+
+# Use the high-throughput version as default for training
+MatchDataset = HighThroughputMatchDataset

@@ -8,21 +8,33 @@ class TrainingConfig:
     def __init__(self, continue_training: bool = False):
         # Default values
         self.num_epochs = 50
-        self.annealing_epoch = 10
-        self.hidden_dims = [1024, 512, 256, 128, 64]
+        # Deeper network with more layers
+        self.hidden_dims = [
+            1024,
+            512,
+            512,
+            512,
+            512,
+            256,
+            256,
+            256,
+            256,
+            128,
+            64,
+        ]
         self.dropout = 0.5
-        self.champion_patch_embed_dim = 4  # Small dimension to avoid overfitting
-        self.champion_embed_dim = 256 - self.champion_patch_embed_dim
-        self.queue_type_embed_dim = 64  # Reduced from 64
-        self.patch_embed_dim = 128  # Reduced from 128
-        self.elo_embed_dim = 64  # Reduced from 64
+        self.champion_patch_embed_dim = (
+            2  # Needs to be small to avoid overfit, was 4 before and that's fine.
+        )
+        self.champion_embed_dim = (
+            128 - self.champion_patch_embed_dim
+        )  # Reduced from 256
+        self.queue_type_embed_dim = 32
+        self.patch_embed_dim = 64
+        self.elo_embed_dim = 32
 
-        # weight decay didn't change much when training for a short time at 0.001, but for longer trianing runs, 0.01 might be better
         self.weight_decay = 0.05
-        self.elo_reg_lambda = 0  # Weight for Elo regularization loss
-        self.patch_reg_lambda = 0  # Weight for patch regularization loss
-        self.champ_patch_reg_lambda = 0.0
-        self.max_grad_norm = 1.0  # because has loss spikes after adding pos embeddings
+        self.max_grad_norm = 1.0
         self.accumulation_steps = 1
         self.masking_strategy = {
             "name": "strategic",
@@ -45,7 +57,7 @@ class TrainingConfig:
             self.max_lr = self.learning_rate
             self.pct_start = 0.2
             self.div_factor = 10
-            self.final_div_factor = 3e4  # Add new configuration parameters
+            self.final_div_factor = 3e4
 
         self.validation_interval = 1  # Run validation every N epochs
         self.dataset_fraction = 1.0  # Use full dataset by default

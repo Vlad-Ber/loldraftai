@@ -75,7 +75,7 @@ def signal_handler(signum: int, frame: Any) -> None:
     exit(0)
 
 
-def apply_label_smoothing(labels: torch.Tensor, smoothing: float = 0.1) -> torch.Tensor:
+def apply_label_smoothing(labels: torch.Tensor, smoothing: float = 0.0) -> torch.Tensor:
     # Apply label smoothing
     return labels * (1 - smoothing) + 0.5 * smoothing
 
@@ -132,7 +132,7 @@ def train_epoch(
             # Calculate individual task losses, applying masks for bucketed win prediction
             individual_losses = {}
             for task_name in task_names:
-                # Determine the correct label source
+                # Bucketed prediction use the win_prediction label
                 if task_name.startswith("win_prediction_"):
                     target_label = labels["win_prediction"]
                 else:
@@ -167,50 +167,8 @@ def train_epoch(
 
             total_loss = task_loss
 
-            # Patch regularization
-            patch_reg_loss = torch.tensor(0.0, device=device)
-            if model.num_patches > 1:
-                for i in range(model.num_patches - 1):
-                    diff = (
-                        model.patch_embedding.weight[i]
-                        - model.patch_embedding.weight[i + 1]
-                    )
-                    patch_reg_loss += torch.norm(diff, p=2)
-                patch_reg_loss /= model.num_patches - 1
-
-            # Elo regularization
-            elo_reg_loss = torch.tensor(0.0, device=device)
-            num_elos = len(possible_values_elo)
-            if num_elos > 1:
-                for i in range(num_elos - 1):
-                    diff = (
-                        model.embeddings["elo"].weight[i]
-                        - model.embeddings["elo"].weight[i + 1]
-                    )
-                    elo_reg_loss += torch.norm(diff, p=2)
-                elo_reg_loss /= num_elos - 1
-
-            # Champion+patch regularization
-            champ_patch_reg_loss = torch.tensor(0.0, device=device)
-            if model.num_patches > 1:
-                for c in range(model.num_champions):
-                    for p in range(model.num_patches - 1):
-                        idx1 = c * model.num_patches + p
-                        idx2 = c * model.num_patches + p + 1
-                        diff = (
-                            model.champion_patch_embedding.weight[idx1]
-                            - model.champion_patch_embedding.weight[idx2]
-                        )
-                        champ_patch_reg_loss += torch.norm(diff, p=2)
-                champ_patch_reg_loss /= model.num_champions * (model.num_patches - 1)
-
             # Combine losses with regularization weights
-            total_loss = (
-                task_loss
-                + config.patch_reg_lambda * patch_reg_loss
-                + config.elo_reg_lambda * elo_reg_loss
-                + config.champ_patch_reg_lambda * champ_patch_reg_loss
-            ) / config.accumulation_steps
+            total_loss = (task_loss) / config.accumulation_steps
 
         total_loss.backward()
 
@@ -238,9 +196,6 @@ def train_epoch(
                     task_names,
                     config,
                     current_lr,
-                    patch_reg_loss.item(),
-                    elo_reg_loss.item(),
-                    champ_patch_reg_loss.item(),
                     model,
                 )
 
@@ -258,9 +213,6 @@ def log_training_step(
     task_names: List[str],
     config: TrainingConfig,
     current_lr: float,
-    patch_reg_loss: float,
-    elo_reg_loss: float,
-    champ_patch_reg_loss: float,
     model: Model,
 ) -> None:
     if config.log_wandb:
@@ -275,7 +227,7 @@ def log_training_step(
         champ_patch_norm = torch.norm(model.champion_patch_embedding.weight.data).item()
 
         mlp_norm = torch.norm(
-            torch.cat([p.data.view(-1) for p in model.mlp.parameters()])
+            torch.cat([p.data.view(-1) for p in model.mlp_layers.parameters()])
         ).item()
         output_norm = torch.norm(
             torch.cat([p.data.view(-1) for p in model.output_layers.parameters()])
@@ -286,9 +238,6 @@ def log_training_step(
             "batch": (batch_idx + 1) // config.accumulation_steps,
             "grad_norm": grad_norm,
             "learning_rate": current_lr,
-            "patch_reg_loss": patch_reg_loss,
-            "elo_reg_loss": elo_reg_loss,
-            "champ_patch_reg_loss": champ_patch_reg_loss,
             # Parameter norms
             "categorical_embed_norm": categorical_norm,
             "patch_embed_norm": patch_norm,
@@ -372,7 +321,7 @@ def validate(
                 outputs = model(features)
 
                 # Denormalize game duration for this batch
-                # TODO: add original value as column, to now have to denormalize it
+                # TODO: add original value as column, to not have to denormalize it
                 game_duration_seconds = (
                     labels["gameDuration"] * game_duration_std + game_duration_mean
                 )
@@ -448,7 +397,6 @@ def validate(
                     losses = torch.stack([loss.mean() for loss in task_losses.values()])
                     total_loss += (losses * task_weights).sum()
 
-                    # TODO: fix calculation dev/filip/winchance-over-time broke it!
                     # Calculate win prediction accuracy
                     if "win_prediction" in enabled_tasks:
                         # Apply sigmoid to get probabilities
@@ -456,7 +404,7 @@ def validate(
                         # Predicted win if probability > 0.5
                         predictions = (win_probs > 0.5).float()
                         # Count correct predictions
-                        correct = (predictions == target_label).sum()
+                        correct = (predictions == labels["win_prediction"]).sum()
 
                         win_prediction_accuracy[0] += correct
                         win_prediction_accuracy[1] += batch_size
@@ -612,7 +560,6 @@ def train_model(
             unknown_champion_id=unknown_champion_id,
             train_or_test=train_or_test,
             dataset_fraction=config.dataset_fraction if split == "train" else 1.0,
-            patch_augmentation_prob=0 if split == "train" else 0.0,
         )
         datasets.append(dataset)
 
@@ -640,7 +587,6 @@ def train_model(
             batch_size=TRAIN_BATCH_SIZE,
             **dataloader_config,
             collate_fn=collate_fn,
-            persistent_workers=device.type == "cuda",
             drop_last=True,  # otherwise, because of large batch size, the last batch can have way less samples
         )
         for dataset in [train_dataset, test_dataset, test_masked_dataset]
@@ -679,10 +625,9 @@ def train_model(
             anneal_strategy="cos",  # cosine annealing
         )
 
+    # TODO: could be inlined, it was useful before because tasks were removed after a few epochs
+    update_criterions(epoch=0)
     for epoch in range(config.num_epochs):
-        # Update criterions if needed
-        if epoch == 0 or epoch == config.annealing_epoch:
-            update_criterions(epoch)
         epoch_start_time = time.time()
 
         epoch_loss, epoch_steps = train_epoch(

@@ -11,10 +11,19 @@ import {
 } from "@heroicons/react/24/solid";
 import { FaWindows } from "react-icons/fa";
 import { AnimatedButton } from "../components/AnimatedButton";
+import { ChangelogModal } from "./draft/ChangelogModal";
+import { useState } from "react";
 
 export default function HomePage() {
+  const [showChangelogModal, setShowChangelogModal] = useState(true);
+  const closeChangelogModal = () => setShowChangelogModal(false);
+
   return (
     <main className="flex min-h-screen w-full flex-col items-center bg-background text-foreground">
+      <ChangelogModal
+        isOpen={showChangelogModal}
+        closeHandler={closeChangelogModal}
+      />
       {/* Hero Section */}
       <div className="w-full bg-gradient-to-b from-primary/10 to-background py-8">
         <div className="container flex flex-col items-center justify-center gap-6 px-4">

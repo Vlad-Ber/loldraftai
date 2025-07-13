@@ -22,20 +22,30 @@ export const ChangelogModal: React.FC<ChangelogModalProps> = ({
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <InfoIcon className="h-5 w-5" />
-            UI Update
+            Important Announcement
           </DialogTitle>
         </DialogHeader>
         <div className="space-y-4">
           <div className="space-y-2">
             <p className="text-sm leading-relaxed">
-              Important Announcement: This will be the last patch update for the
-              project. While all features will remain available, the model will
-              not be updated for future patches.
+              This will be the last patch update for the project. While all
+              features will remain available, the model will not be updated for
+              future patches.
             </p>
             <p className="text-sm leading-relaxed">
               Thank you for your support and interest in this project. The
               decision to pause updates was made after careful consideration of
-              the project's long-term sustainability.
+              the project&apos;s long-term sustainability.
+            </p>
+            <p className="text-sm leading-relaxed">
+              Furthermore, the source code for the repo has been made totally
+              open source:{" "}
+              <a
+                href="https://github.com/Looyyd/loldraftai-monorepo"
+                className="text-blue-500"
+              >
+                https://github.com/Looyyd/loldraftai-monorepo
+              </a>
             </p>
           </div>
         </div>
