@@ -138,19 +138,17 @@ async function batchUpsertSummoners(entries: LeagueEntryDTO[]) {
     const batch = entries.slice(i, i + batchSize);
     const batchData = batch.map((entry) => ({
       where: {
-        summonerId_region: {
-          summonerId: entry.summonerId,
-          region: region,
-        },
+        puuid: entry.puuid,
       },
       update: {
         tier: entry.tier,
         rank: entry.rank,
         leaguePoints: entry.leaguePoints,
         rankUpdateTime: new Date(),
+        region: region,
       },
       create: {
-        summonerId: entry.summonerId,
+        puuid: entry.puuid,
         region: region,
         tier: entry.tier,
         rank: entry.rank,

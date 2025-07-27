@@ -74,7 +74,7 @@ export const MiniSeriesDTOSchema = z.object({
 
 export const LeagueEntryDTOSchema = z.object({
   leagueId: z.string(),
-  summonerId: z.string(),
+  puuid: z.string(),
   queueType: QueueTypeSchema,
   tier: TierSchema,
   rank: DivisionSchema,

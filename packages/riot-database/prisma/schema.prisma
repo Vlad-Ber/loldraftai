@@ -55,9 +55,8 @@ enum Region {
 
 model Summoner {
   id               String    @id @default(cuid())
-  summonerId       String
   region           Region
-  puuid            String? // not unique because users can transfer regions
+  puuid            String    @unique
   tier             Tier
   rank             Division
   leaguePoints     Int
@@ -68,12 +67,8 @@ model Summoner {
   // We mark it as error to stop fetching it but don't delete it entirely
   matchFetchErrored Boolean @default(false)
 
-  // Used in updateLadder.ts
-  @@unique([summonerId, region])
   // composite index for collectMatchIds.ts main query
   @@index([matchesFetchedAt, rankUpdateTime, region])
-  // For fetchPuuids.ts
-  @@index([puuid, region])
 }
 
 model Match {

@@ -171,7 +171,7 @@ async function collectMatchIds() {
           // Skip if no valid matches found
           if (allMatchIds.length === 0) {
             console.log(
-              `[${region}] No matches above threshold found for summoner ${summoner.summonerId}`
+              `[${region}] No matches above threshold found for puuid ${summoner.puuid}`
             );
 
             // Still update the summoner to avoid refetching
@@ -227,7 +227,7 @@ async function collectMatchIds() {
             });
           } else {
             console.error(
-              `Error fetching match IDs for summoner ${summoner.summonerId}:`,
+              `Error fetching match IDs for puuid ${summoner.puuid}:`,
               error
             );
           }

@@ -4,7 +4,7 @@ module.exports = {
       name: "extract-to-azure",
       script: "./extractToAzure.sh",
       interpreter: "/bin/bash",
-      cwd: "/home/azureuser/draftking-monorepo/apps/data-collection",
+      cwd: "/home/filip/loldraftai-monorepo/apps/data-collection",
       autorestart: true,
       max_restarts: 10,
       restart_delay: 4000,
@@ -13,7 +13,7 @@ module.exports = {
       out_file: "./logs/extractToAzure_out.log",
     },
     ...["EUW1", "KR"].flatMap((region, regionIndex) =>
-      ["collectMatchIds", "fetchPuuids", "processMatches", "updateLadder"].map(
+      ["collectMatchIds", "processMatches", "updateLadder"].map(
         (script) => ({
           name: `${script}-${region}`,
           script:
