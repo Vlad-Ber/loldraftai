@@ -21,6 +21,14 @@ import {
   DropdownMenuTrigger,
 } from "@draftking/ui/components/ui/dropdown-menu";
 import { Menu } from "lucide-react";
+import {
+  ClerkProvider,
+  SignInButton,
+  SignUpButton,
+  SignedIn,
+  SignedOut,
+  UserButton,
+} from "@clerk/nextjs";
 
 const chakraPetch = Chakra_Petch({
   subsets: ["latin"],
@@ -167,77 +175,112 @@ export default async function RootLayout({
   }
 
   return (
-    <html lang="en" className="dark" suppressHydrationWarning>
-      <body className={`${chakraPetch.variable} ${inter.variable} font-sans`}>
-        <ThemeProvider>
-          <ClarityProvider projectId={CLARITY_PROJECT_ID} />
-          <div className="flex min-h-screen flex-col bg-background text-foreground">
-            <nav className="sticky top-0 z-50 border-b border-border/40 bg-neutral-950">
-              {/* Desktop Navigation */}
-              <NavigationMenu className="mx-auto hidden px-4 py-3 md:block">
-                <NavigationMenuList className="flex justify-center gap-10">
-                  <NavigationMenuItem>
-                    <Link href="/" legacyBehavior passHref>
-                      <NavigationMenuLink
-                        className={navigationMenuTriggerStyle()}
-                      >
-                        Home
-                      </NavigationMenuLink>
-                    </Link>
-                  </NavigationMenuItem>
-                  <NavigationMenuItem>
-                    <Link href="/draft" legacyBehavior passHref>
-                      <NavigationMenuLink
-                        className={navigationMenuTriggerStyle()}
-                      >
-                        Draft Analysis
-                      </NavigationMenuLink>
-                    </Link>
-                  </NavigationMenuItem>
-                  <NavigationMenuItem>
-                    <Link href="/download" legacyBehavior passHref>
-                      <NavigationMenuLink
-                        className={navigationMenuTriggerStyle()}
-                      >
-                        Download
-                      </NavigationMenuLink>
-                    </Link>
-                  </NavigationMenuItem>
-                  <NavigationMenuItem>
-                    <Link href="/blog" legacyBehavior passHref>
-                      <NavigationMenuLink
-                        className={navigationMenuTriggerStyle()}
-                      >
-                        Blog
-                      </NavigationMenuLink>
-                    </Link>
-                  </NavigationMenuItem>
-                </NavigationMenuList>
-              </NavigationMenu>
+    <ClerkProvider>
+      <html lang="en" className="dark" suppressHydrationWarning>
+        <body className={`${chakraPetch.variable} ${inter.variable} font-sans`}>
+          <ThemeProvider>
+            <ClarityProvider projectId={CLARITY_PROJECT_ID} />
+            <div className="flex min-h-screen flex-col bg-background text-foreground">
+              <nav className="sticky top-0 z-50 border-b border-border/40 bg-neutral-950">
+                {/* Desktop Navigation */}
+                <NavigationMenu className="mx-auto hidden px-4 py-3 md:block">
+                  <NavigationMenuList className="flex justify-center gap-10">
+                    <NavigationMenuItem>
+                      <Link href="/" legacyBehavior passHref>
+                        <NavigationMenuLink
+                          className={navigationMenuTriggerStyle()}
+                        >
+                          Home
+                        </NavigationMenuLink>
+                      </Link>
+                    </NavigationMenuItem>
+                    <NavigationMenuItem>
+                      <Link href="/draft" legacyBehavior passHref>
+                        <NavigationMenuLink
+                          className={navigationMenuTriggerStyle()}
+                        >
+                          Draft Analysis
+                        </NavigationMenuLink>
+                      </Link>
+                    </NavigationMenuItem>
+                    <NavigationMenuItem>
+                      <Link href="/download" legacyBehavior passHref>
+                        <NavigationMenuLink
+                          className={navigationMenuTriggerStyle()}
+                        >
+                          Download
+                        </NavigationMenuLink>
+                      </Link>
+                    </NavigationMenuItem>
+                    <NavigationMenuItem>
+                      <Link href="/blog" legacyBehavior passHref>
+                        <NavigationMenuLink
+                          className={navigationMenuTriggerStyle()}
+                        >
+                          Blog
+                        </NavigationMenuLink>
+                      </Link>
+                    </NavigationMenuItem>
+                    <NavigationMenuItem>
+                      <SignedOut>
+                        <SignInButton mode="modal">
+                          <button className="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700">
+                            Sign In
+                          </button>
+                        </SignInButton>
+                        <SignUpButton mode="modal">
+                          <button className="ml-2 rounded-md bg-green-600 px-4 py-2 text-sm font-medium text-white hover:bg-green-700">
+                            Sign Up
+                          </button>
+                        </SignUpButton>
+                      </SignedOut>
+                      <SignedIn>
+                        <UserButton />
+                      </SignedIn>
+                    </NavigationMenuItem>
+                  </NavigationMenuList>
+                </NavigationMenu>
 
-              {/* Mobile Navigation */}
-              <div className="flex justify-end p-4 md:hidden">
-                <DropdownMenu>
-                  <DropdownMenuTrigger className="flex items-center">
-                    <Menu className="h-6 w-6" />
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent>
-                    <DropdownMenuItem className="text-lg" asChild>
-                      <Link href="/">Home</Link>
-                    </DropdownMenuItem>
-                    <DropdownMenuItem className="text-lg" asChild>
-                      <Link href="/draft">Draft Analysis</Link>
-                    </DropdownMenuItem>
-                    <DropdownMenuItem className="text-lg" asChild>
-                      <Link href="/download">Download</Link>
-                    </DropdownMenuItem>
-                    <DropdownMenuItem className="text-lg" asChild>
-                      <Link href="/blog">Blog</Link>
-                    </DropdownMenuItem>
-                  </DropdownMenuContent>
-                </DropdownMenu>
-              </div>
-            </nav>
+                {/* Mobile Navigation */}
+                <div className="flex justify-end p-4 md:hidden">
+                  <DropdownMenu>
+                    <DropdownMenuTrigger className="flex items-center">
+                      <Menu className="h-6 w-6" />
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent>
+                      <DropdownMenuItem className="text-lg" asChild>
+                        <Link href="/">Home</Link>
+                      </DropdownMenuItem>
+                      <DropdownMenuItem className="text-lg" asChild>
+                        <Link href="/draft">Draft Analysis</Link>
+                      </DropdownMenuItem>
+                      <DropdownMenuItem className="text-lg" asChild>
+                        <Link href="/download">Download</Link>
+                      </DropdownMenuItem>
+                      <DropdownMenuItem className="text-lg" asChild>
+                        <Link href="/blog">Blog</Link>
+                      </DropdownMenuItem>
+                      <SignedOut>
+                        <DropdownMenuItem asChild>
+                          <SignInButton mode="modal">
+                            <button className="w-full text-left">Sign In</button>
+                          </SignInButton>
+                        </DropdownMenuItem>
+                        <DropdownMenuItem asChild>
+                          <SignUpButton mode="modal">
+                            <button className="w-full text-left">Sign Up</button>
+                          </SignUpButton>
+                        </DropdownMenuItem>
+                      </SignedOut>
+                      <SignedIn>
+                        <DropdownMenuItem asChild>
+                          <UserButton />
+                        </DropdownMenuItem>
+                      </SignedIn>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                </div>
+              </nav>
 
             <main className="flex-1">{children}</main>
 
@@ -280,5 +323,6 @@ export default async function RootLayout({
         <SpeedInsights />
       </body>
     </html>
+    </ClerkProvider>
   );
 }
