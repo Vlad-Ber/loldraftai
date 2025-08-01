@@ -24,7 +24,6 @@ import { Menu } from "lucide-react";
 import {
   ClerkProvider,
   SignInButton,
-  SignUpButton,
   SignedIn,
   SignedOut,
   UserButton,
@@ -224,15 +223,8 @@ export default async function RootLayout({
                     <NavigationMenuItem>
                       <SignedOut>
                         <SignInButton mode="modal">
-                          <button className="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700">
-                            Sign In
-                          </button>
+                          <button>Sign In</button>
                         </SignInButton>
-                        <SignUpButton mode="modal">
-                          <button className="ml-2 rounded-md bg-green-600 px-4 py-2 text-sm font-medium text-white hover:bg-green-700">
-                            Sign Up
-                          </button>
-                        </SignUpButton>
                       </SignedOut>
                       <SignedIn>
                         <UserButton />
@@ -263,13 +255,10 @@ export default async function RootLayout({
                       <SignedOut>
                         <DropdownMenuItem asChild>
                           <SignInButton mode="modal">
-                            <button className="w-full text-left">Sign In</button>
+                            <button className="w-full text-left">
+                              Sign In
+                            </button>
                           </SignInButton>
-                        </DropdownMenuItem>
-                        <DropdownMenuItem asChild>
-                          <SignUpButton mode="modal">
-                            <button className="w-full text-left">Sign Up</button>
-                          </SignUpButton>
                         </DropdownMenuItem>
                       </SignedOut>
                       <SignedIn>
@@ -282,47 +271,47 @@ export default async function RootLayout({
                 </div>
               </nav>
 
-            <main className="flex-1">{children}</main>
+              <main className="flex-1">{children}</main>
 
-            <footer className="border-t border-border/40 bg-neutral-950">
-              <div className="container p-4 text-center text-sm text-muted-foreground mx-auto">
-                <div className="mb-2">
-                  Last model update: {lastModified} on patch {latestPatch}.
-                  Expect a few days delay after new patches. Early patch data
-                  may be combined with the previous patch data for better
-                  predictions.{" "}
-                  <Link
-                    href="https://discord.gg/MpbtNEwTT7"
-                    className="text-blue-400 hover:underline"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                  >
-                    Join our Discord
-                  </Link>{" "}
-                  or email us at{" "}
-                  <a
-                    href="mailto:support@loldraftai.com"
-                    className="text-blue-400 hover:underline"
-                  >
-                    support@loldraftai.com
-                  </a>{" "}
-                  for bug reports or feature requests.
+              <footer className="border-t border-border/40 bg-neutral-950">
+                <div className="container p-4 text-center text-sm text-muted-foreground mx-auto">
+                  <div className="mb-2">
+                    Last model update: {lastModified} on patch {latestPatch}.
+                    Expect a few days delay after new patches. Early patch data
+                    may be combined with the previous patch data for better
+                    predictions.{" "}
+                    <Link
+                      href="https://discord.gg/MpbtNEwTT7"
+                      className="text-blue-400 hover:underline"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                    >
+                      Join our Discord
+                    </Link>{" "}
+                    or email us at{" "}
+                    <a
+                      href="mailto:support@loldraftai.com"
+                      className="text-blue-400 hover:underline"
+                    >
+                      support@loldraftai.com
+                    </a>{" "}
+                    for bug reports or feature requests.
+                  </div>
+                  <div className="text-xs">
+                    LoLDraftAI isn&apos;t endorsed by Riot Games and
+                    doesn&apos;t reflect the views or opinions of Riot Games or
+                    anyone officially involved in producing or managing Riot
+                    Games properties. Riot Games, and all associated properties
+                    are trademarks or registered trademarks of Riot Games, Inc.
+                  </div>
                 </div>
-                <div className="text-xs">
-                  LoLDraftAI isn&apos;t endorsed by Riot Games and doesn&apos;t
-                  reflect the views or opinions of Riot Games or anyone
-                  officially involved in producing or managing Riot Games
-                  properties. Riot Games, and all associated properties are
-                  trademarks or registered trademarks of Riot Games, Inc.
-                </div>
-              </div>
-            </footer>
-          </div>
-        </ThemeProvider>
-        <Analytics />
-        <SpeedInsights />
-      </body>
-    </html>
+              </footer>
+            </div>
+          </ThemeProvider>
+          <Analytics />
+          <SpeedInsights />
+        </body>
+      </html>
     </ClerkProvider>
   );
 }
