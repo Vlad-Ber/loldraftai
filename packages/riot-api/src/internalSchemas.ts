@@ -18,7 +18,7 @@ export const LeagueItemDTOSchema = z.object({
   rank: DivisionSchema,
   leaguePoints: z.number(),
   losses: z.number(),
-  summonerId: z.string(),
+  puuid: z.string(),
 });
 export type LeagueItemDTO = z.infer<typeof LeagueItemDTOSchema>;
 

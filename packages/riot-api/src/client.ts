@@ -210,7 +210,7 @@ export class RiotAPIClient {
   ): LeagueEntryDTO[] {
     return leagueList.entries.map((entry) => ({
       leagueId: leagueList.leagueId,
-      summonerId: entry.summonerId,
+      puuid: entry.puuid,
       queueType: leagueList.queue,
       tier: leagueList.tier,
       rank: entry.rank,
