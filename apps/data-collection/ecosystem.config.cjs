@@ -4,7 +4,7 @@ module.exports = {
       name: "extract-to-azure",
       script: "./extractToAzure.sh",
       interpreter: "/bin/bash",
-      cwd: "/home/filip/loldraftai-monorepo/apps/data-collection",
+      cwd: "/home/azureuser/loldraftai/apps/data-collection",
       autorestart: true,
       max_restarts: 10,
       restart_delay: 4000,
