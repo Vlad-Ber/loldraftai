@@ -38,12 +38,21 @@ const riotApiClient = new RiotAPIClient(apiKey, region);
 const prisma = new PrismaClient();
 
 // Rate limiter settings
+// Updated for development API key limits: 20 requests/second, 100 requests/2 minutes
+// With 7 total services, we need to be very conservative
+// Making extremely conservative to prevent rate limit hits
 const limiter = new Bottleneck({
-  minTime: 100,
-  reservoir: 100,
-  reservoirRefreshAmount: 100,
-  reservoirRefreshInterval: 10 * 1000,
-  maxConcurrent: 20,
+  minTime: 12000, // 0.083 requests/second per service (extremely conservative)
+  reservoir: 3,
+  reservoirRefreshAmount: 3,
+  reservoirRefreshInterval: 120 * 1000, // 120 seconds (2 minutes)
+  maxConcurrent: 1,
+});
+
+// Add additional rate limiting for the entire application
+const globalLimiter = new Bottleneck({
+  minTime: 5000, // Global rate limit across all services
+  maxConcurrent: 1,
 });
 
 // Database rate limiter

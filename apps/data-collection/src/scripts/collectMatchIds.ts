@@ -19,12 +19,12 @@ const argv = await yargs(hideBin(process.argv))
   .option("region", {
     type: "string",
     demandOption: true,
-    describe: "The region to fetch PUUIDs for",
+    description: "Region to collect match IDs for",
   })
-  .parse();
+  .help()
+  .argv;
 
 const region = RegionSchema.parse(argv.region);
-
 const apiKey = process.env.X_RIOT_API_KEY;
 
 if (!apiKey) {
@@ -42,15 +42,21 @@ const MINIMUM_MATCH_IDS: Record<string, number> = {
 const riotApiClient = new RiotAPIClient(apiKey, region);
 const prisma = new PrismaClient();
 
-// We do the same limiter as processMatches.ts as there is not point going faster
-// Except we get 100 matches per player, so we can go even slower
-// here it is around 2 times slower than processMatches.ts
+// Updated for development API key limits: 20 requests/second, 100 requests/2 minutes
+// With 7 total services, we need to be very conservative
+// Making extremely conservative to prevent rate limit hits
 const limiter = new Bottleneck({
-  minTime: 400,
-  reservoir: 25,
-  reservoirRefreshAmount: 25,
-  reservoirRefreshInterval: 10 * 1000,
-  maxConcurrent: 5,
+  minTime: 15000, // 0.067 requests/second per service (extremely conservative)
+  reservoir: 2,
+  reservoirRefreshAmount: 2,
+  reservoirRefreshInterval: 120 * 1000, // 120 seconds (2 minutes)
+  maxConcurrent: 1,
+});
+
+// Add additional rate limiting for the entire application
+const globalLimiter = new Bottleneck({
+  minTime: 5000, // Global rate limit across all services
+  maxConcurrent: 1,
 });
 
 const dbBackoff = new DatabaseBackoff();

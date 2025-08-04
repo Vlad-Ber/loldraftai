@@ -54,14 +54,21 @@ const lowEloMaxPages = 120;
 const lowEloTiers = ["PLATINUM", "GOLD", "SILVER"];
 const queue = "RANKED_SOLO_5x5";
 
-// should be 50 requests every 10 seconds
-// we make it 2 times slower to be safe
+// Updated for development API key limits: 20 requests/second, 100 requests/2 minutes
+// With 7 total services, we need to be very conservative
+// Making extremely conservative to prevent rate limit hits
 const limiter = new Bottleneck({
-  minTime: 1000,
-  reservoir: 50,
-  reservoirRefreshAmount: 50,
-  reservoirRefreshInterval: 20 * 1000,
-  maxConcurrent: 15,
+  minTime: 20000, // 0.05 requests/second per service (extremely conservative)
+  reservoir: 1,
+  reservoirRefreshAmount: 1,
+  reservoirRefreshInterval: 120 * 1000, // 120 seconds (2 minutes)
+  maxConcurrent: 1,
+});
+
+// Add additional rate limiting for the entire application
+const globalLimiter = new Bottleneck({
+  minTime: 5000, // Global rate limit across all services
+  maxConcurrent: 1,
 });
 
 // Add a database rate limiter
