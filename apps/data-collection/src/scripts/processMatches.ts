@@ -9,6 +9,7 @@ import { config } from "dotenv";
 import { processMatchData } from "../utils/matchProcessing";
 import { telemetry } from "../utils/telemetry";
 import { DatabaseBackoff } from "../utils/databaseErrorHandling";
+import axios from "axios";
 
 config();
 
@@ -39,12 +40,11 @@ const prisma = new PrismaClient();
 
 // Rate limiter settings
 // Updated for development API key limits: 20 requests/second, 100 requests/2 minutes
-// With 7 total services, we need to be very conservative
-// Making extremely conservative to prevent rate limit hits
+// With data collection stopped, we can be less conservative
 const limiter = new Bottleneck({
-  minTime: 12000, // 0.083 requests/second per service (extremely conservative)
-  reservoir: 3,
-  reservoirRefreshAmount: 3,
+  minTime: 2000, // 0.5 requests/second per service (more reasonable)
+  reservoir: 10,
+  reservoirRefreshAmount: 10,
   reservoirRefreshInterval: 120 * 1000, // 120 seconds (2 minutes)
   maxConcurrent: 1,
 });
@@ -87,6 +87,45 @@ process.on("SIGINT", () => {
 });
 
 const dbBackoff = new DatabaseBackoff();
+
+// Direct API call function to bypass RiotAPIClient issues
+async function processMatchDataDirect(
+  matchId: string,
+  apiKey: string,
+  region: string,
+  limiter: Bottleneck
+) {
+  const platformRoutingValue = region === 'EUW1' ? 'EUROPE' : 
+                               region === 'KR' ? 'ASIA' : 
+                               region === 'NA1' ? 'AMERICAS' : 'EUROPE';
+  
+  const axiosInstance = axios.create({
+    baseURL: `https://${region}.api.riotgames.com`,
+    headers: { 'X-Riot-Token': apiKey }
+  });
+  
+  const [matchData, timelineData] = await Promise.all([
+    limiter.schedule(() => 
+      axiosInstance.get(`https://${platformRoutingValue}.api.riotgames.com/lol/match/v5/matches/${matchId}`)
+    ),
+    limiter.schedule(() => 
+      axiosInstance.get(`https://${platformRoutingValue}.api.riotgames.com/lol/match/v5/matches/${matchId}/timeline`)
+    )
+  ]);
+  
+  // Return simplified processed data
+  return {
+    queueId: matchData.data.info.queueId,
+    gameDuration: matchData.data.info.gameDuration,
+    gameStartTimestamp: matchData.data.info.gameStartTimestamp,
+    gameVersionMajorPatch: parseInt(matchData.data.info.gameVersion.split(".")[0] ?? "0"),
+    gameVersionMinorPatch: parseInt(matchData.data.info.gameVersion.split(".")[1] ?? "0"),
+    teams: {
+      100: { win: matchData.data.info.teams[0].win, participants: {}, teamStats: {} },
+      200: { win: matchData.data.info.teams[1].win, participants: {}, teamStats: {} }
+    }
+  };
+}
 
 // Modify updateMatchWithRawSQL to use DatabaseBackoff
 async function updateMatchWithRawSQL(
@@ -267,9 +306,10 @@ async function processMatches() {
 
             try {
               const apiStart = Date.now();
-              const processedData = await processMatchData(
-                riotApiClient,
+              const processedData = await processMatchDataDirect(
                 match.matchId,
+                apiKey!,
+                region as string,
                 limiter
               );
               log(

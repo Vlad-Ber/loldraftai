@@ -5,6 +5,9 @@ module.exports = {
       script: "./extractToAzure.sh",
       interpreter: "/bin/bash",
       cwd: "/home/azureuser/loldraftai/apps/data-collection",
+      env: {
+        NODE_ENV: "production"
+      },
       autorestart: true,
       max_restarts: 10,
       restart_delay: 4000,

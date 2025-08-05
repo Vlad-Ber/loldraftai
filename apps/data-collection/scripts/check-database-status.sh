@@ -4,7 +4,7 @@ echo "🔍 Database Status Check"
 echo "========================"
 
 # Load environment variables
-source apps/data-collection/.env
+source /home/azureuser/loldraftai/apps/data-collection/.env
 
 # Check if DATABASE_URL is set
 if [ -z "$DATABASE_URL" ]; then

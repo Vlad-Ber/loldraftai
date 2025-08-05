@@ -41,6 +41,7 @@ const REGION_TO_PLATFORM_ROUTING: Record<Region, string> = {
 
 export class RiotAPIClient {
   private axiosInstance: AxiosInstance;
+  private platformAxiosInstance: AxiosInstance;
   private platformRoutingValue: string;
   private skipValidation: boolean;
   private maxRetries: number;

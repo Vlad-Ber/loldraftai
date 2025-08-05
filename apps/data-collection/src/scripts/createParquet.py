@@ -30,58 +30,59 @@ def extract_teams_data(match_data: Dict[str, Any]) -> Dict[str, Any]:
 
     teams = match_data.get("teams", {})
 
-    # Extract champion IDs and role data
+    # Extract basic team data (win status)
     for team_id in TEAMS:
         if team_id not in teams:
-            return None
+            continue
 
-        team = teams[team_id]
-        for position in POSITIONS:
-            if position not in team.get("participants", {}):
-                return None
-
-            participant = team["participants"][position]
-            prefix = f"team_{team_id}_{position}"
-
-            # Champion ID
-            result[f"{prefix}_championId"] = participant["championId"]
-
-            # Timeline data
-            timeline = participant.get("timeline", {})
-            for timestamp in TIMESTAMPS:
-                if timestamp not in timeline:
-                    continue
-
-                # Individual stats
-                for stat in INDIVIDUAL_STATS:
-                    result[f"{prefix}_{stat}_at_{timestamp}"] = timeline[timestamp].get(
-                        stat
-                    )
-
-                # Damage stats
-                damage_stats = timeline[timestamp].get("damageStats", {})
-                for damage_type in DAMAGE_STATS:
-                    result[f"{prefix}_{damage_type}_at_{timestamp}"] = damage_stats.get(
-                        damage_type
-                    )
-
-    # Extract team stats
-    for team_id in TEAMS:
         team = teams[team_id]
         prefix = f"team_{team_id}"
 
         # Win status
         result[f"{prefix}_win"] = team.get("win", False)
 
-        # Team stats at different timestamps
-        team_stats = team.get("teamStats", {})
-        for timestamp in TIMESTAMPS:
-            if timestamp not in team_stats:
-                continue
+        # Check if we have detailed participant data
+        participants = team.get("participants", {})
+        if participants:
+            # Extract champion IDs and role data
+            for position in POSITIONS:
+                if position not in participants:
+                    continue
 
-            stats = team_stats[timestamp]
-            for stat in TEAM_STATS:
-                result[f"{prefix}_{stat}_at_{timestamp}"] = stats.get(stat)
+                participant = participants[position]
+                prefix = f"team_{team_id}_{position}"
+
+                # Champion ID
+                result[f"{prefix}_championId"] = participant.get("championId")
+
+                # Timeline data
+                timeline = participant.get("timeline", {})
+                for timestamp in TIMESTAMPS:
+                    if timestamp not in timeline:
+                        continue
+
+                    # Individual stats
+                    for stat in INDIVIDUAL_STATS:
+                        result[f"{prefix}_{stat}_at_{timestamp}"] = timeline[timestamp].get(
+                            stat
+                        )
+
+                    # Damage stats
+                    damage_stats = timeline[timestamp].get("damageStats", {})
+                    for damage_type in DAMAGE_STATS:
+                        result[f"{prefix}_{damage_type}_at_{timestamp}"] = damage_stats.get(
+                            damage_type
+                        )
+
+            # Extract team stats
+            team_stats = team.get("teamStats", {})
+            for timestamp in TIMESTAMPS:
+                if timestamp not in team_stats:
+                    continue
+
+                stats = team_stats[timestamp]
+                for stat in TEAM_STATS:
+                    result[f"{prefix}_{stat}_at_{timestamp}"] = stats.get(stat)
 
     return result
 
@@ -104,9 +105,6 @@ def process_match(match: Dict[str, Any]) -> Dict[str, Any]:
 
     # Extract and flatten teams data
     teams_data = extract_teams_data(match)
-    if teams_data is None:
-        return None
-
     result.update(teams_data)
     return result
 

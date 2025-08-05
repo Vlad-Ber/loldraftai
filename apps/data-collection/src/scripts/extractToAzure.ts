@@ -19,7 +19,7 @@ if (!AZURE_CONNECTION_STRING) {
   throw new Error("AZURE_CONNECTION_STRING is not set");
 }
 
-const BATCH_SIZE = 512 * 4;
+const BATCH_SIZE = 50; // Reduced for testing - was 512 * 4
 
 const CONTAINER_NAME = "league-matches";
 const RAW_DATA_PREFIX = "raw";
@@ -67,7 +67,7 @@ class LocalFileSaver implements FileSaver {
 
 // Add a more comprehensive logger at the top of the file
 const log = (level: "INFO" | "ERROR" | "DEBUG", message: string) => {
-  // console.log(`[${new Date().toISOString()}] [${level}] ${message}`);
+  console.log(`[${new Date().toISOString()}] [${level}] ${message}`);
 };
 
 class MatchExtractor {
@@ -131,14 +131,19 @@ class MatchExtractor {
 
       log("INFO", `Found ${matches.length} matches to process`);
 
-      // Process full batches only
-      if (matches.length < this.config.batchSize) {
+      // Process batches (allow smaller batches for testing)
+      if (matches.length === 0) {
         log(
           "INFO",
-          `Incomplete batch (${matches.length} < ${this.config.batchSize}), skipping`
+          `No matches found to process`
         );
         return 0;
       }
+      
+      log(
+        "INFO",
+        `Processing batch of ${matches.length} matches (${matches.length < this.config.batchSize ? 'partial' : 'full'} batch)`
+      );
 
       const now = new Date();
       const year = now.getFullYear();
@@ -161,7 +166,10 @@ class MatchExtractor {
       fs.writeFileSync(rawLocalFilePath, JSON.stringify(matches));
 
       log("DEBUG", "Spawning Python process for Parquet conversion");
-      const pythonProcess = spawn("python", [
+      log("DEBUG", `Python script: ${path.join(currentFileDir, "createParquet.py")}`);
+      log("DEBUG", `Input file: ${rawLocalFilePath}`);
+      log("DEBUG", `Output file: ${processedLocalFilePath}`);
+      const pythonProcess = spawn("/home/azureuser/loldraftai/apps/data-collection/.venv/bin/python", [
         path.join(currentFileDir, "createParquet.py"),
         "--batch-file",
         rawLocalFilePath,
